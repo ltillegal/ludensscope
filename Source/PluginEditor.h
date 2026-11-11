@@ -55,6 +55,7 @@ private:
     float truePeakHoldDb = -100.0f;
     float samplePeakDb = -100.0f;
     float correlation = 0.0f;
+    int truePeakOvers = 0;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (LudensScopeEditor)
 };

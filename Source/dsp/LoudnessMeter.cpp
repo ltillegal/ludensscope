@@ -71,6 +71,8 @@ void LoudnessMeter::reset() noexcept
     integratedEnergy.fill (0.0f);
     integratedCount = 0;
 
+    clearLraHistogram();
+
     momentaryValue.store (-100.0f, std::memory_order_relaxed);
     shortTermValue.store (-100.0f, std::memory_order_relaxed);
     integratedValue.store (-100.0f, std::memory_order_relaxed);
@@ -106,8 +108,18 @@ void LoudnessMeter::flushSubBlock() noexcept
 
     momentaryValue.store (toLufs (meanOfLast (blockMsL, 4) + meanOfLast (blockMsR, 4)),
                           std::memory_order_relaxed);
-    shortTermValue.store (toLufs (meanOfLast (blockMsL, 30) + meanOfLast (blockMsR, 30)),
-                          std::memory_order_relaxed);
+
+    const float shortTerm = toLufs (meanOfLast (blockMsL, 30) + meanOfLast (blockMsR, 30));
+    shortTermValue.store (shortTerm, std::memory_order_relaxed);
+
+    // The short-term history feeds the LRA histogram once a full 3 s window
+    // is available. Only values above the -70 LUFS absolute gate are kept.
+    if (blocksSeen >= 30 && shortTerm > (float) kAbsoluteGateLufs)
+    {
+        int bin = (int) std::floor ((shortTerm - (float) kAbsoluteGateLufs) / 0.1f);
+        bin = std::clamp (bin, 0, lraBins - 1);
+        lraHistogram[(size_t) bin].fetch_add (1, std::memory_order_relaxed);
+    }
 
     if (integratedCount < maxIntegratedBlocks)
     {
@@ -177,4 +189,77 @@ float LoudnessMeter::computeIntegrated() const noexcept
         return -100.0f;
 
     return toLufs (sum / (double) count);
+}
+
+void LoudnessMeter::clearLraHistogram() noexcept
+{
+    for (auto& bin : lraHistogram)
+        bin.store (0, std::memory_order_relaxed);
+}
+
+float LoudnessMeter::lraLu() const noexcept
+{
+    std::array<std::uint32_t, lraBins> counts {};
+
+    std::uint64_t total = 0;
+
+    for (int i = 0; i < lraBins; ++i)
+    {
+        counts[(size_t) i] = lraHistogram[(size_t) i].load (std::memory_order_relaxed);
+        total += counts[(size_t) i];
+    }
+
+    if (total < (std::uint64_t) lraMinSamples)
+        return -1.0f;
+
+    const auto binLufs = [] (int i)
+    {
+        return (float) (kAbsoluteGateLufs + 0.1 * ((double) i + 0.5));
+    };
+
+    // Absolute-gated mean loudness; the bins are energy means already.
+    double energy = 0.0;
+
+    for (int i = 0; i < lraBins; ++i)
+    {
+        if (counts[(size_t) i] == 0)
+            continue;
+
+        const double level = (double) binLufs (i);
+        energy += (double) counts[(size_t) i]
+                  * std::pow (10.0, (level - kLufsOffset) / 10.0);
+    }
+
+    const float meanLufs = toLufs (energy / (double) total);
+    const float gate = std::max (meanLufs - 20.0f, (float) kAbsoluteGateLufs);
+
+    std::uint64_t gatedTotal = 0;
+
+    for (int i = 0; i < lraBins; ++i)
+        if (binLufs (i) > gate)
+            gatedTotal += counts[(size_t) i];
+
+    if (gatedTotal < (std::uint64_t) lraMinSamples)
+        return -1.0f;
+
+    const auto percentile = [&] (double p)
+    {
+        const auto target = (std::uint64_t) std::ceil (p * (double) gatedTotal);
+        std::uint64_t cumulative = 0;
+
+        for (int i = 0; i < lraBins; ++i)
+        {
+            if (binLufs (i) <= gate)
+                continue;
+
+            cumulative += counts[(size_t) i];
+
+            if (cumulative >= target)
+                return binLufs (i);
+        }
+
+        return binLufs (lraBins - 1);
+    };
+
+    return percentile (0.95) - percentile (0.10);
 }

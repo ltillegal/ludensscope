@@ -4,6 +4,7 @@
 
 #include <array>
 #include <atomic>
+#include <cstdint>
 
 #include "dsp/LoudnessMeter.h"
 
@@ -41,9 +42,20 @@ public:
 
     void requestReset() noexcept { resetRequested.store (true, std::memory_order_relaxed); }
 
+    std::uint64_t clippedSampleCount() const noexcept
+    {
+        return clippedSamples.load (std::memory_order_relaxed);
+    }
+
+    void resetClipCounters() noexcept
+    {
+        clippedSamples.store (0, std::memory_order_relaxed);
+    }
+
     float momentaryLufs()  const noexcept { return loudness.momentaryLufs(); }
     float shortTermLufs()  const noexcept { return loudness.shortTermLufs(); }
     float integratedLufs() const noexcept { return loudness.integratedLufs(); }
+    float lraLu()          const noexcept { return loudness.lraLu(); }
 
 private:
     bool isBusesLayoutSupported (const BusesLayout& layouts) const override;
@@ -56,6 +68,7 @@ private:
     std::array<float, fifoSize> fifoRight {};
 
     std::atomic<bool> resetRequested { false };
+    std::atomic<std::uint64_t> clippedSamples { 0 };
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (LudensScopeProcessor)
 };

@@ -4,6 +4,7 @@
 #include <array>
 #include <atomic>
 #include <cmath>
+#include <cstdint>
 
 // Stereo loudness meter implementing ITU-R BS.1770-4 (K-weighting, gated
 // integrated loudness, momentary and short-term windows).
@@ -20,6 +21,11 @@ public:
     float momentaryLufs()  const noexcept { return momentaryValue.load (std::memory_order_relaxed); }
     float shortTermLufs()  const noexcept { return shortTermValue.load (std::memory_order_relaxed); }
     float integratedLufs() const noexcept { return integratedValue.load (std::memory_order_relaxed); }
+
+    // EBU R128 loudness range (LRA) in LU, computed from the short-term
+    // histogram with the -70 LUFS absolute and -20 LU relative gates.
+    // Returns -1 when there is not enough short-term data yet.
+    float lraLu() const noexcept;
 
 private:
     struct Biquad
@@ -41,7 +47,11 @@ private:
     static constexpr int windowSubBlocks = 40;        // 4 s at 100 ms per sub-block
     static constexpr int maxIntegratedBlocks = 36000; // 1 h of 400 ms blocks
 
+    static constexpr int lraBins = 700;               // -70..0 LUFS in 0.1 LU steps
+    static constexpr int lraMinSamples = 10;          // 1 s of short-term values
+
     void flushSubBlock() noexcept;
+    void clearLraHistogram() noexcept;
     float meanOfLast (const std::array<float, windowSubBlocks>& values, int count) const noexcept;
     float computeIntegrated() const noexcept;
 
@@ -58,6 +68,8 @@ private:
 
     std::array<float, maxIntegratedBlocks> integratedEnergy {};
     int integratedCount = 0;
+
+    std::array<std::atomic<std::uint32_t>, lraBins> lraHistogram {};
 
     std::atomic<float> momentaryValue  { -100.0f };
     std::atomic<float> shortTermValue  { -100.0f };

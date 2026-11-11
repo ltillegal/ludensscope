@@ -19,6 +19,19 @@ public:
         std::copy (peaksDb,  peaksDb  + numBins, peaks.begin());
     }
 
+    void mouseMove (const juce::MouseEvent& e) override
+    {
+        cursorActive = true;
+        cursorPosition = e.position;
+        repaint();
+    }
+
+    void mouseExit (const juce::MouseEvent&) override
+    {
+        cursorActive = false;
+        repaint();
+    }
+
     void paint (juce::Graphics& g) override
     {
         const auto bounds = getLocalBounds().toFloat();
@@ -132,9 +145,74 @@ public:
 
         g.setColour (theme::accent2.withAlpha (0.55f));
         g.strokePath (peakPath, juce::PathStrokeType (1.0f));
+
+        if (cursorActive && plot.contains (cursorPosition))
+        {
+            const float fraction = juce::jlimit (0.0f, 1.0f,
+                                                 (cursorPosition.x - plot.getX()) / plot.getWidth());
+            const float hz = 20.0f * std::pow (1000.0f, fraction);
+
+            const float binF = fraction * (float) (numBins - 1);
+            const int b0 = (int) binF;
+            const int b1 = std::min (b0 + 1, numBins - 1);
+            const float mix = binF - (float) b0;
+
+            const float levelDb = levels[(size_t) b0]
+                                  + mix * (levels[(size_t) b1] - levels[(size_t) b0]);
+            const float peakLevelDb = peaks[(size_t) b0]
+                                      + mix * (peaks[(size_t) b1] - peaks[(size_t) b0]);
+
+            const float x = xFor (fraction);
+            const float y = yFor (levelDb);
+
+            g.setColour (theme::text.withAlpha (0.45f));
+            g.drawVerticalLine ((int) std::round (x), plot.getY(), plot.getBottom());
+
+            g.setColour (theme::accent);
+            g.fillEllipse (x - 3.0f, y - 3.0f, 6.0f, 6.0f);
+
+            const juce::String frequency = hz < 1000.0f
+                ? juce::String (juce::roundToInt (hz)) + " Hz"
+                : juce::String (hz / 1000.0f, 2) + " kHz";
+
+            const int midi = (int) std::lround (69.0 + 12.0 * std::log2 (hz / 440.0));
+            const char* noteNames[] = { "C", "C#", "D", "D#", "E", "F",
+                                        "F#", "G", "G#", "A", "A#", "B" };
+            const juce::String note = juce::String (noteNames[((midi % 12) + 12) % 12])
+                                      + juce::String (midi / 12 - 1);
+
+            const juce::String line1 = frequency + "  " + note + "   "
+                                       + juce::String (levelDb, 1) + " dBFS";
+            const juce::String line2 = "peak " + juce::String (peakLevelDb, 1) + " dBFS";
+
+            constexpr float boxWidth = 196.0f;
+            constexpr float boxHeight = 34.0f;
+
+            const float rawX = x > plot.getCentreX() ? x - boxWidth - 10.0f : x + 10.0f;
+            const float boxX = juce::jlimit (plot.getX() + 4.0f,
+                                             plot.getRight() - boxWidth - 4.0f, rawX);
+            const juce::Rectangle<float> box (boxX, plot.getY() + 6.0f, boxWidth, boxHeight);
+
+            g.setColour (theme::bg.withAlpha (0.92f));
+            g.fillRoundedRectangle (box, 4.0f);
+            g.setColour (theme::panelLine);
+            g.drawRoundedRectangle (box, 4.0f, 1.0f);
+
+            auto textArea = box.reduced (7.0f, 4.0f);
+
+            g.setFont (theme::monoFont (10.0f));
+            g.setColour (theme::text);
+            g.drawText (line1, textArea.removeFromTop (13.0f), juce::Justification::centredLeft);
+
+            g.setColour (theme::textDim);
+            g.drawText (line2, textArea, juce::Justification::centredLeft);
+        }
     }
 
 private:
     std::array<float, numBins> levels {};
     std::array<float, numBins> peaks {};
+
+    bool cursorActive = false;
+    juce::Point<float> cursorPosition;
 };
