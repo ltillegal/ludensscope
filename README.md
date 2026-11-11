@@ -14,7 +14,7 @@ ITU-R BS.1770-4, true-peak, векторскоп и осциллограф.
 | Спектр: FFT 4096, Hann, лог-шкала 20 Гц – 20 кГц, инспектор, усреднение и референс | `Source/dsp/SpectrumAnalyzer.*`, `Source/ui/SpectrumView.h` |
 | True-peak: 4x oversampling, polyphase FIR | `Source/dsp/TruePeakDetector.h` |
 | PLR и счётчик клиппинга | `Source/PluginProcessor.*`, `Source/PluginEditor.cpp` |
-| UI: спектр, метры, гониометр, осциллограф | `Source/ui/*` |
+| UI: спектр, водопад, метры, гониометр, осциллограф | `Source/ui/*` |
 
 Аудио-поток только фильтрует и считает энергию; FFT и отрисовка идут в UI-потоке
 (данные передаются через lock-free `AbstractFifo`). Никаких блокировок в
@@ -58,7 +58,8 @@ cmake --build --preset dev -j$(nproc)
 
 1. Поставь плагин на мастер-шину или на группу.
 2. Спектр: лог-ось 20 Гц – 20 кГц, шкала dBFS, жёлтая линия — peak hold.
-   Наведи курсор — под ним частота, нота, уровень и peak.
+   Наведи курсор — под ним частота, нота, уровень и peak. Ниже — водопад
+   (история около 4 секунд), его останавливает `FREEZE`.
 3. LOUDNESS: momentary (400 мс), short-term (3 с), integrated (с гейтингом
    -70 LUFS / -10 LU). Клик по `TGT` в шапке выбирает цель (−14/−16/−18/−23),
    на полосе integrated появляется метка, под ней — отклонение в LU.

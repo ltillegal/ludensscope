@@ -8,6 +8,7 @@ LudensScopeEditor::LudensScopeEditor (LudensScopeProcessor& p)
     setResizeLimits (860, 540, 2400, 1500);
 
     addAndMakeVisible (spectrumView);
+    addAndMakeVisible (spectrogramView);
     addAndMakeVisible (meterPanel);
     addAndMakeVisible (vectorScopeView);
     addAndMakeVisible (oscilloscopeView);
@@ -95,7 +96,12 @@ void LudensScopeEditor::resized()
     auto rightColumn = r.removeFromRight (rightWidth);
     r.removeFromRight (gap);
 
+    const int waterfallHeight = juce::jlimit (90, 150, (int) ((float) r.getHeight() * 0.32f));
+    auto waterfall = r.removeFromBottom (waterfallHeight);
+    r.removeFromBottom (gap);
+
     spectrumView.setBounds (r);
+    spectrogramView.setBounds (waterfall);
     meterPanel.setBounds (rightColumn);
 
     auto vectorBounds = bottom.removeFromLeft (bottomHeight);
@@ -176,6 +182,8 @@ void LudensScopeEditor::timerCallback()
 
     analyzer.update();
 
+    spectrogramView.push (analyzer.levels().data(), SpectrumAnalyzer::numBins);
+
     const float integrated = processor.integratedLufs();
     const float plr = (integrated > -70.0f && truePeakHoldDb > -99.0f)
                           ? truePeakHoldDb - integrated
@@ -234,6 +242,7 @@ void LudensScopeEditor::resetDisplay()
 
     hasReference = false;
     spectrumView.setReference (nullptr, false);
+    spectrogramView.clear();
 
     truePeakDb = -100.0f;
     truePeakHoldDb = -100.0f;
