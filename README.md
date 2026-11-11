@@ -11,7 +11,7 @@ ITU-R BS.1770-4, true-peak, векторскоп и осциллограф.
 | Модуль | Файлы |
 |---|---|
 | LUFS (M/S/I, гейтинг), K-weighting, LRA | `Source/dsp/LoudnessMeter.*` |
-| Спектр: FFT 4096, Hann, лог-шкала 20 Гц – 20 кГц, инспектор | `Source/dsp/SpectrumAnalyzer.*`, `Source/ui/SpectrumView.h` |
+| Спектр: FFT 4096, Hann, лог-шкала 20 Гц – 20 кГц, инспектор, усреднение и референс | `Source/dsp/SpectrumAnalyzer.*`, `Source/ui/SpectrumView.h` |
 | True-peak: 4x oversampling, polyphase FIR | `Source/dsp/TruePeakDetector.h` |
 | PLR и счётчик клиппинга | `Source/PluginProcessor.*`, `Source/PluginEditor.cpp` |
 | UI: спектр, метры, гониометр, осциллограф | `Source/ui/*` |
@@ -66,7 +66,9 @@ cmake --build --preset dev -j$(nproc)
    LRA — диапазон громкости (EBU 3342), PLR — peak-to-loudness, CLIP — число
    сэмплов ≥ 0 dBFS и intersample-оверов.
 5. STEREO IMAGE — гониометр, OSCILLOSCOPE — с триггером по переходу через ноль.
-6. `FREEZE` — стопор кадров, `RESET` — сброс пиков, громкости и счётчиков.
+6. `CAPTURE` — зафиксировать усреднённый спектр как референс (синий пунктир;
+   разница с текущим уровнем видна в инспекторе). `FREEZE` — стопор кадров,
+   `RESET` — сброс пиков, громкости, референса и счётчиков.
 
 ## macOS + Cubase
 

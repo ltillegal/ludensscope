@@ -30,6 +30,11 @@ LudensScopeEditor::LudensScopeEditor (LudensScopeProcessor& p)
     resetButton.onClick = [this] { resetDisplay(); };
     addAndMakeVisible (resetButton);
 
+    captureButton.setColour (juce::TextButton::buttonColourId, theme::panel);
+    captureButton.setColour (juce::TextButton::textColourOffId, theme::text);
+    captureButton.onClick = [this] { captureReference(); };
+    addAndMakeVisible (captureButton);
+
     readLeft.resize (readChunk);
     readRight.resize (readChunk);
 
@@ -66,6 +71,8 @@ void LudensScopeEditor::resized()
     resetButton.setBounds (header.removeFromRight (84).withSizeKeepingCentre (84, 26));
     header.removeFromRight (8);
     freezeButton.setBounds (header.removeFromRight (94).withSizeKeepingCentre (94, 26));
+    header.removeFromRight (8);
+    captureButton.setBounds (header.removeFromRight (98).withSizeKeepingCentre (98, 26));
 
     r.removeFromTop (8);
 
@@ -188,14 +195,25 @@ void LudensScopeEditor::appendScope (const float* left, const float* right, int 
     std::memcpy (scopeRight.data() + keep, right + (numSamples - take), sizeof (float) * (size_t) take);
 }
 
+void LudensScopeEditor::captureReference()
+{
+    referenceDb = analyzer.averageLevels();
+    hasReference = true;
+    spectrumView.setReference (referenceDb.data(), true);
+}
+
 void LudensScopeEditor::resetDisplay()
 {
     processor.requestReset();
     processor.resetClipCounters();
 
     analyzer.resetPeaks();
+    analyzer.resetAverage();
     truePeakLeft.reset();
     truePeakRight.reset();
+
+    hasReference = false;
+    spectrumView.setReference (nullptr, false);
 
     truePeakDb = -100.0f;
     truePeakHoldDb = -100.0f;

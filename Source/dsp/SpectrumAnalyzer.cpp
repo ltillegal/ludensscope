@@ -20,6 +20,7 @@ SpectrumAnalyzer::SpectrumAnalyzer()
 
     displayDb.fill (kFloorDb);
     peakDb.fill (kFloorDb);
+    averageDb.fill (kFloorDb);
 }
 
 void SpectrumAnalyzer::prepare (double newSampleRate)
@@ -61,6 +62,8 @@ void SpectrumAnalyzer::prepare (double newSampleRate)
     history.fill (0.0f);
     displayDb.fill (kFloorDb);
     peakDb.fill (kFloorDb);
+    averageDb.fill (kFloorDb);
+    averageInitialized = false;
 }
 
 void SpectrumAnalyzer::push (const float* left, const float* right, int numSamples) noexcept
@@ -91,6 +94,8 @@ void SpectrumAnalyzer::update()
 
     fft.performFrequencyOnlyForwardTransform (fftData.data());
 
+    const bool initializeAverage = ! averageInitialized;
+
     for (int i = 0; i < numBins; ++i)
     {
         float magnitude = 0.0f;
@@ -103,9 +108,24 @@ void SpectrumAnalyzer::update()
         float& smoothed = displayDb[(size_t) i];
         smoothed += (db > smoothed ? 0.55f : 0.12f) * (db - smoothed);
 
+        float& average = averageDb[(size_t) i];
+
+        if (initializeAverage)
+            average = db;
+        else
+            average += averageCoefficient * (db - average);
+
         float& held = peakDb[(size_t) i];
         held = std::max (held - 0.35f, db);
     }
+
+    averageInitialized = true;
+}
+
+void SpectrumAnalyzer::resetAverage() noexcept
+{
+    averageDb.fill (kFloorDb);
+    averageInitialized = false;
 }
 
 void SpectrumAnalyzer::resetPeaks() noexcept

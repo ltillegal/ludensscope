@@ -19,6 +19,15 @@ public:
         std::copy (peaksDb,  peaksDb  + numBins, peaks.begin());
     }
 
+    void setReference (const float* referenceDb, bool active) noexcept
+    {
+        if (referenceDb != nullptr)
+            std::copy (referenceDb, referenceDb + numBins, reference.begin());
+
+        hasReference = active;
+        repaint();
+    }
+
     void mouseMove (const juce::MouseEvent& e) override
     {
         cursorActive = true;
@@ -47,6 +56,15 @@ public:
         g.setFont (theme::labelFont (10.5f));
         g.setColour (theme::textDim);
         g.drawText ("SPECTRUM  20 Hz - 20 kHz", titleRow, juce::Justification::centredLeft);
+
+        if (hasReference)
+        {
+            g.setColour (theme::cold);
+            g.drawText ("REF", titleRow.withTrimmedRight (44.0f),
+                        juce::Justification::centredRight);
+        }
+
+        g.setColour (theme::textDim);
         g.drawText ("dBFS", titleRow, juce::Justification::centredRight);
 
         const auto plot = area.withTrimmedBottom (14.0f).withTrimmedRight (30.0f);
@@ -146,6 +164,27 @@ public:
         g.setColour (theme::accent2.withAlpha (0.55f));
         g.strokePath (peakPath, juce::PathStrokeType (1.0f));
 
+        if (hasReference)
+        {
+            juce::Path referencePath;
+
+            for (int i = 0; i < numBins; ++i)
+            {
+                const float x = xFor ((float) i / (float) (numBins - 1));
+                const float y = yFor (reference[(size_t) i]);
+
+                if (i == 0) referencePath.startNewSubPath (x, y);
+                else        referencePath.lineTo (x, y);
+            }
+
+            const float dashes[] = { 5.0f, 4.0f };
+            juce::Path dashed;
+            juce::PathStrokeType (1.0f).createDashedStroke (dashed, referencePath, dashes, 2);
+
+            g.setColour (theme::cold.withAlpha (0.8f));
+            g.strokePath (dashed, juce::PathStrokeType (1.0f));
+        }
+
         if (cursorActive && plot.contains (cursorPosition))
         {
             const float fraction = juce::jlimit (0.0f, 1.0f,
@@ -161,6 +200,9 @@ public:
                                   + mix * (levels[(size_t) b1] - levels[(size_t) b0]);
             const float peakLevelDb = peaks[(size_t) b0]
                                       + mix * (peaks[(size_t) b1] - peaks[(size_t) b0]);
+            const float referenceLevelDb = reference[(size_t) b0]
+                                           + mix * (reference[(size_t) b1]
+                                                    - reference[(size_t) b0]);
 
             const float x = xFor (fraction);
             const float y = yFor (levelDb);
@@ -185,8 +227,13 @@ public:
                                        + juce::String (levelDb, 1) + " dBFS";
             const juce::String line2 = "peak " + juce::String (peakLevelDb, 1) + " dBFS";
 
+            const float difference = levelDb - referenceLevelDb;
+            const juce::String line3 = "ref " + juce::String (referenceLevelDb, 1)
+                                       + "   \xce\x94 " + (difference >= 0.0f ? "+" : "")
+                                       + juce::String (difference, 1) + " dB";
+
             constexpr float boxWidth = 196.0f;
-            constexpr float boxHeight = 34.0f;
+            const float boxHeight = hasReference ? 47.0f : 34.0f;
 
             const float rawX = x > plot.getCentreX() ? x - boxWidth - 10.0f : x + 10.0f;
             const float boxX = juce::jlimit (plot.getX() + 4.0f,
@@ -202,17 +249,26 @@ public:
 
             g.setFont (theme::monoFont (10.0f));
             g.setColour (theme::text);
-            g.drawText (line1, textArea.removeFromTop (13.0f), juce::Justification::centredLeft);
+            g.drawText (line1, textArea.removeFromTop (12.0f), juce::Justification::centredLeft);
 
             g.setColour (theme::textDim);
-            g.drawText (line2, textArea, juce::Justification::centredLeft);
+            g.drawText (line2, textArea.removeFromTop (12.0f), juce::Justification::centredLeft);
+
+            if (hasReference)
+            {
+                g.setColour (theme::cold);
+                g.drawText (line3, textArea.removeFromTop (12.0f),
+                            juce::Justification::centredLeft);
+            }
         }
     }
 
 private:
     std::array<float, numBins> levels {};
     std::array<float, numBins> peaks {};
+    std::array<float, numBins> reference {};
 
+    bool hasReference = false;
     bool cursorActive = false;
     juce::Point<float> cursorPosition;
 };

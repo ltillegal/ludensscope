@@ -24,6 +24,9 @@ public:
     void paint (juce::Graphics&) override;
     void resized() override;
 
+    // Freezes the current averaged spectrum as a reference curve.
+    void captureReference();
+
 private:
     void timerCallback() override;
     void appendScope (const float* left, const float* right, int numSamples) noexcept;
@@ -41,6 +44,10 @@ private:
 
     juce::TextButton freezeButton { "FREEZE" };
     juce::TextButton resetButton  { "RESET" };
+    juce::TextButton captureButton { "CAPTURE" };
+
+    std::array<float, SpectrumAnalyzer::numBins> referenceDb {};
+    bool hasReference = false;
 
     SpectrumAnalyzer analyzer;
     TruePeakDetector truePeakLeft, truePeakRight;
