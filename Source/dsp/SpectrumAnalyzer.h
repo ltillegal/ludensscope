@@ -23,6 +23,9 @@ public:
 
     const std::array<float, numBins>& levels() const noexcept { return displayDb; }
     const std::array<float, numBins>& peaks()  const noexcept { return peakDb; }
+    const std::array<float, numBins>& averageLevels() const noexcept { return averageDb; }
+
+    void resetAverage() noexcept;
 
 private:
     juce::dsp::FFT fft { fftOrder };
@@ -33,10 +36,14 @@ private:
 
     std::array<float, numBins> displayDb {};
     std::array<float, numBins> peakDb {};
+    std::array<float, numBins> averageDb {};
 
     std::array<int, numBins> binStart {};
     std::array<int, numBins> binEnd {};
 
     float magnitudeScale = 1.0f;
     double sampleRate = 48000.0;
+    bool averageInitialized = false;
+
+    static constexpr float averageCoefficient = 0.08f;
 };
