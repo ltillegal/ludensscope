@@ -10,6 +10,7 @@
 #include "dsp/TruePeakDetector.h"
 #include "ui/MeterPanel.h"
 #include "ui/OscilloscopeView.h"
+#include "ui/SpectrogramView.h"
 #include "ui/SpectrumView.h"
 #include "ui/Theme.h"
 #include "ui/VectorScopeView.h"
@@ -38,6 +39,7 @@ private:
     LudensScopeProcessor& processor;
 
     SpectrumView spectrumView;
+    SpectrogramView spectrogramView;
     MeterPanel meterPanel;
     VectorScopeView vectorScopeView;
     OscilloscopeView oscilloscopeView;
