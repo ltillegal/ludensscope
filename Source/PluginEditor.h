@@ -33,11 +33,12 @@ public:
 
     // Freezes the current averaged spectrum as a reference curve.
     void captureReference();
-
 private:
     void timerCallback() override;
     void appendScope (const float* left, const float* right, int numSamples) noexcept;
     void resetDisplay();
+    void cycleSpan();
+    void applyRange (float lowHz, float highHz);
 
     static constexpr int scopeSize = 4096;
     static constexpr int readChunk = 8192;
@@ -54,8 +55,13 @@ private:
     juce::TextButton resetButton  { "RESET" };
     juce::TextButton captureButton { "CAPTURE" };
     juce::TextButton monoButton { "MONO" };
+    juce::TextButton spanButton { "SPAN 10" };
 
     bool monoActive = false;
+
+    float rangeLow = 20.0f;
+    float rangeHigh = 20000.0f;
+    int spanIndex = 0;
 
     std::array<float, SpectrumAnalyzer::numBins> referenceDb {};
     bool hasReference = false;
@@ -73,7 +79,6 @@ private:
 
     double preparedSampleRate = 0.0;
     bool frozen = false;
-
     float truePeakDb = -100.0f;
     float truePeakHoldDb = -100.0f;
     float samplePeakDb = -100.0f;

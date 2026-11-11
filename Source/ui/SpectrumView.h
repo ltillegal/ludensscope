@@ -5,13 +5,18 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <functional>
 
 #include "Theme.h"
 
 class SpectrumView : public juce::Component
 {
 public:
+    SpectrumView() = default;
+
     static constexpr int numBins = 512;
+    static constexpr float minFrequency = 20.0f;
+    static constexpr float maxFrequency = 20000.0f;
 
     void setData (const float* levelsDb, const float* peaksDb) noexcept
     {
@@ -28,6 +33,18 @@ public:
         repaint();
     }
 
+    void setRange (float lowHz, float highHz) noexcept
+    {
+        rangeLow  = std::clamp (lowHz, minFrequency, maxFrequency);
+        rangeHigh = std::clamp (highHz, rangeLow * 1.01f, maxFrequency);
+        repaint();
+    }
+
+    // Emitted when the user zooms with the wheel; the editor applies the range
+    // to the waterfall as well so both views stay aligned.
+    std::function<void (float, float)> onRangeChange;
+    std::function<void()> onRangeReset;
+
     void mouseMove (const juce::MouseEvent& e) override
     {
         cursorActive = true;
@@ -39,6 +56,47 @@ public:
     {
         cursorActive = false;
         repaint();
+    }
+
+    void mouseWheelMove (const juce::MouseEvent& e,
+                         const juce::MouseWheelDetails& wheel) override
+    {
+        const auto plot = plotArea();
+
+        if (! plot.contains (e.position) || std::abs (wheel.deltaY) < 1.0e-4f)
+            return;
+
+        const float fraction = juce::jlimit (0.0f, 1.0f,
+                                             (e.position.x - plot.getX()) / plot.getWidth());
+        const float hz = frequencyForFraction (fraction);
+        const float octaves = std::log2 (rangeHigh / rangeLow);
+        const float newOctaves = juce::jlimit (0.5f, 9.966f,
+                                               octaves * std::pow (2.0f, -wheel.deltaY * 0.35f));
+        const float logSpan = std::log (2.0f) * newOctaves;
+
+        float low = hz / std::exp (fraction * logSpan);
+        float high = low * std::exp (logSpan);
+
+        if (low < minFrequency)
+        {
+            high *= minFrequency / low;
+            low = minFrequency;
+        }
+
+        if (high > maxFrequency)
+        {
+            low *= maxFrequency / high;
+            high = maxFrequency;
+        }
+
+        if (onRangeChange)
+            onRangeChange (low, high);
+    }
+
+    void mouseDoubleClick (const juce::MouseEvent& e) override
+    {
+        if (plotArea().contains (e.position) && onRangeReset)
+            onRangeReset();
     }
 
     void paint (juce::Graphics& g) override
@@ -55,16 +113,16 @@ public:
 
         g.setFont (theme::labelFont (10.5f));
         g.setColour (theme::textDim);
-        g.drawText ("SPECTRUM  20 Hz - 20 kHz", titleRow, juce::Justification::centredLeft);
+        g.drawText ("SPECTRUM  " + rangeText(), titleRow, juce::Justification::centredLeft);
 
         if (hasReference)
         {
             g.setColour (theme::cold);
             g.drawText ("REF", titleRow.withTrimmedRight (44.0f),
                         juce::Justification::centredRight);
+            g.setColour (theme::textDim);
         }
 
-        g.setColour (theme::textDim);
         g.drawText ("dBFS", titleRow, juce::Justification::centredRight);
 
         const auto plot = area.withTrimmedBottom (14.0f).withTrimmedRight (30.0f);
@@ -83,11 +141,6 @@ public:
             return plot.getBottom() - plot.getHeight() * t;
         };
 
-        const auto fractionForHz = [] (float hz)
-        {
-            return std::log (hz / 20.0f) / std::log (20000.0f / 20.0f);
-        };
-
         g.setFont (theme::monoFont (9.0f));
 
         for (float db = maxDb; db >= minDb; db -= 12.0f)
@@ -102,32 +155,42 @@ public:
                         juce::Justification::centredLeft);
         }
 
-        const float frequencies[] = { 20.0f, 50.0f, 100.0f, 200.0f, 500.0f,
-                                      1000.0f, 2000.0f, 5000.0f, 10000.0f, 20000.0f };
-        const char* labels[] = { "20", "50", "100", "200", "500",
-                                 "1k", "2k", "5k", "10k", "20k" };
+        const float multipliers[] = { 1.0f, 2.0f, 5.0f };
 
-        for (int i = 0; i < 10; ++i)
+        for (int decade = 1; decade <= 5; ++decade)
         {
-            const float x = xFor (fractionForHz (frequencies[i]));
+            const float base = std::pow (10.0f, (float) decade);
 
-            g.setColour (i == 0 || i == 9 ? theme::gridStrong : theme::grid);
-            g.drawVerticalLine ((int) std::round (x), plot.getY(), plot.getBottom());
+            for (const float multiplier : multipliers)
+            {
+                const float hz = multiplier * base;
 
-            g.setColour (theme::textDim);
-            g.drawText (labels[i],
-                        juce::Rectangle<float> (x - 14.0f, plot.getBottom() + 1.0f, 28.0f, 12.0f),
-                        juce::Justification::centred);
+                if (hz < rangeLow * 0.999f || hz > rangeHigh * 1.001f)
+                    continue;
+
+                const float x = xFor (fractionForHz (hz));
+
+                g.setColour (theme::grid);
+                g.drawVerticalLine ((int) std::round (x), plot.getY(), plot.getBottom());
+
+                g.setColour (theme::textDim);
+                g.drawText (formatHzShort (hz),
+                            juce::Rectangle<float> (x - 16.0f, plot.getBottom() + 1.0f, 32.0f, 12.0f),
+                            juce::Justification::centred);
+            }
         }
+
+        const int steps = juce::jmax (2, (int) std::ceil (plot.getWidth()));
 
         juce::Path curve, filled;
 
-        for (int i = 0; i < numBins; ++i)
+        for (int s = 0; s < steps; ++s)
         {
-            const float x = xFor ((float) i / (float) (numBins - 1));
-            const float y = yFor (levels[(size_t) i]);
+            const float fraction = (float) s / (float) (steps - 1);
+            const float x = xFor (fraction);
+            const float y = yFor (levelAt (levels, fraction));
 
-            if (i == 0)
+            if (s == 0)
             {
                 curve.startNewSubPath (x, y);
                 filled.startNewSubPath (x, plot.getBottom());
@@ -152,12 +215,13 @@ public:
 
         juce::Path peakPath;
 
-        for (int i = 0; i < numBins; ++i)
+        for (int s = 0; s < steps; ++s)
         {
-            const float x = xFor ((float) i / (float) (numBins - 1));
-            const float y = yFor (peaks[(size_t) i]);
+            const float fraction = (float) s / (float) (steps - 1);
+            const float x = xFor (fraction);
+            const float y = yFor (levelAt (peaks, fraction));
 
-            if (i == 0) peakPath.startNewSubPath (x, y);
+            if (s == 0) peakPath.startNewSubPath (x, y);
             else        peakPath.lineTo (x, y);
         }
 
@@ -168,12 +232,13 @@ public:
         {
             juce::Path referencePath;
 
-            for (int i = 0; i < numBins; ++i)
+            for (int s = 0; s < steps; ++s)
             {
-                const float x = xFor ((float) i / (float) (numBins - 1));
-                const float y = yFor (reference[(size_t) i]);
+                const float fraction = (float) s / (float) (steps - 1);
+                const float x = xFor (fraction);
+                const float y = yFor (levelAt (reference, fraction));
 
-                if (i == 0) referencePath.startNewSubPath (x, y);
+                if (s == 0) referencePath.startNewSubPath (x, y);
                 else        referencePath.lineTo (x, y);
             }
 
@@ -189,20 +254,11 @@ public:
         {
             const float fraction = juce::jlimit (0.0f, 1.0f,
                                                  (cursorPosition.x - plot.getX()) / plot.getWidth());
-            const float hz = 20.0f * std::pow (1000.0f, fraction);
+            const float hz = frequencyForFraction (fraction);
 
-            const float binF = fraction * (float) (numBins - 1);
-            const int b0 = (int) binF;
-            const int b1 = std::min (b0 + 1, numBins - 1);
-            const float mix = binF - (float) b0;
-
-            const float levelDb = levels[(size_t) b0]
-                                  + mix * (levels[(size_t) b1] - levels[(size_t) b0]);
-            const float peakLevelDb = peaks[(size_t) b0]
-                                      + mix * (peaks[(size_t) b1] - peaks[(size_t) b0]);
-            const float referenceLevelDb = reference[(size_t) b0]
-                                           + mix * (reference[(size_t) b1]
-                                                    - reference[(size_t) b0]);
+            const float levelDb = levelAt (levels, fraction);
+            const float peakLevelDb = levelAt (peaks, fraction);
+            const float referenceLevelDb = levelAt (reference, fraction);
 
             const float x = xFor (fraction);
             const float y = yFor (levelDb);
@@ -213,17 +269,13 @@ public:
             g.setColour (theme::accent);
             g.fillEllipse (x - 3.0f, y - 3.0f, 6.0f, 6.0f);
 
-            const juce::String frequency = hz < 1000.0f
-                ? juce::String (juce::roundToInt (hz)) + " Hz"
-                : juce::String (hz / 1000.0f, 2) + " kHz";
-
             const int midi = (int) std::lround (69.0 + 12.0 * std::log2 (hz / 440.0));
             const char* noteNames[] = { "C", "C#", "D", "D#", "E", "F",
                                         "F#", "G", "G#", "A", "A#", "B" };
             const juce::String note = juce::String (noteNames[((midi % 12) + 12) % 12])
                                       + juce::String (midi / 12 - 1);
 
-            const juce::String line1 = frequency + "  " + note + "   "
+            const juce::String line1 = formatHzLong (hz) + "  " + note + "   "
                                        + juce::String (levelDb, 1) + " dBFS";
             const juce::String line2 = "peak " + juce::String (peakLevelDb, 1) + " dBFS";
 
@@ -264,6 +316,79 @@ public:
     }
 
 private:
+    juce::Rectangle<float> plotArea() const
+    {
+        return getLocalBounds().toFloat()
+            .reduced (12.0f)
+            .withTrimmedTop (16.0f)
+            .withTrimmedBottom (14.0f)
+            .withTrimmedRight (30.0f);
+    }
+
+    float frequencyForFraction (float fraction) const noexcept
+    {
+        return rangeLow * std::pow (rangeHigh / rangeLow,
+                                    juce::jlimit (0.0f, 1.0f, fraction));
+    }
+
+    float fractionForHz (float hz) const noexcept
+    {
+        return std::log (hz / rangeLow) / std::log (rangeHigh / rangeLow);
+    }
+
+    float levelAt (const std::array<float, numBins>& data, float fraction) const noexcept
+    {
+        const float hz = frequencyForFraction (fraction);
+        const float binF = std::log (hz / minFrequency)
+                           / std::log (maxFrequency / minFrequency)
+                           * (float) (numBins - 1);
+
+        const int b0 = juce::jlimit (0, numBins - 1, (int) binF);
+        const int b1 = juce::jmin (b0 + 1, numBins - 1);
+        const float mix = juce::jlimit (0.0f, 1.0f, binF - (float) b0);
+
+        return data[(size_t) b0] + mix * (data[(size_t) b1] - data[(size_t) b0]);
+    }
+
+    static juce::String formatHzShort (float hz)
+    {
+        if (hz >= 1000.0f)
+        {
+            const float k = hz / 1000.0f;
+            return (k == std::floor (k) ? juce::String ((int) k) : juce::String (k, 1)) + "k";
+        }
+
+        return juce::String ((int) std::lround (hz));
+    }
+
+    static juce::String formatHzLong (float hz)
+    {
+        if (hz >= 1000.0f)
+        {
+            const float k = hz / 1000.0f;
+            return (k == std::floor (k) ? juce::String ((int) k)
+                                        : juce::String (k, k >= 10.0f ? 1 : 2)) + " kHz";
+        }
+
+        return juce::String ((int) std::lround (hz)) + " Hz";
+    }
+
+    juce::String rangeText() const
+    {
+        const float octaves = std::log2 (rangeHigh / rangeLow);
+
+        juce::String oct;
+
+        if (octaves >= 9.9f)
+            oct = "10 oct";
+        else if (octaves < 2.0f)
+            oct = juce::String (octaves, 1) + " oct";
+        else
+            oct = juce::String (juce::roundToInt (octaves)) + " oct";
+
+        return formatHzLong (rangeLow) + " - " + formatHzLong (rangeHigh) + "  \xc2\xb7  " + oct;
+    }
+
     std::array<float, numBins> levels {};
     std::array<float, numBins> peaks {};
     std::array<float, numBins> reference {};
@@ -271,4 +396,9 @@ private:
     bool hasReference = false;
     bool cursorActive = false;
     juce::Point<float> cursorPosition;
+
+    float rangeLow = minFrequency;
+    float rangeHigh = maxFrequency;
+
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (SpectrumView)
 };
