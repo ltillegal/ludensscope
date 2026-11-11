@@ -45,6 +45,9 @@ private:
     juce::TextButton freezeButton { "FREEZE" };
     juce::TextButton resetButton  { "RESET" };
     juce::TextButton captureButton { "CAPTURE" };
+    juce::TextButton monoButton { "MONO" };
+
+    bool monoActive = false;
 
     std::array<float, SpectrumAnalyzer::numBins> referenceDb {};
     bool hasReference = false;

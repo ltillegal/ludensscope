@@ -3,6 +3,7 @@
 #include <juce_gui_basics/juce_gui_basics.h>
 
 #include <algorithm>
+#include <cmath>
 #include <vector>
 
 #include "Theme.h"
@@ -54,7 +55,41 @@ public:
         const int count = (int) juce::jmin (left.size(), right.size());
         const int step = juce::jmax (1, count / 2000);
 
-        g.setColour (theme::accent.withAlpha (0.30f));
+        const int imageWidth = juce::jmax (1, (int) std::ceil (square.getWidth()));
+        const int imageHeight = juce::jmax (1, (int) std::ceil (square.getHeight()));
+
+        if (trail.getWidth() != imageWidth || trail.getHeight() != imageHeight)
+        {
+            trail = juce::Image (juce::Image::ARGB, imageWidth, imageHeight, true);
+        }
+        else
+        {
+            // Phosphor-style decay: older points fade out instead of vanishing.
+            trail.multiplyAllAlphas (0.90f);
+        }
+
+        {
+            juce::Graphics trailGraphics (trail);
+
+            for (int i = 0; i < count; i += step)
+            {
+                const float sideValue = (left[(size_t) i] - right[(size_t) i]) * 0.7071f;
+                const float midValue  = (left[(size_t) i] + right[(size_t) i]) * 0.7071f;
+
+                const float x = centre.x + juce::jlimit (-1.0f, 1.0f, sideValue) * radius
+                                - square.getX();
+                const float y = centre.y - juce::jlimit (-1.0f, 1.0f, midValue) * radius
+                                - square.getY();
+
+                trailGraphics.setColour (theme::accent.withAlpha (0.10f));
+                trailGraphics.fillRect (x - 0.75f, y - 0.75f, 1.5f, 1.5f);
+            }
+        }
+
+        g.drawImageAt (trail, (int) square.getX(), (int) square.getY());
+
+        // Current points stay bright on top of the decay trail.
+        g.setColour (theme::accent.withAlpha (0.55f));
 
         for (int i = 0; i < count; i += step)
         {
@@ -77,4 +112,5 @@ public:
 
 private:
     std::vector<float> left, right;
+    juce::Image trail;
 };
