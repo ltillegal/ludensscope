@@ -67,6 +67,7 @@ LudensScopeEditor::LudensScopeEditor (LudensScopeProcessor& p)
 
     preparedSampleRate = processor.getSampleRate() > 0.0 ? processor.getSampleRate() : 48000.0;
     analyzer.prepare (preparedSampleRate);
+    oscilloscopeView.setSampleRate (preparedSampleRate);
 
     setSize (1060, 700);
     startTimerHz (30);
@@ -146,6 +147,7 @@ void LudensScopeEditor::timerCallback()
     {
         preparedSampleRate = sampleRate;
         analyzer.prepare (sampleRate);
+        oscilloscopeView.setSampleRate (sampleRate);
     }
 
     const int numRead = processor.readSamples (readLeft.data(), readRight.data(), readChunk);
