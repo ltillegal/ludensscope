@@ -35,6 +35,14 @@ LudensScopeEditor::LudensScopeEditor (LudensScopeProcessor& p)
     captureButton.onClick = [this] { captureReference(); };
     addAndMakeVisible (captureButton);
 
+    monoButton.setClickingTogglesState (true);
+    monoButton.setColour (juce::TextButton::buttonColourId, theme::panel);
+    monoButton.setColour (juce::TextButton::buttonOnColourId, theme::accent);
+    monoButton.setColour (juce::TextButton::textColourOffId, theme::text);
+    monoButton.setColour (juce::TextButton::textColourOnId, theme::bg);
+    monoButton.onClick = [this] { monoActive = monoButton.getToggleState(); };
+    addAndMakeVisible (monoButton);
+
     readLeft.resize (readChunk);
     readRight.resize (readChunk);
 
@@ -73,6 +81,8 @@ void LudensScopeEditor::resized()
     freezeButton.setBounds (header.removeFromRight (94).withSizeKeepingCentre (94, 26));
     header.removeFromRight (8);
     captureButton.setBounds (header.removeFromRight (98).withSizeKeepingCentre (98, 26));
+    header.removeFromRight (8);
+    monoButton.setBounds (header.removeFromRight (74).withSizeKeepingCentre (74, 26));
 
     r.removeFromTop (8);
 
@@ -106,6 +116,16 @@ void LudensScopeEditor::timerCallback()
     }
 
     const int numRead = processor.readSamples (readLeft.data(), readRight.data(), readChunk);
+
+    // Mono check: sum the input for the analyzers without touching the DAW signal.
+    if (numRead > 0 && monoActive)
+    {
+        for (int i = 0; i < numRead; ++i)
+        {
+            const float mono = 0.5f * (readLeft[(size_t) i] + readRight[(size_t) i]);
+            readLeft[(size_t) i] = readRight[(size_t) i] = mono;
+        }
+    }
 
     float blockTruePeak = 0.0f;
     float blockSamplePeak = 0.0f;
