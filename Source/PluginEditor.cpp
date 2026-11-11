@@ -1,5 +1,7 @@
 #include "PluginEditor.h"
 
+#include <cmath>
+
 LudensScopeEditor::LudensScopeEditor (LudensScopeProcessor& p)
     : juce::AudioProcessorEditor (&p), processor (p)
 {
@@ -96,9 +98,16 @@ void LudensScopeEditor::resized()
     auto rightColumn = r.removeFromRight (rightWidth);
     r.removeFromRight (gap);
 
-    const int waterfallHeight = juce::jlimit (90, 150, (int) ((float) r.getHeight() * 0.32f));
+    leftColumnBounds = r;
+
+    const int minSpectrumHeight = 140;
+    const int maxWaterfallHeight = juce::jmax (0, r.getHeight() - minSpectrumHeight);
+    const int waterfallHeight = juce::jlimit (
+        0, maxWaterfallHeight,
+        (int) std::lround (waterfallRatio * (float) r.getHeight()));
+
     auto waterfall = r.removeFromBottom (waterfallHeight);
-    r.removeFromBottom (gap);
+    waterfallDivider = r.removeFromBottom (gap);
 
     spectrumView.setBounds (r);
     spectrogramView.setBounds (waterfall);
@@ -267,4 +276,43 @@ void LudensScopeEditor::resetDisplay()
     meterPanel.repaint();
     vectorScopeView.repaint();
     oscilloscopeView.repaint();
+}
+
+void LudensScopeEditor::mouseMove (const juce::MouseEvent& e)
+{
+    const bool overDivider = waterfallDivider.expanded (0, 4).contains (e.getPosition());
+
+    setMouseCursor (overDivider ? juce::MouseCursor::UpDownResizeCursor
+                                : juce::MouseCursor::NormalCursor);
+}
+
+void LudensScopeEditor::mouseDown (const juce::MouseEvent& e)
+{
+    draggingDivider = waterfallDivider.expanded (0, 4).contains (e.getPosition());
+}
+
+void LudensScopeEditor::mouseDrag (const juce::MouseEvent& e)
+{
+    if (! draggingDivider)
+        return;
+
+    const int maximum = juce::jmax (0, leftColumnBounds.getHeight() - 140);
+    const int height = juce::jlimit (0, maximum, leftColumnBounds.getBottom() - e.y);
+
+    waterfallRatio = (float) height / (float) juce::jmax (1, leftColumnBounds.getHeight());
+    resized();
+}
+
+void LudensScopeEditor::mouseUp (const juce::MouseEvent&)
+{
+    draggingDivider = false;
+}
+
+void LudensScopeEditor::mouseDoubleClick (const juce::MouseEvent& e)
+{
+    if (! waterfallDivider.expanded (0, 4).contains (e.getPosition()))
+        return;
+
+    waterfallRatio = 0.32f;
+    resized();
 }

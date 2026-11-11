@@ -25,6 +25,12 @@ public:
     void paint (juce::Graphics&) override;
     void resized() override;
 
+    void mouseMove (const juce::MouseEvent&) override;
+    void mouseDown (const juce::MouseEvent&) override;
+    void mouseDrag (const juce::MouseEvent&) override;
+    void mouseUp (const juce::MouseEvent&) override;
+    void mouseDoubleClick (const juce::MouseEvent&) override;
+
     // Freezes the current averaged spectrum as a reference curve.
     void captureReference();
 
@@ -53,6 +59,11 @@ private:
 
     std::array<float, SpectrumAnalyzer::numBins> referenceDb {};
     bool hasReference = false;
+
+    juce::Rectangle<int> leftColumnBounds;
+    juce::Rectangle<int> waterfallDivider;
+    float waterfallRatio = 0.32f;
+    bool draggingDivider = false;
 
     SpectrumAnalyzer analyzer;
     TruePeakDetector truePeakLeft, truePeakRight;
