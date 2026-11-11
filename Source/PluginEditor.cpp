@@ -140,16 +140,25 @@ void LudensScopeEditor::timerCallback()
     if (frozen)
         return;
 
+    if (blockTruePeak > 1.0f)
+        ++truePeakOvers;
+
     truePeakDb = juce::Decibels::gainToDecibels (blockTruePeak, -100.0f);
     samplePeakDb = juce::Decibels::gainToDecibels (blockSamplePeak, -100.0f);
     truePeakHoldDb = std::max (truePeakDb, truePeakHoldDb - 0.6f);
 
     analyzer.update();
 
+    const float integrated = processor.integratedLufs();
+    const float plr = (integrated > -70.0f && truePeakHoldDb > -99.0f)
+                          ? truePeakHoldDb - integrated
+                          : -100.0f;
+
     spectrumView.setData (analyzer.levels().data(), analyzer.peaks().data());
     meterPanel.setValues (processor.momentaryLufs(), processor.shortTermLufs(),
-                          processor.integratedLufs(), truePeakDb, samplePeakDb,
-                          correlation, truePeakHoldDb);
+                          integrated, truePeakDb, samplePeakDb,
+                          correlation, truePeakHoldDb, processor.lraLu(), plr,
+                          processor.clippedSampleCount(), truePeakOvers);
 
     vectorScopeView.setData (scopeLeft.data() + (scopeSize - 1024),
                              scopeRight.data() + (scopeSize - 1024), 1024);
@@ -182,6 +191,7 @@ void LudensScopeEditor::appendScope (const float* left, const float* right, int 
 void LudensScopeEditor::resetDisplay()
 {
     processor.requestReset();
+    processor.resetClipCounters();
 
     analyzer.resetPeaks();
     truePeakLeft.reset();
@@ -191,6 +201,7 @@ void LudensScopeEditor::resetDisplay()
     truePeakHoldDb = -100.0f;
     samplePeakDb = -100.0f;
     correlation = 0.0f;
+    truePeakOvers = 0;
 
     scopeLeft.fill (0.0f);
     scopeRight.fill (0.0f);
@@ -200,7 +211,7 @@ void LudensScopeEditor::resetDisplay()
     spectrumView.setData (analyzer.levels().data(), analyzer.peaks().data());
     meterPanel.setValues (processor.momentaryLufs(), processor.shortTermLufs(),
                           processor.integratedLufs(), truePeakDb, samplePeakDb,
-                          correlation, truePeakHoldDb);
+                          correlation, truePeakHoldDb, -1.0f, -100.0f, 0, 0);
     vectorScopeView.setData (scopeLeft.data() + (scopeSize - 1024),
                              scopeRight.data() + (scopeSize - 1024), 1024);
     oscilloscopeView.setData (scopeLeft.data(), scopeRight.data(), scopeSize, frozen);

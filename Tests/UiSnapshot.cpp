@@ -82,6 +82,20 @@ int main (int argc, char** argv)
     juce::MessageManager::getInstance()->runDispatchLoop();
     feeder.stopTimer();
 
+    // Exercise the spectrum inspector so the snapshot also covers that path.
+    // The editor is never shown on screen, so mark it visible for hit-testing.
+    editor->setVisible (true);
+
+    if (auto* target = editor->getComponentAt (628, 300))
+    {
+        const auto local = target->getLocalPoint (editor.get(), juce::Point<int> (628, 300)).toFloat();
+        const juce::MouseEvent moveEvent (juce::Desktop::getInstance().getMainMouseSource(),
+                                          local, juce::ModifierKeys(), 1.0f, 0.0f, 0.0f, 0.0f, 0.0f,
+                                          target, target, juce::Time::getCurrentTime(),
+                                          local, juce::Time::getCurrentTime(), 0, false);
+        target->mouseMove (moveEvent);
+    }
+
     const auto image = editor->createComponentSnapshot (editor->getLocalBounds(), true, 1.0f);
 
     juce::File output = juce::File::getCurrentWorkingDirectory()
@@ -102,6 +116,16 @@ int main (int argc, char** argv)
                      image.getWidth(), image.getHeight());
     }
 
+    // Clip counter smoke check: one full-scale sample in each channel.
+    juce::AudioBuffer<float> clipBuffer (2, 64);
+    clipBuffer.clear();
+    clipBuffer.setSample (0, 0, 1.0f);
+    clipBuffer.setSample (1, 63, -1.0f);
+    processor.processBlock (clipBuffer, midi);
+
+    const auto clipped = processor.clippedSampleCount();
+    std::printf ("clip counter %llu (expected 2)\n", (unsigned long long) clipped);
+
     editor.reset();
-    return 0;
+    return clipped == 2 ? 0 : 1;
 }

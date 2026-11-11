@@ -1,6 +1,8 @@
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
 
+#include <cmath>
+
 LudensScopeProcessor::LudensScopeProcessor()
     : juce::AudioProcessor (BusesProperties()
                                 .withInput  ("Input",  juce::AudioChannelSet::stereo(), true)
@@ -37,10 +39,24 @@ void LudensScopeProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce:
         return;
 
     if (resetRequested.exchange (false, std::memory_order_relaxed))
+    {
         loudness.reset();
+        clippedSamples.store (0, std::memory_order_relaxed);
+    }
 
     const float* left = buffer.getReadPointer (0);
     const float* right = buffer.getReadPointer (1);
+
+    std::uint32_t blockClips = 0;
+
+    for (int i = 0; i < numSamples; ++i)
+    {
+        if (std::abs (left[i]) >= 1.0f)  ++blockClips;
+        if (std::abs (right[i]) >= 1.0f) ++blockClips;
+    }
+
+    if (blockClips > 0)
+        clippedSamples.fetch_add (blockClips, std::memory_order_relaxed);
 
     loudness.process (left, right, numSamples);
 

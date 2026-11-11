@@ -14,6 +14,7 @@ namespace
         float momentary = 0.0f;
         float shortTerm = 0.0f;
         float integrated = 0.0f;
+        float lra = -1.0f;
     };
 
     Result measureSine (double sampleRate, double amplitude, double frequency,
@@ -42,7 +43,8 @@ namespace
             meter.process (left.data(), right.data(), n);
         }
 
-        return { meter.momentaryLufs(), meter.shortTermLufs(), meter.integratedLufs() };
+        return { meter.momentaryLufs(), meter.shortTermLufs(),
+                 meter.integratedLufs(), meter.lraLu() };
     }
 }
 
@@ -73,6 +75,38 @@ int main()
         const auto r = measureSine (48000.0, 0.1, 1000.0, 6.0, true);
         check ("-20 dBFS stereo sine, momentary", r.momentary, -20.0f, 0.35f);
         check ("-20 dBFS stereo sine, integrated", r.integrated, -20.0f, 0.35f);
+        check ("-20 dBFS stereo sine, LRA (LU)", r.lra, 0.0f, 0.5f);
+    }
+
+    // Loudness range: 10 s at -20 LUFS then 10 s at -35 LUFS => about 15 LU.
+    {
+        LoudnessMeter meter;
+        meter.prepare (48000.0);
+
+        constexpr int blockSize = 512;
+        const int total = 48000 * 20;
+
+        std::vector<float> left ((size_t) blockSize);
+        std::vector<float> right ((size_t) blockSize);
+
+        for (int offset = 0; offset < total; offset += blockSize)
+        {
+            const int n = std::min (blockSize, total - offset);
+            const double amplitude = (offset < total / 2)
+                ? 0.1
+                : 0.1 * std::pow (10.0, -15.0 / 20.0);
+
+            for (int i = 0; i < n; ++i)
+            {
+                const double t = (double) (offset + i) / 48000.0;
+                left[(size_t) i] = right[(size_t) i] =
+                    (float) (amplitude * std::sin (2.0 * pi * 1000.0 * t));
+            }
+
+            meter.process (left.data(), right.data(), n);
+        }
+
+        check ("-20 then -35 LUFS, LRA (LU)", meter.lraLu(), 15.0f, 1.0f);
     }
 
     // Single channel at -20 dBFS is 3 dB quieter than the stereo pair.
@@ -91,6 +125,7 @@ int main()
     {
         const auto r = measureSine (48000.0, 0.0, 1000.0, 2.0, true);
         check ("silence, integrated", r.integrated, -100.0f, 0.01f);
+        check ("silence, LRA is unavailable", r.lra, -1.0f, 0.01f);
     }
 
     // True peak: fs/4 sine at 45 degrees has samples at +/-0.707 but a true peak
