@@ -1,1 +1,110 @@
-# ludensscope
+# LudensScope
+
+Минималистичный стерео-анализатор в формате **VST3**: спектр, громкость по
+ITU-R BS.1770-4, true-peak, векторскоп и осциллограф.
+
+Без пресетов, без лицензирования, без триалов, без телеметрии. Плагин ничего
+не сохраняет в состояние проекта — это чистый измерительный прибор.
+
+## Что внутри
+
+| Модуль | Файлы |
+|---|---|
+| LUFS (M/S/I, гейтинг), K-weighting | `Source/dsp/LoudnessMeter.*` |
+| Спектр: FFT 4096, Hann, лог-шкала 20 Гц – 20 кГц | `Source/dsp/SpectrumAnalyzer.*` |
+| True-peak: 4x oversampling, polyphase FIR | `Source/dsp/TruePeakDetector.h` |
+| UI: спектр, метры, гониометр, осциллограф | `Source/ui/*` |
+
+Аудио-поток только фильтрует и считает энергию; FFT и отрисовка идут в UI-потоке
+(данные передаются через lock-free `AbstractFifo`). Никаких блокировок в
+`processBlock`.
+
+## Сборка (Linux)
+
+```bash
+cmake --preset default
+cmake --build --preset default -j$(nproc)
+```
+
+или без пресетов:
+
+```bash
+cmake -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build -j$(nproc)
+```
+
+JUCE (8.0.15) подтягивается автоматически через `FetchContent`. Готовый плагин
+копируется в `~/.vst3/LudensScope.vst3`.
+
+Проверка калибровки (опционально):
+
+```bash
+cmake --preset dev
+cmake --build --preset dev -j$(nproc)
+
+# LUFS (BS.1770-4) + true-peak: 10 проверок
+./build/LudensScopeLoudnessCalibration
+
+# калибровка спектра: синус -6 dBFS должен читаться около -6 dBFS
+./build/LudensScopeCalibration_artefacts/Release/LudensScopeCalibration
+
+# рендер UI в PNG без DAW (проверка, что редактор не падает)
+./build/LudensScopeUiSnapshot_artefacts/Release/LudensScopeUiSnapshot
+# -> docs/ui-preview.png (или путь из первого аргумента)
+```
+
+## Использование
+
+1. Поставь плагин на мастер-шину или на группу.
+2. Спектр: лог-ось 20 Гц – 20 кГц, шкала dBFS, жёлтая линия — peak hold.
+3. LOUDNESS: momentary (400 мс), short-term (3 с), integrated (с гейтингом
+   -70 LUFS / -10 LU).
+4. TRUE PEAK — 4x передискретизация, dBTP. Красный при > -1 dBTP.
+5. STEREO IMAGE — гониометр, OSCILLOSCOPE — с триггером по переходу через ноль.
+6. `FREEZE` — стопор кадров, `RESET` — сброс пиков и интегрированной громкости.
+
+## macOS + Cubase
+
+Да, формат VST3 Cubase поддерживает и на Intel, и на Apple Silicon. Но собрать
+плагин нужно **на macOS** — кросс-компиляция с Linux не поддерживается.
+Исходники платформонезависимые (чистый C++ + JUCE), Linux-специфичного кода нет.
+
+```bash
+xcode-select --install   # если ещё нет Command Line Tools
+
+# всё сразу: configure + build + ad-hoc подпись + установка
+./scripts/build-macos.sh
+```
+
+Вручную:
+
+```bash
+cmake --preset macos-universal
+cmake --build --preset macos-universal -j$(sysctl -n hw.ncpu)
+
+# локальная ad-hoc подпись (обязательна для arm64)
+codesign --force --deep --sign - \
+  build/LudensScope_artefacts/Release/VST3/LudensScope.vst3
+```
+
+`COPY_PLUGIN_AFTER_BUILD` кладёт бандл в `~/Library/Audio/Plug-Ins/VST3/`
+(для всех пользователей — `/Library/Audio/Plug-Ins/VST3/`).
+
+В Cubase: `Studio → VST Plug-in Manager → Rescan`, либо просто перезапустить
+Cubase. Плагин появится в категории `Analyzer`.
+
+Замечания:
+
+- Универсальный бинарник (`arm64;x86_64`) нужен, чтобы работало и на M-чипах,
+  и на Intel.
+- Для раздачи другим людям — Developer ID + notarization. Для себя достаточно
+  ad-hoc подписи.
+- AU не собирается (Cubase он не нужен). Для Logic добавь `AU` в `FORMATS`.
+- Проверено только на Linux; macOS-сборка ожидаемо рабочая, но на железе не
+  тестировалась.
+
+## Ограничения
+
+- Только стерео (2 in / 2 out), только VST3.
+- Пресетов нет намеренно: состояние проекта пустое.
+- AAX/AU не собираются.
