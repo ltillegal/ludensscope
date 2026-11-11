@@ -28,8 +28,11 @@ public:
         for (int x = 0; x < width; ++x)
         {
             const float fraction = (float) x / (float) juce::jmax (1, width - 1);
-            const int bin = juce::jlimit (0, numBins - 1,
-                                          (int) std::lround (fraction * (float) (numBins - 1)));
+            const float hz = rangeLow * std::pow (rangeHigh / rangeLow, fraction);
+            const int bin = juce::jlimit (
+                0, numBins - 1,
+                (int) std::lround (std::log (hz / 20.0f) / std::log (1000.0f)
+                                   * (float) (numBins - 1)));
             const float t = juce::jlimit (0.0f, 1.0f,
                                           (levelsDb[bin] - minDb) / (maxDb - minDb));
 
@@ -38,6 +41,16 @@ public:
         }
 
         writeRow = (writeRow + 1) % height;
+    }
+
+    void setRange (float lowHz, float highHz)
+    {
+        if (std::abs (lowHz - rangeLow) < 0.5f && std::abs (highHz - rangeHigh) < 0.5f)
+            return;
+
+        rangeLow = lowHz;
+        rangeHigh = highHz;
+        clear();
     }
 
     void clear()
@@ -153,6 +166,9 @@ private:
     int width = 0;
     int height = 0;
     int writeRow = 0;
+
+    float rangeLow = 20.0f;
+    float rangeHigh = 20000.0f;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (SpectrogramView)
 };

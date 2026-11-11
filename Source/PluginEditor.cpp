@@ -46,6 +46,22 @@ LudensScopeEditor::LudensScopeEditor (LudensScopeProcessor& p)
     monoButton.onClick = [this] { monoActive = monoButton.getToggleState(); };
     addAndMakeVisible (monoButton);
 
+    spanButton.setColour (juce::TextButton::buttonColourId, theme::panel);
+    spanButton.setColour (juce::TextButton::textColourOffId, theme::text);
+    spanButton.onClick = [this] { cycleSpan(); };
+    addAndMakeVisible (spanButton);
+
+    spectrumView.onRangeChange = [this] (float lowHz, float highHz)
+    {
+        applyRange (lowHz, highHz);
+    };
+
+    spectrumView.onRangeReset = [this]
+    {
+        spanIndex = 0;
+        applyRange (20.0f, 20000.0f);
+    };
+
     readLeft.resize (readChunk);
     readRight.resize (readChunk);
 
@@ -86,6 +102,8 @@ void LudensScopeEditor::resized()
     captureButton.setBounds (header.removeFromRight (98).withSizeKeepingCentre (98, 26));
     header.removeFromRight (8);
     monoButton.setBounds (header.removeFromRight (74).withSizeKeepingCentre (74, 26));
+    header.removeFromRight (8);
+    spanButton.setBounds (header.removeFromRight (92).withSizeKeepingCentre (92, 26));
 
     r.removeFromTop (8);
 
@@ -278,9 +296,46 @@ void LudensScopeEditor::resetDisplay()
     oscilloscopeView.repaint();
 }
 
-void LudensScopeEditor::mouseMove (const juce::MouseEvent& e)
+void LudensScopeEditor::cycleSpan()
 {
-    const bool overDivider = waterfallDivider.expanded (0, 4).contains (e.getPosition());
+    static constexpr int spans[] = { 10, 8, 6, 4, 2, 1 };
+
+    spanIndex = (spanIndex + 1) % 6;
+
+    if (spanIndex == 0)
+    {
+        applyRange (20.0f, 20000.0f);
+        return;
+    }
+
+    const float octaves = (float) spans[spanIndex];
+    const float centre = std::sqrt (rangeLow * rangeHigh);
+    const float halfSpan = std::pow (2.0f, octaves * 0.5f);
+
+    applyRange (centre / halfSpan, centre * halfSpan);
+}
+
+void LudensScopeEditor::applyRange (float lowHz, float highHz)
+{
+    lowHz = juce::jlimit (20.0f, 20000.0f, lowHz);
+    highHz = juce::jlimit (lowHz * 1.01f, 20000.0f, highHz);
+
+    if (std::abs (lowHz - rangeLow) < 0.5f && std::abs (highHz - rangeHigh) < 0.5f)
+        return;
+
+    rangeLow = lowHz;
+    rangeHigh = highHz;
+
+    spectrumView.setRange (lowHz, highHz);
+    spectrogramView.setRange (lowHz, highHz);
+
+    const int octaves = juce::jlimit (1, 10,
+                                      (int) std::lround (std::log2 (highHz / lowHz)));
+    spanButton.setButtonText ("SPAN " + juce::String (octaves));
+}
+
+void LudensScopeEditor::mouseMove (const juce::MouseEvent& e)
+{    const bool overDivider = waterfallDivider.expanded (0, 4).contains (e.getPosition());
 
     setMouseCursor (overDivider ? juce::MouseCursor::UpDownResizeCursor
                                 : juce::MouseCursor::NormalCursor);
