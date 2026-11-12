@@ -89,6 +89,27 @@ public:
                                 double loopStartSeconds, double loopEndSeconds,
                                 double positionSeconds);
 
+    // Reference metadata that survives in the project even when the audio
+    // file cannot be reloaded.
+    struct ReferenceSettings
+    {
+        juce::String path;
+        std::array<float, 512> curve {};
+        bool valid = false;
+        float lufs = -100.0f;
+        double loopStart = 0.0;
+        double loopEnd = 0.0;
+        double position = 0.0;
+    };
+
+    void setReferenceCurveInfo (const juce::String& path, const float* curveDb, bool valid);
+    juce::String getReferencePath() const { return referencePath; }
+    ReferenceSettings getReferenceSettings() const;
+    int referenceGeneration() const noexcept { return referenceGenerationValue.load(); }
+
+    // Drop the audio but keep path/curve so the saved reference still shows.
+    void unloadReferenceAudio() noexcept;
+
     // Band solo: high-pass + low-pass pair on the output (monitoring aid).
     void setBandSolo (bool active, float lowHz, float highHz);
     bool isBandSolo() const noexcept { return bandSoloActive.load(); }
@@ -208,6 +229,14 @@ private:
 
     static constexpr int referenceWaveformColumns = 256;
     std::vector<float> referenceWaveformData;
+
+    juce::String referencePath;
+    std::array<float, 512> referenceCurve {};
+    bool referenceCurveValid = false;
+    std::atomic<int> referenceGenerationValue { 0 };
+    double savedReferenceLoopStart = 0.0;
+    double savedReferenceLoopEnd = 0.0;
+    double savedReferencePosition = 0.0;
 
     std::array<std::array<float, snapshotBins>, snapshotSlots> snapshots {};
     std::array<bool, snapshotSlots> snapshotFilled {};

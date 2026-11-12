@@ -7,7 +7,7 @@
 namespace
 {
     constexpr int snapshotMagic = 0x4c444e53; // 'LDNS'
-    constexpr int snapshotVersion = 5;
+    constexpr int snapshotVersion = 6;
 }
 
 LudensScopeProcessor::LudensScopeProcessor()
@@ -144,6 +144,68 @@ void LudensScopeProcessor::clearReferenceAudio()
     referencePlaying.store (false);
     referenceAudible.store (false);
     referenceWaveformData.clear();
+
+    referencePath.clear();
+    referenceCurveValid = false;
+    savedReferenceLoopStart = 0.0;
+    savedReferenceLoopEnd = 0.0;
+    savedReferencePosition = 0.0;
+    referenceGenerationValue.fetch_add (1);
+}
+
+void LudensScopeProcessor::setReferenceCurveInfo (const juce::String& path,
+                                                  const float* curveDb, bool valid)
+{
+    referencePath = path;
+    referenceCurveValid = valid && curveDb != nullptr;
+
+    if (curveDb != nullptr)
+        std::copy (curveDb, curveDb + 512, referenceCurve.begin());
+
+    referenceGenerationValue.fetch_add (1);
+}
+
+LudensScopeProcessor::ReferenceSettings LudensScopeProcessor::getReferenceSettings() const
+{
+    ReferenceSettings settings;
+    settings.path = referencePath;
+    settings.curve = referenceCurve;
+    settings.valid = referenceCurveValid;
+    settings.lufs = referenceLufsValue.load (std::memory_order_relaxed);
+
+    const double rate = getSampleRate() > 0.0 ? getSampleRate() : 48000.0;
+
+    if (referenceLength.load (std::memory_order_relaxed) > 0)
+    {
+        settings.loopStart = (double) referenceLoopStart.load (std::memory_order_relaxed) / rate;
+        settings.loopEnd = (double) referenceLoopEnd.load (std::memory_order_relaxed) / rate;
+        settings.position = (double) referencePosition.load (std::memory_order_relaxed) / rate;
+    }
+    else
+    {
+        settings.loopStart = savedReferenceLoopStart;
+        settings.loopEnd = savedReferenceLoopEnd;
+        settings.position = savedReferencePosition;
+    }
+
+    return settings;
+}
+
+void LudensScopeProcessor::unloadReferenceAudio() noexcept
+{
+    {
+        const juce::SpinLock::ScopedLockType guard (referenceLock);
+        referenceAudio.reset();
+    }
+
+    referenceLength.store (0);
+    referencePosition.store (0);
+    referenceLoopStart.store (0);
+    referenceLoopEnd.store (0);
+    referencePlaying.store (false);
+    referenceAudible.store (false);
+    referenceWaveformData.clear();
+    referenceGenerationValue.fetch_add (1);
 }
 
 void LudensScopeProcessor::setReferencePositionSeconds (double seconds) noexcept
@@ -543,6 +605,18 @@ void LudensScopeProcessor::getStateInformation (juce::MemoryBlock& destData)
     stream.writeInt (viewSettingsValue.waterfallHistory);
     stream.writeInt (viewSettingsValue.oscWindow);
     stream.writeFloat (viewSettingsValue.oscGain);
+
+    const auto reference = getReferenceSettings();
+    stream.writeString (reference.path);
+    stream.writeBool (reference.valid);
+
+    for (const float value : reference.curve)
+        stream.writeFloat (value);
+
+    stream.writeFloat (reference.lufs);
+    stream.writeDouble (reference.loopStart);
+    stream.writeDouble (reference.loopEnd);
+    stream.writeDouble (reference.position);
 }
 
 void LudensScopeProcessor::setStateInformation (const void* data, int sizeInBytes)
@@ -561,7 +635,7 @@ void LudensScopeProcessor::setStateInformation (const void* data, int sizeInByte
     const int selected = stream.readInt();
 
     if (magic != snapshotMagic
-        || (version != 1 && version != 2 && version != 3 && version != 4 && version != 5)
+        || (version < 1 || version > 6)
         || slots != snapshotSlots || bins != snapshotBins)
         return;
 
@@ -628,6 +702,28 @@ void LudensScopeProcessor::setStateInformation (const void* data, int sizeInByte
         }
 
         viewSettingsValue = view;
+    }
+
+    if (version >= 6)
+    {
+        const juce::String savedPath = stream.readString();
+        const bool samePath = savedPath == referencePath;
+
+        referenceCurveValid = stream.readBool();
+
+        for (int i = 0; i < 512; ++i)
+            referenceCurve[(size_t) i] = stream.readFloat();
+
+        referenceLufsValue.store (stream.readFloat());
+        savedReferenceLoopStart = stream.readDouble();
+        savedReferenceLoopEnd = stream.readDouble();
+        savedReferencePosition = stream.readDouble();
+
+        if (! samePath)
+            unloadReferenceAudio();
+
+        referencePath = savedPath;
+        referenceGenerationValue.fetch_add (1);
     }
 
     clearUndo();
