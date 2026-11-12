@@ -23,6 +23,11 @@ public:
         if (! image.isValid() || numBins <= 0)
             return;
 
+        // Two editor ticks per row: the panel then covers about six seconds,
+        // which is easier to read than the raw 30 Hz scroll.
+        if ((pushCounter++ % pushDivider) != 0)
+            return;
+
         juce::Image::BitmapData data (image, juce::Image::BitmapData::writeOnly);
 
         for (int x = 0; x < width; ++x)
@@ -91,7 +96,8 @@ public:
         g.drawText ("WATERFALL", titleRow, juce::Justification::centredLeft);
 
         g.setFont (theme::labelFont (9.0f));
-        g.drawText ("older up", titleRow, juce::Justification::centredRight);
+        g.drawText ("older \xe2\x86\x91  " + juce::String (historySeconds(), 1) + " s",
+                    titleRow, juce::Justification::centredRight);
 
         const auto plot = plotBounds();
 
@@ -107,9 +113,31 @@ public:
         if (writeRow > 0)
             g.drawImage (image, (int) plot.getX(), (int) plot.getY() + oldestRows,
                          width, writeRow, 0, 0, width, writeRow);
+
+        // dB colour scale in the margin that the spectrum uses for its labels.
+        const float legendX = plot.getRight() + 5.0f;
+        const juce::Rectangle<float> legend (legendX, plot.getY(), 6.0f, plot.getHeight());
+
+        juce::ColourGradient scale (heat (1.0f), legendX, plot.getY(),
+                                    heat (0.0f), legendX, plot.getBottom(), false);
+        g.setGradientFill (scale);
+        g.fillRect (legend);
+
+        g.setFont (theme::monoFont (7.5f));
+        g.setColour (theme::textDim);
+        g.drawText ("0", juce::Rectangle<float> (legendX + 9.0f, plot.getY(), 18.0f, 10.0f),
+                    juce::Justification::centredLeft);
+        g.drawText ("-96", juce::Rectangle<float> (legendX + 9.0f, plot.getBottom() - 10.0f, 18.0f, 10.0f),
+                    juce::Justification::centredLeft);
     }
 
 private:
+    double historySeconds() const noexcept
+    {
+        // The editor pushes at 30 Hz but only every second tick becomes a row.
+        return height > 0 ? (double) height / 15.0 : 0.0;
+    }
+
     juce::Rectangle<float> plotBounds() const
     {
         return getLocalBounds().toFloat()
@@ -160,6 +188,9 @@ private:
     int width = 0;
     int height = 0;
     int writeRow = 0;
+    int pushCounter = 0;
+
+    static constexpr int pushDivider = 2;
 
     float rangeLow = 20.0f;
     float rangeHigh = 20000.0f;

@@ -74,7 +74,7 @@ int main (int argc, char** argv)
     Feeder feeder (processor, buffer, midi);
     feeder.startTimerHz (120);
 
-    juce::Timer::callAfterDelay (4000, []
+    juce::Timer::callAfterDelay (7500, []
     {
         juce::MessageManager::getInstance()->stopDispatchLoop();
     });
