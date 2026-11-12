@@ -2,6 +2,33 @@
 
 #include <cmath>
 
+#include "dsp/ReferenceAnalysis.h"
+
+class ReferenceLoader final : public juce::Thread
+{
+public:
+    ReferenceLoader (juce::File f,
+                     std::function<void (const ReferenceAnalysis&)> finished)
+        : juce::Thread ("LudensScope reference analysis"),
+          file (std::move (f)), onFinished (std::move (finished))
+    {
+    }
+
+    void run() override
+    {
+        const auto result = analyzeReferenceFile (file, [this] { return threadShouldExit(); });
+
+        juce::MessageManager::callAsync ([done = onFinished, result]
+        {
+            done (result);
+        });
+    }
+
+private:
+    juce::File file;
+    std::function<void (const ReferenceAnalysis&)> onFinished;
+};
+
 class ScopeLookAndFeel final : public juce::LookAndFeel_V4
 {
 public:
@@ -99,6 +126,11 @@ LudensScopeEditor::LudensScopeEditor (LudensScopeProcessor& p)
     };
     addAndMakeVisible (guidesButton);
 
+    referenceButton.setColour (juce::TextButton::buttonColourId, theme::panel);
+    referenceButton.setColour (juce::TextButton::textColourOffId, theme::text);
+    referenceButton.onClick = [this] { chooseReferenceFile(); };
+    addAndMakeVisible (referenceButton);
+
     spectrumView.onRangeChange = [this] (float lowHz, float highHz)
     {
         applyRange (lowHz, highHz);
@@ -123,6 +155,12 @@ LudensScopeEditor::LudensScopeEditor (LudensScopeProcessor& p)
 
 LudensScopeEditor::~LudensScopeEditor()
 {
+    if (referenceLoader != nullptr)
+    {
+        referenceLoader->signalThreadShouldExit();
+        referenceLoader->stopThread (2000);
+    }
+
     setLookAndFeel (nullptr);
 }
 
@@ -172,8 +210,7 @@ void LudensScopeEditor::paint (juce::Graphics& g)
 
     g.setFont (theme::labelFont (9.5f));
     g.setColour (theme::textDim);
-    g.drawText ("STEREO ANALYZER  /  SPECTRUM  LOUDNESS  IMAGE", header,
-                juce::Justification::centredLeft);
+    g.drawText ("STEREO ANALYZER", header, juce::Justification::centredLeft);
 
     g.setColour (juce::Colour (0x12ffffff));
     g.fillRect (14, 53, getWidth() - 28, 1);
@@ -195,6 +232,8 @@ void LudensScopeEditor::resized()
     spanButton.setBounds (header.removeFromRight (92).withSizeKeepingCentre (92, 26));
     header.removeFromRight (8);
     guidesButton.setBounds (header.removeFromRight (84).withSizeKeepingCentre (84, 26));
+    header.removeFromRight (8);
+    referenceButton.setBounds (header.removeFromRight (88).withSizeKeepingCentre (88, 26));
 
     r.removeFromTop (8);
 
@@ -349,6 +388,52 @@ void LudensScopeEditor::appendScope (const float* left, const float* right, int 
 
     std::memcpy (scopeLeft.data()  + keep, left  + (numSamples - take), sizeof (float) * (size_t) take);
     std::memcpy (scopeRight.data() + keep, right + (numSamples - take), sizeof (float) * (size_t) take);
+}
+
+void LudensScopeEditor::chooseReferenceFile()
+{
+    referenceChooser = std::make_unique<juce::FileChooser> (
+        "Load reference audio", juce::File(), "*.wav;*.aif;*.aiff;*.flac;*.ogg");
+
+    referenceChooser->launchAsync (juce::FileBrowserComponent::openMode
+                                       | juce::FileBrowserComponent::canSelectFiles,
+                                   [this] (const juce::FileChooser& chooser)
+                                   {
+                                       const auto file = chooser.getResult();
+
+                                       if (file.existsAsFile())
+                                           loadReferenceFile (file);
+                                   });
+}
+
+void LudensScopeEditor::loadReferenceFile (const juce::File& file)
+{
+    if (referenceLoader != nullptr)
+        referenceLoader->stopThread (2000);
+
+    referenceButton.setButtonText ("LOADING...");
+    referenceButton.setEnabled (false);
+
+    referenceLoader = std::make_unique<ReferenceLoader> (
+        file,
+        [safe = juce::Component::SafePointer<LudensScopeEditor> (this)]
+        (const ReferenceAnalysis& analysis)
+        {
+            if (safe == nullptr)
+                return;
+
+            safe->referenceButton.setButtonText ("REF FILE");
+            safe->referenceButton.setEnabled (true);
+
+            if (! analysis.ok)
+                return;
+
+            safe->referenceDb = analysis.levels;
+            safe->hasReference = true;
+            safe->spectrumView.setReference (safe->referenceDb.data(), true);
+        });
+
+    referenceLoader->startThread();
 }
 
 void LudensScopeEditor::setGuidesEnabled (bool enabled)

@@ -17,6 +17,7 @@
 #include "ui/VectorScopeView.h"
 
 class ScopeLookAndFeel;
+class ReferenceLoader;
 
 class LudensScopeEditor : public juce::AudioProcessorEditor,
                        private juce::Timer
@@ -44,6 +45,8 @@ private:
     void resetDisplay();
     void cycleSpan();
     void applyRange (float lowHz, float highHz);
+    void chooseReferenceFile();
+    void loadReferenceFile (const juce::File& file);
 
     static constexpr int scopeSize = 16384;
     static constexpr int readChunk = 8192;
@@ -64,6 +67,10 @@ private:
     juce::TextButton monoButton { "MONO" };
     juce::TextButton spanButton { "SPAN 10" };
     juce::TextButton guidesButton { "GUIDES" };
+    juce::TextButton referenceButton { "REF FILE" };
+
+    std::unique_ptr<juce::FileChooser> referenceChooser;
+    std::unique_ptr<ReferenceLoader> referenceLoader;
 
     bool monoActive = false;
 

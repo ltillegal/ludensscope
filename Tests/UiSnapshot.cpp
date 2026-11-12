@@ -1,4 +1,5 @@
 #include "PluginEditor.h"
+#include "dsp/ReferenceAnalysis.h"
 #include "PluginProcessor.h"
 
 #include <cmath>
@@ -133,6 +134,50 @@ int main (int argc, char** argv)
     const auto clipped = processor.clippedSampleCount();
     std::printf ("clip counter %llu (expected 2)\n", (unsigned long long) clipped);
 
+    // Reference file analysis: a 1 kHz sine should peak near bin 290.
+    juce::File referenceFile ("/tmp/ludensscope-reference-test.wav");
+    bool referenceOk = false;
+
+    {
+        referenceFile.deleteFile();
+
+        juce::WavAudioFormat wavFormat;
+        std::unique_ptr<juce::AudioFormatWriter> writer (
+            wavFormat.createWriterFor (new juce::FileOutputStream (referenceFile),
+                                       48000.0, 2, 16, juce::StringPairArray(), 0));
+
+        if (writer != nullptr)
+        {
+            juce::AudioBuffer<float> sine (2, 96000);
+
+            for (int i = 0; i < sine.getNumSamples(); ++i)
+            {
+                const float value = 0.5f * (float) std::sin (2.0 * pi * 1000.0 * (double) i / 48000.0);
+                sine.setSample (0, i, value);
+                sine.setSample (1, i, value);
+            }
+
+            writer->writeFromAudioSampleBuffer (sine, 0, sine.getNumSamples());
+        }
+    }
+
+    if (referenceFile.existsAsFile())
+    {
+        const auto analysis = analyzeReferenceFile (referenceFile);
+
+        if (analysis.ok)
+        {
+            int bestBin = 0;
+
+            for (int i = 1; i < SpectrumAnalyzer::numBins; ++i)
+                if (analysis.levels[(size_t) i] > analysis.levels[(size_t) bestBin])
+                    bestBin = i;
+
+            std::printf ("reference peak bin %d (expected near 290)\n", bestBin);
+            referenceOk = std::abs (bestBin - 290) <= 4;
+        }
+    }
+
     editor.reset();
-    return clipped == 2 ? 0 : 1;
+    return clipped == 2 && referenceOk ? 0 : 1;
 }
