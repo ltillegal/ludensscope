@@ -134,9 +134,26 @@ void LudensScopeEditor::paint (juce::Graphics& g)
 
     auto brand = header.removeFromLeft (168);
 
-    g.setColour (theme::accent);
-    g.fillRoundedRectangle (brand.removeFromLeft (6).withSizeKeepingCentre (6, 6).toFloat(), 2.0f);
-    brand.removeFromLeft (9);
+    auto mark = brand.removeFromLeft (16).withSizeKeepingCentre (13, 13).toFloat();
+
+    g.setColour (theme::accent.withAlpha (0.85f));
+    g.drawRoundedRectangle (mark, 3.5f, 1.2f);
+
+    juce::Path markWave;
+
+    for (int i = 0; i <= 12; ++i)
+    {
+        const float t = (float) i / 12.0f;
+        const float x = mark.getX() + 2.0f + t * (mark.getWidth() - 4.0f);
+        const float y = mark.getCentreY() - std::sin (t * 2.0f * juce::MathConstants<float>::pi) * 2.6f;
+
+        if (i == 0) markWave.startNewSubPath (x, y);
+        else        markWave.lineTo (x, y);
+    }
+
+    g.strokePath (markWave, juce::PathStrokeType (1.1f));
+
+    brand.removeFromLeft (10);
 
     g.setFont (theme::boldFont (19.0f));
     g.setColour (theme::text);
