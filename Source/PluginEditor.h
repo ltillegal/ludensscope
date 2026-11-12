@@ -52,7 +52,7 @@ private:
     void toggleReferenceAb();
     void updateReferenceGain();
 
-    static constexpr int scopeSize = 16384;
+    static constexpr int scopeSize = 131072;
     static constexpr int readChunk = 8192;
 
     LudensScopeProcessor& processor;

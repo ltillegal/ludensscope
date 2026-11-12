@@ -46,6 +46,7 @@ public:
         }
 
         writeRow = (writeRow + 1) % height;
+        repaint();
     }
 
     void setRange (float lowHz, float highHz)
