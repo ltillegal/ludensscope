@@ -44,7 +44,7 @@ public:
             if (count < 32)
                 return;
 
-            const int base = windowSamples > 0 ? windowSamples : count / 2;
+            const int base = windowSamples > 0 ? windowSamples : count;
             const float factor = std::pow (2.0f, -wheel.deltaY * 0.5f);
 
             windowSamples = juce::jlimit (32, count, (int) std::lround ((float) base * factor));
@@ -73,7 +73,7 @@ public:
         const int count = (int) juce::jmin (left.size(), right.size());
         const int window = windowSamples > 0
             ? juce::jmin (windowSamples, count)
-            : count / 2;
+            : count;
 
         const double milliseconds = 1000.0 * (double) window / sampleRate;
 
@@ -118,6 +118,7 @@ public:
         }
 
         const int drawCount = juce::jmin (count - start, window);
+        const int columns = juce::jlimit (2, (int) juce::jmax (2.0f, plot.getWidth()), drawCount);
 
         const auto yFor = [&] (float sample)
         {
@@ -125,41 +126,59 @@ public:
                    - juce::jlimit (-1.0f, 1.0f, sample * verticalGain) * plot.getHeight() * 0.46f;
         };
 
-        const auto buildPath = [&] (const std::vector<float>& data)
+        // Min/max envelope per pixel column: at long time windows this draws
+        // the waveform shape instead of a sparse, aliased polyline.
+        const auto drawChannel = [&] (const std::vector<float>& data, juce::Colour colour)
         {
-            juce::Path path;
+            std::vector<float> tops ((size_t) columns), bottoms ((size_t) columns);
 
-            for (int i = 0; i < drawCount; ++i)
+            for (int c = 0; c < columns; ++c)
             {
-                const float x = plot.getX() + plot.getWidth() * (float) i / (float) juce::jmax (1, drawCount - 1);
-                const float y = yFor (data[(size_t) (start + i)]);
+                const int from = start + (int) ((juce::int64) c * drawCount / columns);
+                int to = start + (int) ((juce::int64) (c + 1) * drawCount / columns);
 
-                if (i == 0) path.startNewSubPath (x, y);
-                else        path.lineTo (x, y);
+                if (to <= from)
+                    to = from + 1;
+
+                float lo = data[(size_t) from];
+                float hi = lo;
+
+                for (int i = from + 1; i < to && i < start + drawCount; ++i)
+                {
+                    lo = juce::jmin (lo, data[(size_t) i]);
+                    hi = juce::jmax (hi, data[(size_t) i]);
+                }
+
+                tops[(size_t) c] = hi;
+                bottoms[(size_t) c] = lo;
             }
 
-            return path;
+            const auto xAt = [&] (int c)
+            {
+                return plot.getX() + plot.getWidth() * (float) c / (float) (columns - 1);
+            };
+
+            juce::Path envelope;
+            envelope.startNewSubPath (xAt (0), yFor (tops[0]));
+
+            for (int c = 1; c < columns; ++c)
+                envelope.lineTo (xAt (c), yFor (tops[(size_t) c]));
+
+            for (int c = columns - 1; c >= 0; --c)
+                envelope.lineTo (xAt (c), yFor (bottoms[(size_t) c]));
+
+            envelope.closeSubPath();
+
+            g.setGradientFill (juce::ColourGradient::vertical (colour.withAlpha (0.16f), plot.getY(),
+                                                               colour.withAlpha (0.01f), plot.getBottom()));
+            g.fillPath (envelope);
+
+            g.setColour (colour.withAlpha (0.85f));
+            g.strokePath (envelope, juce::PathStrokeType (1.0f));
         };
 
-        const auto leftPath = buildPath (left);
-
-        juce::Path filled = leftPath;
-        filled.lineTo (plot.getRight(), plot.getBottom());
-        filled.lineTo (plot.getX(), plot.getBottom());
-        filled.closeSubPath();
-
-        g.setGradientFill (juce::ColourGradient::vertical (theme::accent.withAlpha (0.16f), plot.getY(),
-                                                           theme::accent.withAlpha (0.0f), plot.getBottom()));
-        g.fillPath (filled);
-
-        g.setColour (theme::accent.withAlpha (0.09f));
-        g.strokePath (leftPath, juce::PathStrokeType (5.0f));
-
-        g.setColour (theme::cold.withAlpha (0.45f));
-        g.strokePath (buildPath (right), juce::PathStrokeType (1.1f));
-
-        g.setColour (theme::accent);
-        g.strokePath (leftPath, juce::PathStrokeType (1.3f));
+        drawChannel (right, theme::cold);
+        drawChannel (left, theme::accent);
     }
 
 private:

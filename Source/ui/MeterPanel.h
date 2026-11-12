@@ -98,7 +98,7 @@ public:
 
         g.setFont (theme::monoFont (9.5f));
         g.setColour (theme::textDim);
-        g.drawText ("hold " + juce::String (truePeakHold, 1),
+        g.drawText ("max " + juce::String (truePeakHold, 1),
                     area.removeFromTop (12.0f), juce::Justification::centredRight);
 
         auto sampleRow = area.removeFromTop (18.0f);
