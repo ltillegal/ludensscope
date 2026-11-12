@@ -45,6 +45,7 @@ private:
     void resetDisplay();
     void cycleSpan();
     void applyRange (float lowHz, float highHz);
+    void syncSnapshots();
     void chooseReferenceFile();
     void loadReferenceFile (const juce::File& file);
     void toggleReferencePlay();
@@ -85,9 +86,11 @@ private:
     std::array<float, SpectrumAnalyzer::numBins> referenceDb {};
     bool hasReference = false;
 
-    std::array<std::array<float, SpectrumAnalyzer::numBins>, SpectrumView::snapshotCount> snapshots {};
-    std::array<bool, SpectrumView::snapshotCount> snapshotFilled {};
+    std::array<std::array<float, LudensScopeProcessor::snapshotBins>,
+               LudensScopeProcessor::snapshotSlots> snapshots {};
+    std::array<bool, LudensScopeProcessor::snapshotSlots> snapshotFilled {};
     int snapshotSlot = 0;
+    int snapshotGeneration = -1;
 
     juce::Rectangle<int> leftColumnBounds;
     juce::Rectangle<int> waterfallDivider;

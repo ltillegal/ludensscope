@@ -4,6 +4,8 @@
 
 #include "dsp/ReferenceAnalysis.h"
 
+#include <algorithm>
+
 class ReferenceLoader final : public juce::Thread
 {
 public:
@@ -161,9 +163,12 @@ LudensScopeEditor::LudensScopeEditor (LudensScopeProcessor& p)
 
     spectrumView.onSnapshotSelect = [this] (int slot)
     {
-        snapshotSlot = juce::jlimit (0, SpectrumView::snapshotCount - 1, slot);
+        snapshotSlot = juce::jlimit (0, LudensScopeProcessor::snapshotSlots - 1, slot);
+        processor.setSelectedSnapshot (snapshotSlot);
         spectrumView.setSnapshots (snapshots, snapshotFilled, snapshotSlot);
     };
+
+    syncSnapshots();
 
     readLeft.resize (readChunk);
     readRight.resize (readChunk);
@@ -394,6 +399,9 @@ void LudensScopeEditor::timerCallback()
                                (double) processor.referencePositionSamples() / referenceRate,
                                (double) processor.referenceLengthSamples() / referenceRate);
 
+    if (processor.snapshotGeneration() != snapshotGeneration)
+        syncSnapshots();
+
     vectorScopeView.setData (scopeLeft.data() + (scopeSize - 1024),
                              scopeRight.data() + (scopeSize - 1024), 1024);
     oscilloscopeView.setData (scopeLeft.data(), scopeRight.data(), scopeSize, false);
@@ -532,8 +540,25 @@ void LudensScopeEditor::setGuidesEnabled (bool enabled)
 
 void LudensScopeEditor::captureReference()
 {
-    snapshots[(size_t) snapshotSlot] = analyzer.averageLevels();
-    snapshotFilled[(size_t) snapshotSlot] = true;
+    processor.setSnapshot (snapshotSlot, analyzer.averageLevels().data());
+    syncSnapshots();
+}
+
+void LudensScopeEditor::syncSnapshots()
+{
+    for (int slot = 0; slot < LudensScopeProcessor::snapshotSlots; ++slot)
+    {
+        snapshotFilled[(size_t) slot] = processor.isSnapshotFilled (slot);
+
+        if (snapshotFilled[(size_t) slot])
+            std::copy (processor.snapshotLevels (slot),
+                       processor.snapshotLevels (slot) + LudensScopeProcessor::snapshotBins,
+                       snapshots[(size_t) slot].begin());
+    }
+
+    snapshotSlot = juce::jlimit (0, LudensScopeProcessor::snapshotSlots - 1,
+                                 processor.selectedSnapshot());
+    snapshotGeneration = processor.snapshotGeneration();
 
     spectrumView.setSnapshots (snapshots, snapshotFilled, snapshotSlot);
 }
@@ -555,8 +580,8 @@ void LudensScopeEditor::resetDisplay()
     for (auto& filled : snapshotFilled)
         filled = false;
 
-    snapshotSlot = 0;
-    spectrumView.setSnapshots (snapshots, snapshotFilled, snapshotSlot);
+    processor.clearSnapshots();
+    syncSnapshots();
 
     processor.clearReferenceAudio();
     spectrumView.setTransport (false, false, true, false, 0.0, 0.0);
