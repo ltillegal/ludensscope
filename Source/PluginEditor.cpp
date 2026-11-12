@@ -777,6 +777,31 @@ void LudensScopeEditor::showFftMenu()
     menu.addItem (501, "Export view (PNG)...", true);
 
     menu.addSeparator();
+    menu.addSectionHeader ("Curve presets");
+    menu.addItem (1000, "Save current curve...", true, false);
+
+    const auto& curves = curvePresets.getPresets();
+
+    if (! curves.empty())
+    {
+        juce::PopupMenu loadMenu;
+        juce::PopupMenu deleteMenu;
+
+        for (int i = 0; i < (int) curves.size(); ++i)
+        {
+            loadMenu.addItem (1100 + i, curves[(size_t) i].name, true,
+                              targetCurveActive && targetCurveName == curves[(size_t) i].name);
+            deleteMenu.addItem (1200 + i, curves[(size_t) i].name, true, false);
+        }
+
+        menu.addSubMenu ("Load curve", loadMenu);
+        menu.addSubMenu ("Delete curve", deleteMenu);
+    }
+
+    if (targetCurveActive)
+        menu.addItem (1001, "Clear target", true, false);
+
+    menu.addSeparator();
     menu.addItem (630, "Check for updates...", true, false);
 
     juce::Component::SafePointer<LudensScopeEditor> safe (this);
@@ -890,6 +915,23 @@ void LudensScopeEditor::applyFftMenu (int result)
     else if (result == 630)
     {
         checkForUpdates();
+    }
+    else if (result == 1000)
+    {
+        saveCurvePreset();
+    }
+    else if (result == 1001)
+    {
+        clearTargetCurve();
+        saveViewSettings();
+    }
+    else if (result >= 1100 && result < 1200)
+    {
+        loadCurvePreset (result - 1100);
+    }
+    else if (result >= 1200 && result < 1300)
+    {
+        deleteCurvePreset (result - 1200);
     }
 }
 
@@ -1116,6 +1158,11 @@ void LudensScopeEditor::applyViewSettings (const LudensScopeProcessor::ViewSetti
     differenceSource = juce::jlimit (0, 2, settings.differenceSource);
     spectrumView.setDifferenceSource (differenceSource);
 
+    if (settings.targetCurveName.isNotEmpty())
+        applyTargetCurve (settings.targetCurveName);
+    else
+        clearTargetCurve();
+
     spanIndex = juce::jlimit (0, 5, settings.spanIndex);
     applyRange (juce::jlimit (20.0f, 20000.0f, settings.rangeLow),
                 juce::jlimit (20.0f, 20000.0f, settings.rangeHigh));
@@ -1143,6 +1190,7 @@ void LudensScopeEditor::saveViewSettings()
     settings.peakMarkers = showPeakMarkers ? 1 : 0;
     settings.difference = showDifference ? 1 : 0;
     settings.differenceSource = differenceSource;
+    settings.targetCurveName = targetCurveActive ? targetCurveName : juce::String();
     settings.spanIndex = spanIndex;
     settings.rangeLow = rangeLow;
     settings.rangeHigh = rangeHigh;
@@ -1416,6 +1464,84 @@ void LudensScopeEditor::applyReferenceSettings()
 
         spectrumView.setReferenceWaveform ({});
     }
+}
+
+void LudensScopeEditor::saveCurvePreset()
+{
+    juce::AlertWindow window ("Save FFT curve", "Preset name:",
+                              juce::MessageBoxIconType::NoIcon);
+    window.addTextEditor ("name", targetCurveActive ? targetCurveName
+                                                     : juce::String ("My curve"));
+    window.addButton ("Save", 1);
+    window.addButton ("Cancel", 0);
+
+    if (window.runModalLoop() != 1)
+        return;
+
+    const auto name = window.getTextEditorContents ("name").trim();
+
+    if (name.isEmpty())
+        return;
+
+    const auto& average = analyzer.averageLevels();
+
+    if (curvePresets.save (name, average.data()))
+    {
+        applyTargetCurve (name);
+        saveViewSettings();
+    }
+}
+
+void LudensScopeEditor::loadCurvePreset (int index)
+{
+    const auto& curves = curvePresets.getPresets();
+
+    if (index < 0 || index >= (int) curves.size())
+        return;
+
+    applyTargetCurve (curves[(size_t) index].name);
+    saveViewSettings();
+}
+
+void LudensScopeEditor::deleteCurvePreset (int index)
+{
+    const auto& curves = curvePresets.getPresets();
+
+    if (index < 0 || index >= (int) curves.size())
+        return;
+
+    const auto name = curves[(size_t) index].name;
+
+    if (! curvePresets.remove (name))
+        return;
+
+    if (targetCurveActive && targetCurveName == name)
+        clearTargetCurve();
+
+    saveViewSettings();
+}
+
+void LudensScopeEditor::applyTargetCurve (const juce::String& name)
+{
+    const auto* preset = curvePresets.find (name);
+
+    if (preset == nullptr)
+    {
+        clearTargetCurve();
+        return;
+    }
+
+    targetCurve = preset->curve;
+    targetCurveActive = true;
+    targetCurveName = preset->name;
+    spectrumView.setTargetCurve (targetCurve.data(), true, targetCurveName);
+}
+
+void LudensScopeEditor::clearTargetCurve()
+{
+    targetCurveActive = false;
+    targetCurveName.clear();
+    spectrumView.setTargetCurve (nullptr, false, {});
 }
 
 void LudensScopeEditor::undoReset()

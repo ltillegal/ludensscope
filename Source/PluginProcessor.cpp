@@ -7,7 +7,7 @@
 namespace
 {
     constexpr int snapshotMagic = 0x4c444e53; // 'LDNS'
-    constexpr int snapshotVersion = 8;
+    constexpr int snapshotVersion = 9;
 }
 
 LudensScopeProcessor::LudensScopeProcessor()
@@ -695,6 +695,7 @@ void LudensScopeProcessor::getStateInformation (juce::MemoryBlock& destData)
     stream.writeInt (viewSettingsValue.oscWindow);
     stream.writeFloat (viewSettingsValue.oscGain);
     stream.writeInt (viewSettingsValue.differenceSource);
+    stream.writeString (viewSettingsValue.targetCurveName);
 
     syncActiveReferenceSlot();
 
@@ -731,7 +732,7 @@ void LudensScopeProcessor::setStateInformation (const void* data, int sizeInByte
     const int selected = stream.readInt();
 
     if (magic != snapshotMagic
-        || (version < 1 || version > 8)
+        || (version < 1 || version > 9)
         || slots != snapshotSlots || bins != snapshotBins)
         return;
 
@@ -777,7 +778,7 @@ void LudensScopeProcessor::setStateInformation (const void* data, int sizeInByte
     {
         ViewSettings view;
         view.guidesEnabled = stream.readInt() != 0 ? 1 : 0;
-        view.guidePreset = juce::jlimit (0, 4, stream.readInt());
+        view.guidePreset = juce::jlimit (0, 15, stream.readInt());
         view.sideCurve = stream.readInt() != 0 ? 1 : 0;
         view.peakMarkers = stream.readInt() != 0 ? 1 : 0;
         view.difference = stream.readInt() != 0 ? 1 : 0;
@@ -793,6 +794,9 @@ void LudensScopeProcessor::setStateInformation (const void* data, int sizeInByte
 
         if (version >= 7)
             view.differenceSource = juce::jlimit (0, 2, stream.readInt());
+
+        if (version >= 9)
+            view.targetCurveName = stream.readString();
 
         if (view.waterfallHistory != 1 && view.waterfallHistory != 2
             && view.waterfallHistory != 4)

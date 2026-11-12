@@ -1,4 +1,5 @@
 #include "PluginEditor.h"
+#include "ui/CurvePresets.h"
 #include "dsp/ReferenceAnalysis.h"
 #include "PluginProcessor.h"
 
@@ -292,6 +293,7 @@ int main (int argc, char** argv)
     testView.peakMarkers = 0;
     testView.difference = 1;
     testView.differenceSource = 1;
+    testView.targetCurveName = "Test target";
     testView.spanIndex = 2;
     testView.rangeLow = 50.0f;
     testView.rangeHigh = 5000.0f;
@@ -326,6 +328,7 @@ int main (int argc, char** argv)
         && restoredView.peakMarkers == 0
         && restoredView.difference == 1
         && restoredView.differenceSource == 1
+        && restoredView.targetCurveName == "Test target"
         && restoredView.spanIndex == 2
         && std::abs (restoredView.rangeLow - 50.0f) < 1.0f
         && std::abs (restoredView.rangeHigh - 5000.0f) < 1.0f
@@ -426,8 +429,36 @@ int main (int argc, char** argv)
     processor.setBandSolo (false, 0.0f, 0.0f);
 
     editor.reset();
+    // Curve preset store: save, reload from disk, delete.
+    const auto presetFile = juce::File::getSpecialLocation (juce::File::tempDirectory)
+                                .getChildFile ("ludensscope-curve-presets-test.json");
+    presetFile.deleteFile();
+
+    CurvePresetStore presetStore (presetFile);
+    std::array<float, 512> presetCurve {};
+    presetCurve.fill (-30.0f);
+    presetCurve[100] = -12.0f;
+
+    const bool presetSaved = presetStore.save ("Test curve", presetCurve.data());
+    const auto* presetFound = presetStore.find ("Test curve");
+
+    CurvePresetStore presetStoreReloaded (presetFile);
+    const auto* presetReloaded = presetStoreReloaded.find ("Test curve");
+
+    const bool presetOk = presetSaved
+        && presetFound != nullptr
+        && std::abs (presetFound->curve[100] + 12.0f) < 1.0e-4f
+        && presetStore.find ("Missing") == nullptr
+        && presetReloaded != nullptr
+        && std::abs (presetReloaded->curve[100] + 12.0f) < 1.0e-4f
+        && presetStoreReloaded.remove ("Test curve")
+        && presetStoreReloaded.find ("Test curve") == nullptr;
+
+    presetFile.deleteFile();
+    std::printf ("curve presets: %s\n", presetOk ? "ok" : "FAIL");
+
     return clipped == 2 && undoOk && referenceOk && gainOk && seekOk
            && snapshotPersisted && settingsPersisted
            && referencePersisted
-           && viewPersisted && slotsOk && soloOk && loopOk && waveformOk ? 0 : 1;
+           && viewPersisted && presetOk && slotsOk && soloOk && loopOk && waveformOk ? 0 : 1;
 }

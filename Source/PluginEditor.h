@@ -7,6 +7,7 @@
 #include <vector>
 
 #include "PluginProcessor.h"
+#include "ui/CurvePresets.h"
 #include "ui/UpdateChecker.h"
 #include "dsp/SpectrumAnalyzer.h"
 #include "dsp/TruePeakDetector.h"
@@ -91,6 +92,11 @@ private:
     void checkForUpdates();
     void handleUpdateResult (const UpdateInfo& info);
     void downloadUpdate (const UpdateInfo& info);
+    void saveCurvePreset();
+    void loadCurvePreset (int index);
+    void deleteCurvePreset (int index);
+    void applyTargetCurve (const juce::String& name);
+    void clearTargetCurve();
     void undoReset();
 
     bool isInterestedInFileDrag (const juce::StringArray& files) override;
@@ -172,6 +178,11 @@ private:
     std::unique_ptr<juce::TooltipWindow> tooltipWindow;
     std::unique_ptr<UpdateCheckThread> updateCheck;
     std::unique_ptr<UpdateDownloader> updateDownloader;
+
+    CurvePresetStore curvePresets;
+    std::array<float, SpectrumAnalyzer::numBins> targetCurve {};
+    bool targetCurveActive = false;
+    juce::String targetCurveName;
 
     bool monoActive = false;
 
