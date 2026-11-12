@@ -87,7 +87,7 @@ LudensScopeEditor::LudensScopeEditor (LudensScopeProcessor& p)
     setWantsKeyboardFocus (true);
     tooltipWindow = std::make_unique<juce::TooltipWindow> (this, 700);
     setResizable (true, true);
-    setResizeLimits (1000, 600, 2400, 1500);
+    setResizeLimits (1060, 600, 2400, 1500);
 
     addAndMakeVisible (spectrumView);
     addAndMakeVisible (spectrogramView);
@@ -112,6 +112,14 @@ LudensScopeEditor::LudensScopeEditor (LudensScopeProcessor& p)
     resetButton.setColour (juce::TextButton::textColourOffId, theme::text);
     resetButton.onClick = [this] { resetDisplay(); };
     addAndMakeVisible (resetButton);
+
+    undoButton.setColour (juce::TextButton::buttonColourId, theme::panel);
+    undoButton.setColour (juce::TextButton::textColourOffId, theme::textDim);
+    undoButton.setColour (juce::TextButton::textColourOnId, theme::accent2);
+    undoButton.onClick = [this] { undoReset(); };
+    undoButton.setEnabled (false);
+    undoButton.setTooltip ("Restore the meters, snapshot, reference and counters from before the last RESET");
+    addAndMakeVisible (undoButton);
 
     captureButton.setColour (juce::TextButton::buttonColourId, theme::panel);
     captureButton.setColour (juce::TextButton::textColourOffId, theme::text);
@@ -290,6 +298,8 @@ void LudensScopeEditor::resized()
 
     resetButton.setBounds (header.removeFromRight (84).withSizeKeepingCentre (84, 26));
     header.removeFromRight (8);
+    undoButton.setBounds (header.removeFromRight (68).withSizeKeepingCentre (68, 26));
+    header.removeFromRight (8);
     freezeButton.setBounds (header.removeFromRight (94).withSizeKeepingCentre (94, 26));
     header.removeFromRight (8);
     captureButton.setBounds (header.removeFromRight (98).withSizeKeepingCentre (98, 26));
@@ -460,6 +470,8 @@ void LudensScopeEditor::timerCallback()
 
     const double referenceRate = preparedSampleRate > 0.0 ? preparedSampleRate : 48000.0;
 
+    undoButton.setEnabled (processor.hasUndo());
+
     spectrumView.setTransport (processor.hasReferenceAudio(),
                                processor.isReferencePlaying(),
                                processor.isReferenceLooping(),
@@ -545,6 +557,7 @@ void LudensScopeEditor::loadReferenceFile (const juce::File& file)
             safe->spectrumView.setReference (safe->referenceDb.data(), true);
 
             safe->processor.setReferenceAudio (std::move (analysis.audio), analysis.lufs);
+            safe->processor.clearUndo();
             safe->spectrumView.setReferenceWaveform (safe->processor.referenceWaveform());
         });
 
@@ -1055,6 +1068,8 @@ void LudensScopeEditor::showGuidesMenu()
 
 void LudensScopeEditor::captureReference()
 {
+    processor.clearUndo();
+
     processor.setSnapshot (snapshotSlot, analyzer.averageLevels().data());
     syncSnapshots();
 }
@@ -1081,10 +1096,76 @@ void LudensScopeEditor::syncSnapshots()
     spectrumView.setSnapshots (snapshots, snapshotFilled, snapshotSlot);
 }
 
+void LudensScopeEditor::undoReset()
+{
+    if (! processor.hasUndo())
+        return;
+
+    processor.requestUndoRestore();
+
+    if (undoSnapshotValid)
+    {
+        processor.setSnapshot (undoSnapshotSlot, undoSnapshotLevels.data());
+        processor.setSelectedSnapshot (undoSnapshotSlot);
+    }
+
+    if (undoReferenceValid && undoReferenceAudio != nullptr)
+    {
+        processor.restoreReferenceAudio (undoReferenceAudio, undoReferenceLufs,
+                                         undoLoopStart, undoLoopEnd, undoPosition);
+        hasReference = true;
+        referenceDb = undoReferenceDb;
+        spectrumView.setReference (referenceDb.data(), true);
+        spectrumView.setReferenceWaveform (processor.referenceWaveform());
+    }
+
+    analyzer.restoreAverage (undoAverage.data());
+    analyzer.restorePeaks (undoPeaks.data());
+
+    truePeakOvers = undoTruePeakOvers;
+    truePeakHoldDb = undoTruePeakHold;
+
+    syncSnapshots();
+}
+
 void LudensScopeEditor::resetDisplay()
 {
+    // Capture what the reset is about to clear.
+    undoSnapshotValid = processor.isSnapshotFilled (snapshotSlot);
+
+    if (undoSnapshotValid)
+    {
+        undoSnapshotSlot = snapshotSlot;
+
+        const float* levels = processor.snapshotLevels (snapshotSlot);
+
+        if (levels != nullptr)
+            std::copy (levels, levels + SpectrumAnalyzer::numBins, undoSnapshotLevels.begin());
+    }
+
+    undoAverage = analyzer.averageLevels();
+    undoPeaks = analyzer.peaks();
+
+    undoReferenceValid = processor.hasReferenceAudio();
+
+    if (undoReferenceValid)
+    {
+        undoReferenceAudio = processor.copyReferenceAudio();
+        undoReferenceLufs = processor.referenceLufs();
+        undoLoopStart = processor.referenceLoopStartSeconds();
+        undoLoopEnd = processor.referenceLoopEndSeconds();
+
+        const double rate = preparedSampleRate > 0.0 ? preparedSampleRate : 48000.0;
+        undoPosition = (double) processor.referencePositionSamples() / rate;
+        undoReferenceDb = referenceDb;
+    }
+
+    undoTruePeakOvers = truePeakOvers;
+    undoTruePeakHold = truePeakHoldDb;
+
+    // The audio thread snapshots the long-term loudness before applying reset.
+    processor.requestUndoCapture();
     processor.requestReset();
-    processor.resetClipCounters();
 
     analyzer.resetPeaks();
     analyzer.resetAverage();

@@ -200,6 +200,36 @@ int main (int argc, char** argv)
     const auto clipped = processor.clippedSampleCount();
     std::printf ("clip counter %llu (expected 2)\n", (unsigned long long) clipped);
 
+    // Undo of a reset restores the long-term loudness and the clip counter.
+    const float loudnessBeforeReset = processor.integratedLufs();
+
+    processor.requestUndoCapture();
+    processor.requestReset();
+
+    {
+        juce::AudioBuffer<float> resetBlock (2, 512);
+        resetBlock.clear();
+        processor.processBlock (resetBlock, midi);
+    }
+
+    const float loudnessAfterReset = processor.integratedLufs();
+
+    processor.requestUndoRestore();
+
+    {
+        juce::AudioBuffer<float> undoBlock (2, 512);
+        undoBlock.clear();
+        processor.processBlock (undoBlock, midi);
+    }
+
+    const float loudnessAfterUndo = processor.integratedLufs();
+    const bool undoOk = loudnessAfterReset < -90.0f
+        && std::abs (loudnessAfterUndo - loudnessBeforeReset) < 0.1f
+        && processor.clippedSampleCount() == 2;
+    std::printf ("reset undo: %.2f -> %.2f -> %.2f (%s)\n",
+                 loudnessBeforeReset, loudnessAfterReset, loudnessAfterUndo,
+                 undoOk ? "ok" : "FAIL");
+
     // The reference player should output the loaded file instead of silence.
     juce::AudioBuffer<float> refOut (2, 512);
     refOut.clear();
@@ -348,6 +378,6 @@ int main (int argc, char** argv)
     processor.setBandSolo (false, 0.0f, 0.0f);
 
     editor.reset();
-    return clipped == 2 && referenceOk && snapshotPersisted && settingsPersisted
+    return clipped == 2 && undoOk && referenceOk && snapshotPersisted && settingsPersisted
            && viewPersisted && soloOk && loopOk && waveformOk ? 0 : 1;
 }

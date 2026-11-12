@@ -197,6 +197,40 @@ void LoudnessMeter::clearLraHistogram() noexcept
         bin.store (0, std::memory_order_relaxed);
 }
 
+void LoudnessMeter::captureState (float* integratedOut, int& countOut,
+                                  std::uint32_t* histogramOut) const noexcept
+{
+    countOut = integratedCount;
+
+    if (countOut > 0)
+        std::copy (integratedEnergy.begin(), integratedEnergy.begin() + countOut, integratedOut);
+
+    for (int i = 0; i < lraBins; ++i)
+        histogramOut[i] = lraHistogram[(size_t) i].load (std::memory_order_relaxed);
+}
+
+void LoudnessMeter::restoreState (const float* integrated, int count,
+                                  const std::uint32_t* histogram) noexcept
+{
+    integratedCount = std::clamp (count, 0, (int) maxIntegratedBlocks);
+
+    if (integratedCount > 0)
+        std::copy (integrated, integrated + integratedCount, integratedEnergy.begin());
+
+    for (int i = 0; i < lraBins; ++i)
+        lraHistogram[(size_t) i].store (histogram[i], std::memory_order_relaxed);
+
+    // Do not mix post-reset audio into the restored measurement.
+    subBlockCounter = 0;
+    sumL = sumR = 0.0;
+    blockMsL.fill (0.0f);
+    blockMsR.fill (0.0f);
+    blockWriteIndex = 0;
+    blocksSeen = 0;
+
+    integratedValue.store (computeIntegrated(), std::memory_order_relaxed);
+}
+
 float LoudnessMeter::lraLu() const noexcept
 {
     std::array<std::uint32_t, lraBins> counts {};

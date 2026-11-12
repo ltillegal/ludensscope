@@ -62,6 +62,7 @@ private:
     void clearGuideSolo();
     void applyViewSettings (const LudensScopeProcessor::ViewSettings& settings);
     void saveViewSettings();
+    void undoReset();
     void exportViewPng();
     void applySmoothing();
 
@@ -82,6 +83,7 @@ private:
 
     juce::TextButton freezeButton { "FREEZE" };
     juce::TextButton resetButton  { "RESET" };
+    juce::TextButton undoButton   { "UNDO" };
     juce::TextButton captureButton { "CAPTURE" };
     juce::TextButton monoButton { "MONO" };
     juce::TextButton spanButton { "SPAN 10" };
@@ -101,6 +103,22 @@ private:
     int waterfallHistory = 2;
     int soloZone = -1;
     bool applyingSettings = false;
+
+    // State captured before the last RESET.
+    bool undoSnapshotValid = false;
+    int undoSnapshotSlot = 0;
+    std::array<float, SpectrumAnalyzer::numBins> undoSnapshotLevels {};
+    std::array<float, SpectrumAnalyzer::numBins> undoAverage {};
+    std::array<float, SpectrumAnalyzer::numBins> undoPeaks {};
+    std::array<float, SpectrumAnalyzer::numBins> undoReferenceDb {};
+    std::shared_ptr<juce::AudioBuffer<float>> undoReferenceAudio;
+    float undoReferenceLufs = -100.0f;
+    double undoLoopStart = 0.0;
+    double undoLoopEnd = 0.0;
+    double undoPosition = 0.0;
+    bool undoReferenceValid = false;
+    int undoTruePeakOvers = 0;
+    float undoTruePeakHold = -100.0f;
 
     std::unique_ptr<juce::FileChooser> referenceChooser;
     std::unique_ptr<ReferenceLoader> referenceLoader;

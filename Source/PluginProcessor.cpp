@@ -15,6 +15,8 @@ LudensScopeProcessor::LudensScopeProcessor()
                                 .withInput  ("Input",  juce::AudioChannelSet::stereo(), true)
                                 .withOutput ("Output", juce::AudioChannelSet::stereo(), true))
 {
+    undoIntegrated = std::make_unique<float[]> (LoudnessMeter::integratedBlockCapacity);
+    undoHistogram = std::make_unique<std::uint32_t[]> (LoudnessMeter::lraHistogramBins);
 }
 
 bool LudensScopeProcessor::isBusesLayoutSupported (const BusesLayout& layouts) const
@@ -36,6 +38,36 @@ void LudensScopeProcessor::prepareToPlay (double sampleRate, int)
     referenceAudible.store (false);
 }
 
+std::shared_ptr<juce::AudioBuffer<float>> LudensScopeProcessor::copyReferenceAudio() const
+{
+    const juce::SpinLock::ScopedLockType guard (referenceLock);
+    return referenceAudio;
+}
+
+void LudensScopeProcessor::restoreReferenceAudio (std::shared_ptr<juce::AudioBuffer<float>> audio,
+                                                  float lufs, double loopStartSeconds,
+                                                  double loopEndSeconds, double positionSeconds)
+{
+    const auto length = audio != nullptr ? (std::int64_t) audio->getNumSamples() : 0;
+
+    {
+        const juce::SpinLock::ScopedLockType guard (referenceLock);
+        referenceAudio = std::move (audio);
+    }
+
+    referenceLength.store (length);
+    referenceLufsValue.store (lufs);
+    referencePlaying.store (false);
+    referenceAudible.store (false);
+    referenceLoopStart.store (0);
+    referenceLoopEnd.store (length);
+
+    rebuildReferenceWaveform();
+
+    setReferenceLoopRange (loopStartSeconds, loopEndSeconds);
+    setReferencePositionSeconds (positionSeconds);
+}
+
 void LudensScopeProcessor::setReferenceAudio (std::unique_ptr<juce::AudioBuffer<float>> audio,
                                               float lufs)
 {
@@ -55,12 +87,24 @@ void LudensScopeProcessor::setReferenceAudio (std::unique_ptr<juce::AudioBuffer<
     referencePlaying.store (false);
     referenceAudible.store (false);
 
+    rebuildReferenceWaveform();
+}
+
+void LudensScopeProcessor::rebuildReferenceWaveform()
+{
+    std::shared_ptr<juce::AudioBuffer<float>> audio;
+
+    {
+        const juce::SpinLock::ScopedLockType guard (referenceLock);
+        audio = referenceAudio;
+    }
+
     referenceWaveformData.assign (referenceWaveformColumns * 2, 0.0f);
 
-    if (newAudio != nullptr && newAudio->getNumSamples() > 0)
+    if (audio != nullptr && audio->getNumSamples() > 0)
     {
-        const int samples = newAudio->getNumSamples();
-        const int channels = newAudio->getNumChannels();
+        const int samples = audio->getNumSamples();
+        const int channels = audio->getNumChannels();
 
         for (int c = 0; c < referenceWaveformColumns; ++c)
         {
@@ -73,8 +117,8 @@ void LudensScopeProcessor::setReferenceAudio (std::unique_ptr<juce::AudioBuffer<
             for (int i = from; i < to; ++i)
             {
                 const float value = channels > 1
-                    ? 0.5f * (newAudio->getSample (0, i) + newAudio->getSample (1, i))
-                    : newAudio->getSample (0, i);
+                    ? 0.5f * (audio->getSample (0, i) + audio->getSample (1, i))
+                    : audio->getSample (0, i);
 
                 low = std::min (low, value);
                 high = std::max (high, value);
@@ -202,6 +246,23 @@ void LudensScopeProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce:
 
     if (buffer.getNumChannels() < 2 || numSamples <= 0)
         return;
+
+    if (undoCaptureRequested.exchange (false, std::memory_order_relaxed))
+    {
+        loudness.captureState (undoIntegrated.get(), undoIntegratedCount, undoHistogram.get());
+        undoClippedSamples = clippedSamples.load (std::memory_order_relaxed);
+        undoAvailable.store (true, std::memory_order_relaxed);
+    }
+
+    if (undoRestoreRequested.exchange (false, std::memory_order_relaxed))
+    {
+        if (undoAvailable.load (std::memory_order_relaxed))
+        {
+            loudness.restoreState (undoIntegrated.get(), undoIntegratedCount, undoHistogram.get());
+            clippedSamples.store (undoClippedSamples, std::memory_order_relaxed);
+            undoAvailable.store (false, std::memory_order_relaxed);
+        }
+    }
 
     if (resetRequested.exchange (false, std::memory_order_relaxed))
     {
@@ -569,6 +630,7 @@ void LudensScopeProcessor::setStateInformation (const void* data, int sizeInByte
         viewSettingsValue = view;
     }
 
+    clearUndo();
     snapshotGenerationValue.fetch_add (1);
 }
 

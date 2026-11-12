@@ -45,6 +45,13 @@ public:
 
     void requestReset() noexcept { resetRequested.store (true, std::memory_order_relaxed); }
 
+    // Last-reset undo: the editor asks the audio thread to snapshot the
+    // long-term loudness state before the reset is applied.
+    void requestUndoCapture() noexcept { undoCaptureRequested.store (true, std::memory_order_relaxed); }
+    void requestUndoRestore() noexcept { undoRestoreRequested.store (true, std::memory_order_relaxed); }
+    bool hasUndo() const noexcept { return undoAvailable.load (std::memory_order_relaxed); }
+    void clearUndo() noexcept { undoAvailable.store (false, std::memory_order_relaxed); }
+
     // Reference player. The editor decodes/resamples on a background thread
     // and hands the finished buffer over here; the audio thread only reads it.
     void setReferenceAudio (std::unique_ptr<juce::AudioBuffer<float>> audio, float lufs);
@@ -73,6 +80,14 @@ public:
 
     // min/max envelope for the reference transport, 256 columns.
     const std::vector<float>& referenceWaveform() const noexcept { return referenceWaveformData; }
+
+    void rebuildReferenceWaveform();
+
+    // Message-thread reference copy for the reset undo (no audio duplication).
+    std::shared_ptr<juce::AudioBuffer<float>> copyReferenceAudio() const;
+    void restoreReferenceAudio (std::shared_ptr<juce::AudioBuffer<float>> audio, float lufs,
+                                double loopStartSeconds, double loopEndSeconds,
+                                double positionSeconds);
 
     // Band solo: high-pass + low-pass pair on the output (monitoring aid).
     void setBandSolo (bool active, float lowHz, float highHz);
@@ -167,9 +182,16 @@ private:
     std::array<float, fifoSize> fifoRight {};
 
     std::atomic<bool> resetRequested { false };
+    std::atomic<bool> undoCaptureRequested { false };
+    std::atomic<bool> undoRestoreRequested { false };
+    std::atomic<bool> undoAvailable { false };
+    std::unique_ptr<float[]> undoIntegrated;
+    std::unique_ptr<std::uint32_t[]> undoHistogram;
+    int undoIntegratedCount = 0;
+    std::uint64_t undoClippedSamples = 0;
     std::atomic<std::uint64_t> clippedSamples { 0 };
 
-    juce::SpinLock referenceLock;
+    mutable juce::SpinLock referenceLock;
     std::shared_ptr<juce::AudioBuffer<float>> referenceAudio;
     std::atomic<bool> referencePlaying { false };
     std::atomic<bool> referenceAudible { false };

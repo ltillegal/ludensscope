@@ -27,6 +27,13 @@ public:
     // Returns -1 when there is not enough short-term data yet.
     float lraLu() const noexcept;
 
+    static constexpr int integratedBlockCapacity = 36000; // 1 h of 400 ms blocks
+    static constexpr int lraHistogramBins = 700;
+
+    // Audio-thread only: copy/restore the long-term measurement for undo.
+    void captureState (float* integratedOut, int& countOut, std::uint32_t* histogramOut) const noexcept;
+    void restoreState (const float* integrated, int count, const std::uint32_t* histogram) noexcept;
+
 private:
     struct Biquad
     {
