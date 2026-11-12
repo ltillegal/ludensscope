@@ -160,12 +160,12 @@ private:
         static constexpr int numStops = 7;
 
         static const juce::Colour stops[numStops] = {
-            juce::Colour (0xff0b0e10),
-            juce::Colour (0xff14303c),
-            juce::Colour (0xff2a6f75),
-            juce::Colour (0xff4fd1c5),
-            juce::Colour (0xffe8b04b),
-            juce::Colour (0xffe0675a),
+            juce::Colour (0xff01202b),
+            juce::Colour (0xff013a4b),
+            juce::Colour (0xff01607c),
+            juce::Colour (0xff5ee1f0),
+            juce::Colour (0xffffc46b),
+            juce::Colour (0xffff7a6b),
             juce::Colour (0xfff6efe2),
         };
 
