@@ -1,5 +1,7 @@
 # LudensScope
 
+[![build](https://github.com/ltillegal/ludensscope/actions/workflows/build.yml/badge.svg)](https://github.com/ltillegal/ludensscope/actions/workflows/build.yml)
+
 Минималистичный стерео-анализатор в формате **VST3**: спектр, громкость по
 ITU-R BS.1770-4, true-peak, векторскоп и осциллограф.
 

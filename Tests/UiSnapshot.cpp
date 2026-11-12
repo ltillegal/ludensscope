@@ -62,7 +62,8 @@ int main (int argc, char** argv)
 
     // Reference file: write a 2 s 1 kHz wav, analyse it, and load it into the
     // player near the end of the snapshot loop.
-    juce::File referenceFile ("/tmp/ludensscope-reference-test.wav");
+    juce::File referenceFile (juce::File::getSpecialLocation (juce::File::tempDirectory)
+                                  .getChildFile ("ludensscope-reference-test.wav"));
     bool referenceOk = false;
     ReferenceAnalysis referenceAnalysis;
 
