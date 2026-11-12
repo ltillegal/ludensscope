@@ -7,7 +7,7 @@
 namespace
 {
     constexpr int snapshotMagic = 0x4c444e53; // 'LDNS'
-    constexpr int snapshotVersion = 6;
+    constexpr int snapshotVersion = 7;
 }
 
 LudensScopeProcessor::LudensScopeProcessor()
@@ -605,6 +605,7 @@ void LudensScopeProcessor::getStateInformation (juce::MemoryBlock& destData)
     stream.writeInt (viewSettingsValue.waterfallHistory);
     stream.writeInt (viewSettingsValue.oscWindow);
     stream.writeFloat (viewSettingsValue.oscGain);
+    stream.writeInt (viewSettingsValue.differenceSource);
 
     const auto reference = getReferenceSettings();
     stream.writeString (reference.path);
@@ -635,7 +636,7 @@ void LudensScopeProcessor::setStateInformation (const void* data, int sizeInByte
     const int selected = stream.readInt();
 
     if (magic != snapshotMagic
-        || (version < 1 || version > 6)
+        || (version < 1 || version > 7)
         || slots != snapshotSlots || bins != snapshotBins)
         return;
 
@@ -694,6 +695,9 @@ void LudensScopeProcessor::setStateInformation (const void* data, int sizeInByte
         view.waterfallHistory = stream.readInt();
         view.oscWindow = juce::jmax (0, stream.readInt());
         view.oscGain = juce::jlimit (0.25f, 8.0f, stream.readFloat());
+
+        if (version >= 7)
+            view.differenceSource = juce::jlimit (0, 2, stream.readInt());
 
         if (view.waterfallHistory != 1 && view.waterfallHistory != 2
             && view.waterfallHistory != 4)

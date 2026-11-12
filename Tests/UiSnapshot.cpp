@@ -266,6 +266,7 @@ int main (int argc, char** argv)
     testView.sideCurve = 1;
     testView.peakMarkers = 0;
     testView.difference = 1;
+    testView.differenceSource = 1;
     testView.spanIndex = 2;
     testView.rangeLow = 50.0f;
     testView.rangeHigh = 5000.0f;
@@ -299,6 +300,7 @@ int main (int argc, char** argv)
         && restoredView.sideCurve == 1
         && restoredView.peakMarkers == 0
         && restoredView.difference == 1
+        && restoredView.differenceSource == 1
         && restoredView.spanIndex == 2
         && std::abs (restoredView.rangeLow - 50.0f) < 1.0f
         && std::abs (restoredView.rangeHigh - 5000.0f) < 1.0f

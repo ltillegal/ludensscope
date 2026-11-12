@@ -85,6 +85,12 @@ public:
         repaint();
     }
 
+    void setDifferenceSource (int source) noexcept
+    {
+        differenceSource = juce::jlimit (0, 2, source);
+        repaint();
+    }
+
     void setNoteGrid (bool shouldShow) noexcept
     {
         showNoteGrid = shouldShow;
@@ -611,19 +617,37 @@ public:
             }
         }
 
-        // Difference shading: selected snapshot against the next filled slot,
-        // or against the live curve when only one slot is stored.
-        if (showDifference && snapshotPresent[(size_t) selectedSnapshot])
+        // Difference shading: A is the selected snapshot (or the live curve),
+        // B depends on the selected source: next snapshot, REF FILE or live.
+        if (showDifference)
         {
-            int compareSlot = -1;
+            const bool haveSnapshot = snapshotPresent[(size_t) selectedSnapshot];
+            const float* curveB = nullptr;
 
-            for (int slot = 0; slot < snapshotCount; ++slot)
+            if (differenceSource == 1 && hasReference)
             {
-                if (slot != selectedSnapshot && snapshotPresent[(size_t) slot])
+                curveB = reference.data();
+            }
+            else if (differenceSource == 2)
+            {
+                curveB = levels.data();
+            }
+            else
+            {
+                if (haveSnapshot)
                 {
-                    compareSlot = slot;
-                    break;
+                    for (int slot = 0; slot < snapshotCount; ++slot)
+                    {
+                        if (slot != selectedSnapshot && snapshotPresent[(size_t) slot])
+                        {
+                            curveB = snapshots[(size_t) slot].data();
+                            break;
+                        }
+                    }
                 }
+
+                if (curveB == nullptr)
+                    curveB = levels.data();
             }
 
             const int shadingSteps = juce::jmax (2, (int) std::ceil (plot.getWidth()));
@@ -632,10 +656,12 @@ public:
             {
                 const float fraction = (float) s / (float) (shadingSteps - 1);
                 const float x = xFor (fraction);
-                const float dbA = levelAt (snapshots[(size_t) selectedSnapshot], fraction);
-                const float dbB = compareSlot >= 0
-                    ? levelAt (snapshots[(size_t) compareSlot], fraction)
-                    : levelAt (levels, fraction);
+                const int bin = juce::jlimit (0, numBins - 1,
+                                              (int) std::lround (fraction * (numBins - 1)));
+                const float dbA = haveSnapshot
+                    ? snapshots[(size_t) selectedSnapshot][(size_t) bin]
+                    : levels[(size_t) bin];
+                const float dbB = curveB[bin];
 
                 const float yA = yFor (dbA);
                 const float yB = yFor (dbB);
@@ -1141,6 +1167,7 @@ private:
     double transportLoopEnd = 0.0;
     bool showPeakMarkers = true;
     bool showDifference = false;
+    int differenceSource = 0;
     bool showNoteGrid = false;
 
     juce::Rectangle<float> loopBar;

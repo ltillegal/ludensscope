@@ -157,6 +157,7 @@ public:
         int waterfallHistory = 2;
         int oscWindow = 0;
         float oscGain = 1.0f;
+        int differenceSource = 0;
     };
 
     ViewSettings getViewSettings() const noexcept { return viewSettingsValue; }
