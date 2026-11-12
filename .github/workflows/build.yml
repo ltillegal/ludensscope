@@ -23,19 +23,34 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Linux dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libasound2-dev libx11-dev libxcomposite-dev libxcursor-dev \
+            libxext-dev libxinerama-dev libxrandr-dev libxrender-dev \
+            libfreetype6-dev libfontconfig1-dev libgl1-mesa-dev xvfb
+
       - name: Configure
         run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DLUDENSCOPE_BUILD_TESTS=ON
 
       - name: Build
         run: cmake --build build --config Release --parallel 4
 
-      - name: Test (Linux)
-        if: runner.os == 'Linux'
-        run: xvfb-run -a ctest --test-dir build --output-on-failure -C Release
+      - name: Test loudness
+        run: ctest --test-dir build --output-on-failure -C Release -R "^loudness$"
 
-      - name: Test (macOS / Windows)
+      - name: Test spectrum
+        run: ctest --test-dir build --output-on-failure -C Release -R "^spectrum$"
+
+      - name: Test UI snapshot (Linux)
+        if: runner.os == 'Linux'
+        run: xvfb-run -a ctest --test-dir build --output-on-failure -C Release -R "^ui_snapshot$"
+
+      - name: Test UI snapshot (macOS / Windows)
         if: runner.os != 'Linux'
-        run: ctest --test-dir build --output-on-failure -C Release
+        run: ctest --test-dir build --output-on-failure -C Release -R "^ui_snapshot$"
 
       - name: Upload artefacts
         uses: actions/upload-artifact@v4
