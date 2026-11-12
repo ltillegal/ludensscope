@@ -282,9 +282,18 @@ void LudensScopeEditor::timerCallback()
     if (blockTruePeak > 1.0f)
         ++truePeakOvers;
 
-    truePeakDb = juce::Decibels::gainToDecibels (blockTruePeak, -100.0f);
-    samplePeakDb = juce::Decibels::gainToDecibels (blockSamplePeak, -100.0f);
-    truePeakHoldDb = std::max (truePeakDb, truePeakHoldDb - 0.6f);
+    constexpr float peakReleasePerTick = 0.35f;
+
+    const float truePeakTarget = juce::Decibels::gainToDecibels (blockTruePeak, -100.0f);
+    const float samplePeakTarget = juce::Decibels::gainToDecibels (blockSamplePeak, -100.0f);
+
+    // Peak ballistics: instant attack, slow release; the "max" value is the
+    // session maximum and never decays, so the readout stops jittering.
+    truePeakDb = std::max (truePeakTarget, truePeakDb - peakReleasePerTick);
+    samplePeakDb = std::max (samplePeakTarget, samplePeakDb - peakReleasePerTick);
+
+    if (truePeakDb > truePeakHoldDb)
+        truePeakHoldDb = truePeakDb;
 
     analyzer.update();
 

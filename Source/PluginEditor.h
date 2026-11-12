@@ -43,7 +43,7 @@ private:
     void cycleSpan();
     void applyRange (float lowHz, float highHz);
 
-    static constexpr int scopeSize = 4096;
+    static constexpr int scopeSize = 16384;
     static constexpr int readChunk = 8192;
 
     LudensScopeProcessor& processor;
