@@ -65,6 +65,10 @@ public:
     std::int64_t referenceLengthSamples() const noexcept { return referenceLength.load(); }
     float referenceLufs() const noexcept { return referenceLufsValue.load(); }
 
+    // Band solo: high-pass + low-pass pair on the output (monitoring aid).
+    void setBandSolo (bool active, float lowHz, float highHz);
+    bool isBandSolo() const noexcept { return bandSoloActive.load(); }
+
     // FFT snapshots (UI state, persisted in the project).
     static constexpr int snapshotBins = SpectrumAnalyzer::numBins;
     static constexpr int snapshotSlots = 4;
@@ -107,6 +111,21 @@ public:
 private:
     bool isBusesLayoutSupported (const BusesLayout& layouts) const override;
 
+    struct BiquadCoefficients
+    {
+        float b0 = 1.0f, b1 = 0.0f, b2 = 0.0f, a1 = 0.0f, a2 = 0.0f;
+    };
+
+    struct BiquadMemory
+    {
+        float z1 = 0.0f, z2 = 0.0f;
+    };
+
+    static BiquadCoefficients makeHighPass (double sampleRate, double frequency, double q) noexcept;
+    static BiquadCoefficients makeLowPass (double sampleRate, double frequency, double q) noexcept;
+    static float processBiquad (const BiquadCoefficients& coefficients,
+                                BiquadMemory& memory, float sample) noexcept;
+
     LoudnessMeter loudness;
 
     static constexpr int fifoSize = 1 << 15;
@@ -136,6 +155,13 @@ private:
     std::atomic<int> snapshotGenerationValue { 0 };
 
     FftSettings fftSettingsValue;
+
+    std::atomic<bool> bandSoloActive { false };
+    std::atomic<bool> soloResetRequested { false };
+    std::atomic<float> soloHighPass[5] {};
+    std::atomic<float> soloLowPass[5] {};
+    BiquadMemory soloHighPassMemory[2];
+    BiquadMemory soloLowPassMemory[2];
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (LudensScopeProcessor)
 };

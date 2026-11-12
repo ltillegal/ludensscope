@@ -242,6 +242,44 @@ int main (int argc, char** argv)
         && settingsPersisted;
     std::printf ("snapshot state round-trip: %s\n", snapshotPersisted ? "ok" : "FAIL");
 
+    // Band solo: the 1 kHz tone should pass a 500-2000 Hz solo, 100 Hz cut.
+    processor.setReferencePlaying (false);
+    processor.setReferenceAudible (false);
+    processor.clearReferenceAudio();
+    processor.setBandSolo (true, 500.0f, 2000.0f);
+
+    const auto measureBand = [&processor] (double hz)
+    {
+        juce::AudioBuffer<float> block (2, 512);
+        juce::MidiBuffer blockMidi;
+        float peak = 0.0f;
+
+        for (int b = 0; b < 40; ++b)
+        {
+            for (int ch = 0; ch < 2; ++ch)
+                for (int i = 0; i < 512; ++i)
+                {
+                    const double t = (double) (b * 512 + i) / 48000.0;
+                    block.setSample (ch, i, (float) (0.5 * std::sin (2.0 * pi * hz * t)));
+                }
+
+            processor.processBlock (block, blockMidi);
+
+            if (b == 39)
+                peak = block.getMagnitude (0, 0, 512);
+        }
+
+        return peak;
+    };
+
+    const float passPeak = measureBand (1000.0);
+    const float cutPeak = measureBand (100.0);
+    const bool soloOk = passPeak > 0.3f && cutPeak < 0.05f;
+    std::printf ("band solo: 1 kHz %.3f, 100 Hz %.3f (%s)\n",
+                 passPeak, cutPeak, soloOk ? "ok" : "FAIL");
+
+    processor.setBandSolo (false, 0.0f, 0.0f);
+
     editor.reset();
-    return clipped == 2 && referenceOk && snapshotPersisted ? 0 : 1;
+    return clipped == 2 && referenceOk && snapshotPersisted && soloOk ? 0 : 1;
 }
