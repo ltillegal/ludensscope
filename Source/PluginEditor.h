@@ -64,6 +64,7 @@ private:
     void applyViewSettings (const LudensScopeProcessor::ViewSettings& settings);
     void saveViewSettings();
     void applyReferenceSettings();
+    void toggleReferenceSlot();
     void undoReset();
 
     bool isInterestedInFileDrag (const juce::StringArray& files) override;

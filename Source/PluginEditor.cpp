@@ -188,6 +188,7 @@ LudensScopeEditor::LudensScopeEditor (LudensScopeProcessor& p)
     spectrumView.onPlayToggle = [this] { toggleReferencePlay(); };
     spectrumView.onLoopToggle = [this] { toggleReferenceLoop(); };
     spectrumView.onAbToggle = [this] { toggleReferenceAb(); };
+    spectrumView.onReferenceSlotToggle = [this] { toggleReferenceSlot(); };
 
     spectrumView.onReferenceSeek = [this] (double seconds)
     {
@@ -490,7 +491,8 @@ void LudensScopeEditor::timerCallback()
                                (double) processor.referencePositionSamples() / referenceRate,
                                (double) processor.referenceLengthSamples() / referenceRate,
                                processor.referenceLoopStartSeconds(),
-                               processor.referenceLoopEndSeconds());
+                               processor.referenceLoopEndSeconds(),
+                               processor.getActiveReferenceSlot());
 
     if (processor.snapshotGeneration() != snapshotGeneration)
         syncSnapshots();
@@ -544,6 +546,8 @@ void LudensScopeEditor::chooseReferenceFile()
 
 void LudensScopeEditor::loadReferenceFile (const juce::File& file)
 {
+    const int targetSlot = processor.getActiveReferenceSlot();
+
     if (referenceLoader != nullptr)
         referenceLoader->stopThread (2000);
 
@@ -554,7 +558,7 @@ void LudensScopeEditor::loadReferenceFile (const juce::File& file)
 
     referenceLoader = std::make_unique<ReferenceLoader> (
         file, targetRate,
-        [safe = juce::Component::SafePointer<LudensScopeEditor> (this), file]
+        [safe = juce::Component::SafePointer<LudensScopeEditor> (this), file, targetSlot]
         (ReferenceAnalysis& analysis)
         {
             if (safe == nullptr)
@@ -565,6 +569,12 @@ void LudensScopeEditor::loadReferenceFile (const juce::File& file)
 
             if (! analysis.ok)
                 return;
+
+            if (safe->processor.getActiveReferenceSlot() != targetSlot)
+            {
+                safe->pendingReferenceLoopStart = -1.0;
+                return;
+            }
 
             safe->referenceDb = analysis.levels;
             safe->hasReference = true;
@@ -1132,6 +1142,12 @@ void LudensScopeEditor::syncSnapshots()
     spectrumView.setSnapshots (snapshots, snapshotFilled, snapshotSlot);
 }
 
+void LudensScopeEditor::toggleReferenceSlot()
+{
+    processor.switchReferenceSlot (1 - processor.getActiveReferenceSlot());
+    applyReferenceSettings();
+}
+
 void LudensScopeEditor::applyReferenceSettings()
 {
     const auto reference = processor.getReferenceSettings();
@@ -1269,7 +1285,7 @@ void LudensScopeEditor::resetDisplay()
 
     processor.clearReferenceAudio();
     spectrumView.setReferenceWaveform ({});
-    spectrumView.setTransport (false, false, true, false, 0.0, 0.0, 0.0, 0.0);
+    spectrumView.setTransport (false, false, true, false, 0.0, 0.0, 0.0, 0.0, 0);
 
     clearGuideSolo();
 

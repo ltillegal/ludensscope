@@ -7,7 +7,7 @@
 namespace
 {
     constexpr int snapshotMagic = 0x4c444e53; // 'LDNS'
-    constexpr int snapshotVersion = 7;
+    constexpr int snapshotVersion = 8;
 }
 
 LudensScopeProcessor::LudensScopeProcessor()
@@ -145,47 +145,92 @@ void LudensScopeProcessor::clearReferenceAudio()
     referenceAudible.store (false);
     referenceWaveformData.clear();
 
-    referencePath.clear();
-    referenceCurveValid = false;
-    savedReferenceLoopStart = 0.0;
-    savedReferenceLoopEnd = 0.0;
-    savedReferencePosition = 0.0;
+    auto& slot = referenceSlots[(size_t) activeReferenceSlot.load()];
+    slot.path.clear();
+    slot.valid = false;
+    slot.curve.fill (0.0f);
+    slot.lufs = -100.0f;
+    slot.loopStart = 0.0;
+    slot.loopEnd = 0.0;
+    slot.position = 0.0;
     referenceGenerationValue.fetch_add (1);
 }
 
 void LudensScopeProcessor::setReferenceCurveInfo (const juce::String& path,
                                                   const float* curveDb, bool valid)
 {
-    referencePath = path;
-    referenceCurveValid = valid && curveDb != nullptr;
+    auto& slot = referenceSlots[(size_t) activeReferenceSlot.load()];
+    slot.path = path;
+    slot.valid = valid && curveDb != nullptr;
+    slot.lufs = referenceLufsValue.load (std::memory_order_relaxed);
 
     if (curveDb != nullptr)
-        std::copy (curveDb, curveDb + 512, referenceCurve.begin());
+        std::copy (curveDb, curveDb + 512, slot.curve.begin());
 
+    referenceGenerationValue.fetch_add (1);
+}
+
+void LudensScopeProcessor::syncActiveReferenceSlot()
+{
+    auto& slot = referenceSlots[(size_t) activeReferenceSlot.load()];
+
+    if (referenceLength.load() > 0)
+    {
+        const double rate = getSampleRate() > 0.0 ? getSampleRate() : 48000.0;
+        slot.lufs = referenceLufsValue.load (std::memory_order_relaxed);
+        slot.loopStart = (double) referenceLoopStart.load (std::memory_order_relaxed) / rate;
+        slot.loopEnd = (double) referenceLoopEnd.load (std::memory_order_relaxed) / rate;
+        slot.position = (double) referencePosition.load (std::memory_order_relaxed) / rate;
+    }
+}
+
+void LudensScopeProcessor::switchReferenceSlot (int slot)
+{
+    slot = juce::jlimit (0, 1, slot);
+
+    if (slot == activeReferenceSlot.load())
+        return;
+
+    syncActiveReferenceSlot();
+    activeReferenceSlot.store (slot);
+
+    {
+        const juce::SpinLock::ScopedLockType guard (referenceLock);
+        referenceAudio.reset();
+    }
+
+    referenceLength.store (0);
+    referencePosition.store (0);
+    referenceLoopStart.store (0);
+    referenceLoopEnd.store (0);
+    referencePlaying.store (false);
+    referenceAudible.store (false);
+    referenceWaveformData.clear();
+    referenceLufsValue.store (referenceSlots[(size_t) slot].lufs);
     referenceGenerationValue.fetch_add (1);
 }
 
 LudensScopeProcessor::ReferenceSettings LudensScopeProcessor::getReferenceSettings() const
 {
+    const auto& slot = referenceSlots[(size_t) activeReferenceSlot.load (std::memory_order_relaxed)];
+
     ReferenceSettings settings;
-    settings.path = referencePath;
-    settings.curve = referenceCurve;
-    settings.valid = referenceCurveValid;
-    settings.lufs = referenceLufsValue.load (std::memory_order_relaxed);
+    settings.path = slot.path;
+    settings.curve = slot.curve;
+    settings.valid = slot.valid;
+    settings.lufs = slot.lufs;
+    settings.loopStart = slot.loopStart;
+    settings.loopEnd = slot.loopEnd;
+    settings.position = slot.position;
 
     const double rate = getSampleRate() > 0.0 ? getSampleRate() : 48000.0;
 
     if (referenceLength.load (std::memory_order_relaxed) > 0)
     {
+        settings.lufs = referenceLufsValue.load (std::memory_order_relaxed);
         settings.loopStart = (double) referenceLoopStart.load (std::memory_order_relaxed) / rate;
         settings.loopEnd = (double) referenceLoopEnd.load (std::memory_order_relaxed) / rate;
         settings.position = (double) referencePosition.load (std::memory_order_relaxed) / rate;
-    }
-    else
-    {
-        settings.loopStart = savedReferenceLoopStart;
-        settings.loopEnd = savedReferenceLoopEnd;
-        settings.position = savedReferencePosition;
     }
 
     return settings;
@@ -607,17 +652,23 @@ void LudensScopeProcessor::getStateInformation (juce::MemoryBlock& destData)
     stream.writeFloat (viewSettingsValue.oscGain);
     stream.writeInt (viewSettingsValue.differenceSource);
 
-    const auto reference = getReferenceSettings();
-    stream.writeString (reference.path);
-    stream.writeBool (reference.valid);
+    syncActiveReferenceSlot();
 
-    for (const float value : reference.curve)
-        stream.writeFloat (value);
+    stream.writeInt (activeReferenceSlot.load());
 
-    stream.writeFloat (reference.lufs);
-    stream.writeDouble (reference.loopStart);
-    stream.writeDouble (reference.loopEnd);
-    stream.writeDouble (reference.position);
+    for (const auto& slot : referenceSlots)
+    {
+        stream.writeString (slot.path);
+        stream.writeBool (slot.valid);
+
+        for (const float value : slot.curve)
+            stream.writeFloat (value);
+
+        stream.writeFloat (slot.lufs);
+        stream.writeDouble (slot.loopStart);
+        stream.writeDouble (slot.loopEnd);
+        stream.writeDouble (slot.position);
+    }
 }
 
 void LudensScopeProcessor::setStateInformation (const void* data, int sizeInBytes)
@@ -636,7 +687,7 @@ void LudensScopeProcessor::setStateInformation (const void* data, int sizeInByte
     const int selected = stream.readInt();
 
     if (magic != snapshotMagic
-        || (version < 1 || version > 7)
+        || (version < 1 || version > 8)
         || slots != snapshotSlots || bins != snapshotBins)
         return;
 
@@ -708,25 +759,59 @@ void LudensScopeProcessor::setStateInformation (const void* data, int sizeInByte
         viewSettingsValue = view;
     }
 
-    if (version >= 6)
+    if (version >= 8)
     {
-        const juce::String savedPath = stream.readString();
-        const bool samePath = savedPath == referencePath;
+        const int newActive = juce::jlimit (0, 1, stream.readInt());
+        std::array<ReferenceSlotInfo, 2> slots;
 
-        referenceCurveValid = stream.readBool();
+        for (auto& slot : slots)
+        {
+            slot.path = stream.readString();
+            slot.valid = stream.readBool();
+
+            for (int i = 0; i < 512; ++i)
+                slot.curve[(size_t) i] = stream.readFloat();
+
+            slot.lufs = stream.readFloat();
+            slot.loopStart = stream.readDouble();
+            slot.loopEnd = stream.readDouble();
+            slot.position = stream.readDouble();
+        }
+
+        const int oldActive = activeReferenceSlot.load();
+        const bool sameActivePath =
+            slots[(size_t) newActive].path == referenceSlots[(size_t) oldActive].path;
+
+        if (! sameActivePath)
+            unloadReferenceAudio();
+
+        referenceSlots = slots;
+        activeReferenceSlot.store (newActive);
+        referenceLufsValue.store (slots[(size_t) newActive].lufs);
+        referenceGenerationValue.fetch_add (1);
+    }
+    else if (version >= 6)
+    {
+        ReferenceSlotInfo slot;
+        slot.path = stream.readString();
+        slot.valid = stream.readBool();
 
         for (int i = 0; i < 512; ++i)
-            referenceCurve[(size_t) i] = stream.readFloat();
+            slot.curve[(size_t) i] = stream.readFloat();
 
-        referenceLufsValue.store (stream.readFloat());
-        savedReferenceLoopStart = stream.readDouble();
-        savedReferenceLoopEnd = stream.readDouble();
-        savedReferencePosition = stream.readDouble();
+        slot.lufs = stream.readFloat();
+        slot.loopStart = stream.readDouble();
+        slot.loopEnd = stream.readDouble();
+        slot.position = stream.readDouble();
+
+        const int oldActive = activeReferenceSlot.load();
+        const bool samePath = slot.path == referenceSlots[(size_t) oldActive].path;
 
         if (! samePath)
             unloadReferenceAudio();
 
-        referencePath = savedPath;
+        referenceSlots[(size_t) oldActive] = slot;
+        referenceLufsValue.store (slot.lufs);
         referenceGenerationValue.fetch_add (1);
     }
 

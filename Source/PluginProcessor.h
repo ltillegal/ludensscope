@@ -103,9 +103,18 @@ public:
     };
 
     void setReferenceCurveInfo (const juce::String& path, const float* curveDb, bool valid);
-    juce::String getReferencePath() const { return referencePath; }
+    juce::String getReferencePath() const
+    {
+        return referenceSlots[(size_t) activeReferenceSlot.load (std::memory_order_relaxed)].path;
+    }
     ReferenceSettings getReferenceSettings() const;
     int referenceGeneration() const noexcept { return referenceGenerationValue.load(); }
+
+    int getActiveReferenceSlot() const noexcept
+    {
+        return activeReferenceSlot.load (std::memory_order_relaxed);
+    }
+    void switchReferenceSlot (int slot);
 
     // Drop the audio but keep path/curve so the saved reference still shows.
     void unloadReferenceAudio() noexcept;
@@ -231,13 +240,22 @@ private:
     static constexpr int referenceWaveformColumns = 256;
     std::vector<float> referenceWaveformData;
 
-    juce::String referencePath;
-    std::array<float, 512> referenceCurve {};
-    bool referenceCurveValid = false;
+    struct ReferenceSlotInfo
+    {
+        juce::String path;
+        std::array<float, 512> curve {};
+        bool valid = false;
+        float lufs = -100.0f;
+        double loopStart = 0.0;
+        double loopEnd = 0.0;
+        double position = 0.0;
+    };
+
+    std::array<ReferenceSlotInfo, 2> referenceSlots;
+    std::atomic<int> activeReferenceSlot { 0 };
     std::atomic<int> referenceGenerationValue { 0 };
-    double savedReferenceLoopStart = 0.0;
-    double savedReferenceLoopEnd = 0.0;
-    double savedReferencePosition = 0.0;
+
+    void syncActiveReferenceSlot();
 
     std::array<std::array<float, snapshotBins>, snapshotSlots> snapshots {};
     std::array<bool, snapshotSlots> snapshotFilled {};

@@ -118,7 +118,8 @@ public:
 
     void setTransport (bool enabled, bool playing, bool looping, bool audible,
                        double positionSeconds, double lengthSeconds,
-                       double loopStartSeconds, double loopEndSeconds) noexcept
+                       double loopStartSeconds, double loopEndSeconds,
+                       int activeSlot) noexcept
     {
         transportEnabled = enabled;
         transportPlaying = playing;
@@ -128,11 +129,13 @@ public:
         transportLength = lengthSeconds;
         transportLoopStart = loopStartSeconds;
         transportLoopEnd = loopEndSeconds;
+        activeReferenceSlot = juce::jlimit (0, 1, activeSlot);
     }
 
     std::function<void()> onPlayToggle;
     std::function<void()> onLoopToggle;
     std::function<void()> onAbToggle;
+    std::function<void()> onReferenceSlotToggle;
     std::function<void (int)> onSnapshotSelect;
     std::function<void (double)> onReferenceSeek;
     std::function<void (double, double)> onLoopRangeChange;
@@ -299,6 +302,11 @@ public:
         {
             if (onLoopToggle)
                 onLoopToggle();
+        }
+        else if (slotArea.contains (e.position))
+        {
+            if (onReferenceSlotToggle)
+                onReferenceSlotToggle();
         }
         else if (abArea.contains (e.position))
         {
@@ -799,8 +807,8 @@ public:
         // Reference transport, only when a reference is loaded.
         if (transportEnabled)
         {
-            const juce::Rectangle<float> bar (plot.getRight() - 224.0f, plot.getY() + 6.0f,
-                                              216.0f, 18.0f);
+            const juce::Rectangle<float> bar (plot.getRight() - 250.0f, plot.getY() + 6.0f,
+                                              242.0f, 18.0f);
 
             g.setColour (theme::bg.withAlpha (0.66f));
             g.fillRoundedRectangle (bar, 9.0f);
@@ -808,8 +816,9 @@ public:
             g.drawRoundedRectangle (bar, 9.0f, 1.0f);
 
             playArea = { bar.getX() + 4.0f, bar.getY(), 24.0f, bar.getHeight() };
-            loopArea = { bar.getX() + 34.0f, bar.getY(), 44.0f, bar.getHeight() };
-            abArea = { bar.getX() + 86.0f, bar.getY(), 42.0f, bar.getHeight() };
+            slotArea = { bar.getX() + 30.0f, bar.getY(), 18.0f, bar.getHeight() };
+            loopArea = { bar.getX() + 54.0f, bar.getY(), 44.0f, bar.getHeight() };
+            abArea = { bar.getX() + 102.0f, bar.getY(), 42.0f, bar.getHeight() };
 
             g.setColour (transportPlaying ? theme::accent2 : theme::accent);
 
@@ -834,10 +843,15 @@ public:
             g.setColour (transportAudible ? theme::accent : theme::textDim);
             g.drawText (transportAudible ? "REF" : "MIX", abArea, juce::Justification::centred);
 
+            g.setFont (theme::monoFont (10.0f));
+            g.setColour (theme::accent);
+            g.drawText (activeReferenceSlot == 0 ? "A" : "B", slotArea,
+                        juce::Justification::centred);
+
             g.setFont (theme::monoFont (9.0f));
             g.setColour (theme::textDim);
             g.drawText (formatTime (transportPosition) + " / " + formatTime (transportLength),
-                        bar.withTrimmedLeft (134.0f).withTrimmedRight (8.0f),
+                        bar.withTrimmedLeft (148.0f).withTrimmedRight (8.0f),
                         juce::Justification::centredRight);
 
             loopBar = { bar.getX(), bar.getBottom() + 4.0f, bar.getWidth(), 20.0f };
@@ -1161,6 +1175,7 @@ private:
     bool transportPlaying = false;
     bool transportLooping = true;
     bool transportAudible = false;
+    int activeReferenceSlot = 0;
     double transportPosition = 0.0;
     double transportLength = 0.0;
     double transportLoopStart = 0.0;
@@ -1178,7 +1193,7 @@ private:
     double loopPreviewStart = 0.0;
     double loopPreviewEnd = 0.0;
 
-    juce::Rectangle<float> playArea, loopArea, abArea;
+    juce::Rectangle<float> playArea, slotArea, loopArea, abArea;
 
     juce::Point<float> cursorPosition;
 
