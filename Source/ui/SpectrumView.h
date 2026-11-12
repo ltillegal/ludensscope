@@ -103,10 +103,7 @@ public:
     {
         const auto bounds = getLocalBounds().toFloat();
 
-        g.setColour (theme::panel);
-        g.fillRoundedRectangle (bounds, 8.0f);
-        g.setColour (theme::panelLine);
-        g.drawRoundedRectangle (bounds.reduced (0.5f), 8.0f, 1.0f);
+        theme::drawPanel (g, bounds);
 
         auto area = bounds.reduced (12.0f);
         auto titleRow = area.removeFromTop (16.0f);
@@ -206,12 +203,21 @@ public:
         filled.lineTo (xFor (1.0f), plot.getBottom());
         filled.closeSubPath();
 
-        g.setGradientFill (juce::ColourGradient::vertical (theme::accent.withAlpha (0.32f), plot.getY(),
-                                                           theme::accent.withAlpha (0.02f), plot.getBottom()));
+        g.setGradientFill (juce::ColourGradient::vertical (theme::accent.withAlpha (0.30f), plot.getY(),
+                                                           theme::accent.withAlpha (0.01f), plot.getBottom()));
         g.fillPath (filled);
 
+        g.setColour (theme::accent.withAlpha (0.08f));
+        g.strokePath (curve, juce::PathStrokeType (7.0f, juce::PathStrokeType::curved,
+                                                   juce::PathStrokeType::rounded));
+
+        g.setColour (theme::accent.withAlpha (0.18f));
+        g.strokePath (curve, juce::PathStrokeType (3.5f, juce::PathStrokeType::curved,
+                                                   juce::PathStrokeType::rounded));
+
         g.setColour (theme::accent);
-        g.strokePath (curve, juce::PathStrokeType (1.5f));
+        g.strokePath (curve, juce::PathStrokeType (1.4f, juce::PathStrokeType::curved,
+                                                   juce::PathStrokeType::rounded));
 
         juce::Path peakPath;
 
@@ -292,10 +298,10 @@ public:
                                              plot.getRight() - boxWidth - 4.0f, rawX);
             const juce::Rectangle<float> box (boxX, plot.getY() + 6.0f, boxWidth, boxHeight);
 
-            g.setColour (theme::bg.withAlpha (0.92f));
-            g.fillRoundedRectangle (box, 4.0f);
-            g.setColour (theme::panelLine);
-            g.drawRoundedRectangle (box, 4.0f, 1.0f);
+            g.setColour (theme::bg.withAlpha (0.95f));
+            g.fillRoundedRectangle (box, 7.0f);
+            g.setColour (theme::text.withAlpha (0.14f));
+            g.drawRoundedRectangle (box.reduced (0.5f), 7.0f, 1.0f);
 
             auto textArea = box.reduced (7.0f, 4.0f);
 

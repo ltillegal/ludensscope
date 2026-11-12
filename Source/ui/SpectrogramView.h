@@ -81,10 +81,7 @@ public:
     {
         const auto bounds = getLocalBounds().toFloat();
 
-        g.setColour (theme::panel);
-        g.fillRoundedRectangle (bounds, 8.0f);
-        g.setColour (theme::panelLine);
-        g.drawRoundedRectangle (bounds.reduced (0.5f), 8.0f, 1.0f);
+        theme::drawPanel (g, bounds);
 
         auto area = bounds.reduced (12.0f);
         auto titleRow = area.removeFromTop (14.0f);
@@ -110,9 +107,6 @@ public:
         if (writeRow > 0)
             g.drawImage (image, (int) plot.getX(), (int) plot.getY() + oldestRows,
                          width, writeRow, 0, 0, width, writeRow);
-
-        g.setColour (theme::panelLine);
-        g.drawRect (plot, 1.0f);
     }
 
 private:

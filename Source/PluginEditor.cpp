@@ -2,9 +2,46 @@
 
 #include <cmath>
 
+class ScopeLookAndFeel final : public juce::LookAndFeel_V4
+{
+public:
+    void drawButtonBackground (juce::Graphics& g, juce::Button& button,
+                               const juce::Colour& backgroundColour,
+                               bool isHighlighted, bool isDown) override
+    {
+        auto bounds = button.getLocalBounds().toFloat().reduced (0.5f);
+        auto fill = backgroundColour;
+
+        if (isDown)             fill = fill.brighter (0.08f);
+        else if (isHighlighted) fill = fill.brighter (0.04f);
+
+        g.setColour (fill);
+        g.fillRoundedRectangle (bounds, 13.0f);
+
+        g.setColour (button.getToggleState() ? theme::accent.withAlpha (0.85f)
+                                             : theme::panelLine.brighter (0.10f));
+        g.drawRoundedRectangle (bounds, 13.0f, 1.0f);
+    }
+
+    void drawButtonText (juce::Graphics& g, juce::TextButton& button,
+                         bool, bool) override
+    {
+        g.setFont (theme::labelFont (10.5f));
+
+        g.setColour (button.findColour (button.getToggleState()
+                                            ? juce::TextButton::textColourOnId
+                                            : juce::TextButton::textColourOffId));
+        g.drawFittedText (button.getButtonText(), button.getLocalBounds(),
+                          juce::Justification::centred, 1, 0.9f);
+    }
+};
+
 LudensScopeEditor::LudensScopeEditor (LudensScopeProcessor& p)
     : juce::AudioProcessorEditor (&p), processor (p)
 {
+    lookAndFeel = std::make_unique<ScopeLookAndFeel>();
+    setLookAndFeel (lookAndFeel.get());
+
     setOpaque (true);
     setResizable (true, true);
     setResizeLimits (860, 540, 2400, 1500);
@@ -73,22 +110,45 @@ LudensScopeEditor::LudensScopeEditor (LudensScopeProcessor& p)
     startTimerHz (30);
 }
 
+LudensScopeEditor::~LudensScopeEditor()
+{
+    setLookAndFeel (nullptr);
+}
+
 void LudensScopeEditor::paint (juce::Graphics& g)
 {
     g.setGradientFill (juce::ColourGradient::vertical (theme::bg, 0.0f,
                                                        theme::bgBottom, (float) getHeight()));
     g.fillAll();
 
+    // Soft accent glow behind the spectrum area.
+    juce::ColourGradient glow (theme::accent.withAlpha (0.05f),
+                               getWidth() * 0.30f, -80.0f,
+                               juce::Colours::transparentBlack,
+                               getWidth() * 0.62f, getHeight() * 0.55f,
+                               true);
+    g.setGradientFill (glow);
+    g.fillAll();
+
     auto header = getLocalBounds().reduced (14).removeFromTop (36);
+
+    auto brand = header.removeFromLeft (168);
+
+    g.setColour (theme::accent);
+    g.fillRoundedRectangle (brand.removeFromLeft (6).withSizeKeepingCentre (6, 6).toFloat(), 2.0f);
+    brand.removeFromLeft (9);
 
     g.setFont (theme::boldFont (19.0f));
     g.setColour (theme::text);
-    g.drawText ("LUDENSCOPE", header.removeFromLeft (124), juce::Justification::centredLeft);
+    g.drawText ("LUDENSCOPE", brand, juce::Justification::centredLeft);
 
-    g.setFont (theme::labelFont (10.0f));
+    g.setFont (theme::labelFont (9.5f));
     g.setColour (theme::textDim);
     g.drawText ("STEREO ANALYZER  /  SPECTRUM  LOUDNESS  IMAGE", header,
                 juce::Justification::centredLeft);
+
+    g.setColour (juce::Colour (0x12ffffff));
+    g.fillRect (14, 53, getWidth() - 28, 1);
 }
 
 void LudensScopeEditor::resized()

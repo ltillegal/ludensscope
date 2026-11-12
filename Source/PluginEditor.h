@@ -3,6 +3,7 @@
 #include <juce_gui_basics/juce_gui_basics.h>
 
 #include <array>
+#include <memory>
 #include <vector>
 
 #include "PluginProcessor.h"
@@ -15,12 +16,14 @@
 #include "ui/Theme.h"
 #include "ui/VectorScopeView.h"
 
+class ScopeLookAndFeel;
+
 class LudensScopeEditor : public juce::AudioProcessorEditor,
                        private juce::Timer
 {
 public:
     explicit LudensScopeEditor (LudensScopeProcessor&);
-    ~LudensScopeEditor() override = default;
+    ~LudensScopeEditor() override;
 
     void paint (juce::Graphics&) override;
     void resized() override;
@@ -44,6 +47,8 @@ private:
     static constexpr int readChunk = 8192;
 
     LudensScopeProcessor& processor;
+
+    std::unique_ptr<ScopeLookAndFeel> lookAndFeel;
 
     SpectrumView spectrumView;
     SpectrogramView spectrogramView;
