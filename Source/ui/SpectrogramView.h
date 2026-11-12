@@ -59,6 +59,13 @@ public:
         clear();
     }
 
+    void setPushDivider (int divider)
+    {
+        pushDivider = juce::jlimit (1, 8, divider);
+        pushCounter = 0;
+        repaint();
+    }
+
     void clear()
     {
         if (image.isValid())
@@ -135,8 +142,9 @@ public:
 private:
     double historySeconds() const noexcept
     {
-        // The editor pushes at 30 Hz but only every second tick becomes a row.
-        return height > 0 ? (double) height / 15.0 : 0.0;
+        // The editor pushes at 30 Hz but only every pushDivider-th tick
+        // becomes a row.
+        return height > 0 ? (double) height / (30.0 / (double) pushDivider) : 0.0;
     }
 
     juce::Rectangle<float> plotBounds() const
@@ -190,8 +198,7 @@ private:
     int height = 0;
     int writeRow = 0;
     int pushCounter = 0;
-
-    static constexpr int pushDivider = 2;
+    int pushDivider = 2;
 
     float rangeLow = 20.0f;
     float rangeHigh = 20000.0f;

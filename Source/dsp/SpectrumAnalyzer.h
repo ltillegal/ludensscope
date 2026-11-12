@@ -31,10 +31,15 @@ public:
     void setWindow (Window newWindow);
     void setTiming (float attack, float release, float peakDecay) noexcept;
     void setTilt (float dbPerOctave) noexcept { tiltDbPerOctave = dbPerOctave; }
+    void setOctaveSmoothing (float octaves) noexcept
+    {
+        octaveSmoothing = juce::jlimit (0.0f, 1.0f, octaves);
+    }
 
     int getFftSize() const noexcept { return fftSize; }
     Window getWindow() const noexcept { return windowType; }
     float getTilt() const noexcept { return tiltDbPerOctave; }
+    float getOctaveSmoothing() const noexcept { return octaveSmoothing; }
 
     const std::array<float, numBins>& levels() const noexcept { return displayDb; }
     const std::array<float, numBins>& peaks()  const noexcept { return peakDb; }
@@ -66,6 +71,7 @@ private:
     float releaseCoefficient = 0.12f;
     float peakDecayDb = 0.35f;
     float tiltDbPerOctave = 0.0f;
+    float octaveSmoothing = 0.0f;
     Window windowType = Window::hann;
 
     static constexpr float averageCoefficient = 0.08f;

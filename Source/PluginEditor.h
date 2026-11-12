@@ -60,6 +60,10 @@ private:
     void showGuidesMenu();
     void toggleGuideSolo (int index);
     void clearGuideSolo();
+    void exportViewPng();
+    void applySmoothing();
+
+    bool keyPressed (const juce::KeyPress& key) override;
 
     static constexpr int scopeSize = 131072;
     static constexpr int readChunk = 8192;
@@ -87,11 +91,16 @@ private:
     int guidePreset = 0;
     bool guidesEnabled = false;
     bool showPeakMarkers = true;
+    bool showDifference = false;
+    int smoothingPreset = 0;
+    int waterfallHistory = 2;
     int soloZone = -1;
 
     std::unique_ptr<juce::FileChooser> referenceChooser;
     std::unique_ptr<ReferenceLoader> referenceLoader;
     std::unique_ptr<juce::FileChooser> snapshotChooser;
+    std::unique_ptr<juce::FileChooser> pngChooser;
+    std::unique_ptr<juce::TooltipWindow> tooltipWindow;
 
     bool monoActive = false;
 

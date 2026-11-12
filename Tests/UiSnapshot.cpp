@@ -224,6 +224,7 @@ int main (int argc, char** argv)
     testSettings.timingPreset = 2;
     testSettings.tiltDbPerOctave = 4.5f;
     testSettings.windowType = 2;
+    testSettings.smoothingPreset = 2;
     processor.setFftSettings (testSettings);
 
     juce::MemoryBlock projectState;
@@ -235,6 +236,7 @@ int main (int argc, char** argv)
     const bool settingsPersisted = restoredSettings.fftSize == 8192
         && restoredSettings.timingPreset == 2
         && restoredSettings.windowType == 2
+        && restoredSettings.smoothingPreset == 2
         && std::abs (restoredSettings.tiltDbPerOctave - 4.5f) < 1.0e-4f;
 
     const bool snapshotPersisted = processor.isSnapshotFilled (1)
