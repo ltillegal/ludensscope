@@ -710,6 +710,9 @@ void LudensScopeEditor::showFftMenu()
     menu.addItem (500, "Export snapshots (CSV)...", anySnapshot);
     menu.addItem (501, "Export view (PNG)...", true);
 
+    menu.addSeparator();
+    menu.addItem (630, "Check for updates...", true, false);
+
     juce::Component::SafePointer<LudensScopeEditor> safe (this);
 
     menu.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (&fftButton),
@@ -817,6 +820,10 @@ void LudensScopeEditor::applyFftMenu (int result)
         smoothingPreset = result - 800;
         applySmoothing();
         saveFftSettings();
+    }
+    else if (result == 630)
+    {
+        checkForUpdates();
     }
 }
 
@@ -1191,6 +1198,103 @@ void LudensScopeEditor::syncSnapshots()
     applyViewSettings (processor.getViewSettings());
 
     spectrumView.setSnapshots (snapshots, snapshotFilled, snapshotSlot);
+}
+
+void LudensScopeEditor::checkForUpdates()
+{
+    if (updateCheck != nullptr)
+        return;
+
+    updateCheck = std::make_unique<UpdateCheckThread> (
+        [safe = juce::Component::SafePointer<LudensScopeEditor> (this)] (UpdateInfo info)
+        {
+            if (safe == nullptr)
+                return;
+
+            safe->updateCheck.reset();
+            safe->handleUpdateResult (info);
+        });
+
+    updateCheck->startThread();
+}
+
+void LudensScopeEditor::handleUpdateResult (const UpdateInfo& info)
+{
+    if (! info.error.isEmpty())
+    {
+        juce::AlertWindow::showMessageBoxAsync (juce::MessageBoxIconType::WarningIcon,
+                                                "Update check", info.error);
+        return;
+    }
+
+    if (! info.available)
+    {
+        juce::AlertWindow::showMessageBoxAsync (juce::MessageBoxIconType::InfoIcon,
+                                                "LudensScope",
+                                                "You are up to date (" + info.currentVersion + ").");
+        return;
+    }
+
+    auto notes = info.notes;
+
+    if (notes.length() > 900)
+        notes = notes.substring (0, 900) + "...";
+
+    juce::AlertWindow::showAsync (
+        juce::MessageBoxOptions()
+            .withIconType (juce::MessageBoxIconType::InfoIcon)
+            .withTitle ("Update available")
+            .withMessage ("LudensScope " + info.latestVersion + " is available (you have "
+                          + info.currentVersion + ").\n\n" + notes)
+            .withButton ("Download")
+            .withButton ("Release page")
+            .withButton ("Later"),
+        [safe = juce::Component::SafePointer<LudensScopeEditor> (this), info] (int result)
+        {
+            if (safe == nullptr)
+                return;
+
+            if (result == 1)
+                safe->downloadUpdate (info);
+            else if (result == 2)
+                juce::URL (info.releasePage).launchInDefaultBrowser();
+        });
+}
+
+void LudensScopeEditor::downloadUpdate (const UpdateInfo& info)
+{
+    const auto target = juce::File::getSpecialLocation (juce::File::userHomeDirectory)
+                            .getChildFile ("Downloads")
+                            .getChildFile (info.assetName);
+    target.getParentDirectory().createDirectory();
+
+    updateDownloader = std::make_unique<UpdateDownloader> (info, target);
+    updateDownloader->runThread();
+
+    const bool succeeded = updateDownloader->succeeded;
+    const auto message = updateDownloader->message;
+    updateDownloader.reset();
+
+    if (! succeeded)
+    {
+        juce::AlertWindow::showMessageBoxAsync (juce::MessageBoxIconType::WarningIcon,
+                                                "Update download", message);
+        return;
+    }
+
+    juce::AlertWindow::showAsync (
+        juce::MessageBoxOptions()
+            .withIconType (juce::MessageBoxIconType::InfoIcon)
+            .withTitle ("Update downloaded")
+            .withMessage ("Saved to:\n" + message
+                          + "\n\nQuit the DAW, unzip the package and replace the installed VST3/AU.")
+            .withButton ("Show in folder")
+            .withButton ("OK"),
+        [message] (int result)
+        {
+            if (result == 1)
+                juce::File (message).revealToUser();
+        });
 }
 
 void LudensScopeEditor::toggleReferenceSlot()

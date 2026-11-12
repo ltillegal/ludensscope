@@ -1,0 +1,112 @@
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag name (vX.Y.Z)"
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            name: linux
+          - os: macos-latest
+            name: macos
+          - os: windows-latest
+            name: windows
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Linux dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libasound2-dev libx11-dev libxcomposite-dev libxcursor-dev \
+            libxext-dev libxinerama-dev libxrandr-dev libxrender-dev libfreetype6-dev \
+            libfontconfig1-dev libgl1-mesa-dev libcurl4-openssl-dev zip
+
+      - name: Version
+        shell: bash
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          if [[ -n "${{ inputs.tag }}" ]]; then VERSION="${{ inputs.tag }}"; VERSION="${VERSION#v}"; fi
+          echo "LUDENSCOPE_VERSION=$VERSION" >> "$GITHUB_ENV"
+
+      - name: Configure
+        shell: bash
+        run: |
+          EXTRA=""
+          if [[ "${{ runner.os }}" == "macOS" ]]; then
+            EXTRA="-DCMAKE_OSX_ARCHITECTURES=arm64;x86_64 -DCMAKE_OSX_DEPLOYMENT_TARGET=10.15"
+          fi
+          cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DLUDENSCOPE_VERSION="$LUDENSCOPE_VERSION" $EXTRA
+
+      - name: Build
+        run: cmake --build build --config Release --parallel 4
+
+      - name: Package (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          cd build/LudensScope_artefacts/Release/VST3
+          zip -r "$GITHUB_WORKSPACE/LudensScope-linux.zip" LudensScope.vst3
+
+      - name: Package (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          for bundle in build/LudensScope_artefacts/Release/VST3/LudensScope.vst3 \
+                        build/LudensScope_artefacts/Release/AU/LudensScope.component; do
+            codesign --force --deep --sign - "$bundle"
+          done
+          mkdir -p dist
+          cp -R build/LudensScope_artefacts/Release/VST3/LudensScope.vst3 dist/
+          cp -R build/LudensScope_artefacts/Release/AU/LudensScope.component dist/
+          cd dist
+          zip -r "$GITHUB_WORKSPACE/LudensScope-macos.zip" LudensScope.vst3 LudensScope.component
+
+      - name: Package (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          Compress-Archive -Path build/LudensScope_artefacts/Release/VST3/LudensScope.vst3 `
+                           -DestinationPath LudensScope-windows.zip
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: package-${{ matrix.name }}
+          path: LudensScope-*.zip
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: Checksums
+        run: |
+          cd artifacts
+          sha256sum *.zip > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ inputs.tag || github.ref_name }}
+          generate_release_notes: true
+          files: |
+            artifacts/*.zip
+            artifacts/SHA256SUMS.txt
