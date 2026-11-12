@@ -73,7 +73,7 @@ private:
     void applyViewSettings (const LudensScopeProcessor::ViewSettings& settings);
     void saveViewSettings();
     void applyReferenceSettings();
-    void toggleReferenceSlot();
+    void selectReferenceSlot (int slot);
     void checkForUpdates();
     void handleUpdateResult (const UpdateInfo& info);
     void downloadUpdate (const UpdateInfo& info);

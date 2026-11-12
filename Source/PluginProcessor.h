@@ -114,6 +114,11 @@ public:
     {
         return activeReferenceSlot.load (std::memory_order_relaxed);
     }
+
+    bool isReferenceSlotFilled (int slot) const noexcept
+    {
+        return referenceSlots[(size_t) juce::jlimit (0, 1, slot)].valid;
+    }
     void switchReferenceSlot (int slot);
 
     // Drop the audio but keep path/curve so the saved reference still shows.
