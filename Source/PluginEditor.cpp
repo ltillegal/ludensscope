@@ -290,6 +290,16 @@ void LudensScopeEditor::paint (juce::Graphics& g)
 
     g.setColour (juce::Colour (0x12ffffff));
     g.fillRect (14, 53, getWidth() - 28, 1);
+
+    if (fileDragActive)
+    {
+        g.setColour (theme::bg.withAlpha (0.55f));
+        g.fillRect (getLocalBounds());
+        g.setColour (theme::accent);
+        g.drawRect (getLocalBounds().reduced (3), 2);
+        g.setFont (theme::labelFont (15.0f));
+        g.drawText ("DROP REFERENCE AUDIO", getLocalBounds(), juce::Justification::centred);
+    }
 }
 
 void LudensScopeEditor::resized()
@@ -631,6 +641,9 @@ void LudensScopeEditor::showFftMenu()
 
     menu.addSeparator();
     menu.addItem (601, "Difference shading", true, showDifference);
+    menu.addItem (610, "  vs snapshot", true, differenceSource == 0);
+    menu.addItem (611, "  vs REF FILE", true, differenceSource == 1);
+    menu.addItem (612, "  vs live", true, differenceSource == 2);
     menu.addItem (600, "Peak markers", true, showPeakMarkers);
     menu.addItem (602, "Side (M/S) curve", true, showSide);
     menu.addItem (603, "Note grid", true, showNoteGrid);
@@ -710,6 +723,12 @@ void LudensScopeEditor::applyFftMenu (int result)
     {
         showDifference = ! showDifference;
         spectrumView.setDifferenceShading (showDifference);
+        saveViewSettings();
+    }
+    else if (result >= 610 && result < 613)
+    {
+        differenceSource = result - 610;
+        spectrumView.setDifferenceSource (differenceSource);
         saveViewSettings();
     }
     else if (result == 602)
@@ -960,6 +979,8 @@ void LudensScopeEditor::applyViewSettings (const LudensScopeProcessor::ViewSetti
 
     showDifference = settings.difference != 0;
     spectrumView.setDifferenceShading (showDifference);
+    differenceSource = juce::jlimit (0, 2, settings.differenceSource);
+    spectrumView.setDifferenceSource (differenceSource);
 
     spanIndex = juce::jlimit (0, 5, settings.spanIndex);
     applyRange (juce::jlimit (20.0f, 20000.0f, settings.rangeLow),
@@ -987,6 +1008,7 @@ void LudensScopeEditor::saveViewSettings()
     settings.sideCurve = showSide ? 1 : 0;
     settings.peakMarkers = showPeakMarkers ? 1 : 0;
     settings.difference = showDifference ? 1 : 0;
+    settings.differenceSource = differenceSource;
     settings.spanIndex = spanIndex;
     settings.rangeLow = rangeLow;
     settings.rangeHigh = rangeHigh;
@@ -1353,6 +1375,51 @@ bool LudensScopeEditor::keyPressed (const juce::KeyPress& key)
     }
 
     return false;
+}
+
+bool LudensScopeEditor::isInterestedInFileDrag (const juce::StringArray& files)
+{
+    for (const auto& path : files)
+    {
+        const auto extension = juce::File (path).getFileExtension().toLowerCase();
+
+        if (extension == ".wav" || extension == ".aif" || extension == ".aiff"
+            || extension == ".flac" || extension == ".ogg")
+        {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+void LudensScopeEditor::fileDragEnter (const juce::StringArray&, int, int)
+{
+    fileDragActive = true;
+    repaint();
+}
+
+void LudensScopeEditor::fileDragExit (const juce::StringArray&)
+{
+    fileDragActive = false;
+    repaint();
+}
+
+void LudensScopeEditor::filesDropped (const juce::StringArray& files, int, int)
+{
+    fileDragActive = false;
+    repaint();
+
+    if (files.isEmpty())
+        return;
+
+    const juce::File file (files[0]);
+
+    if (file.existsAsFile())
+    {
+        pendingReferenceLoopStart = -1.0;
+        loadReferenceFile (file);
+    }
 }
 
 void LudensScopeEditor::mouseMove (const juce::MouseEvent& e)
