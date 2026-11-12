@@ -40,6 +40,12 @@ public:
         repaint();
     }
 
+    void setGuides (bool shouldShow) noexcept
+    {
+        showGuides = shouldShow;
+        repaint();
+    }
+
     // Emitted when the user zooms with the wheel; the editor applies the range
     // to the waterfall as well so both views stay aligned.
     std::function<void (float, float)> onRangeChange;
@@ -139,6 +145,46 @@ public:
         };
 
         g.setFont (theme::monoFont (9.0f));
+
+        // Placement guides: where the fundamental of each element usually sits.
+        if (showGuides)
+        {
+            struct Zone { const char* name; float low; float high; };
+
+            static const Zone zones[] = {
+                { "SUB",   20.0f,    60.0f },
+                { "KICK",  60.0f,   120.0f },
+                { "BASS", 120.0f,   250.0f },
+                { "SNARE",250.0f,   500.0f },
+                { "VOX",  500.0f,  2000.0f },
+                { "PRES",2000.0f,  6000.0f },
+                { "AIR", 6000.0f, 20000.0f },
+            };
+
+            for (int i = 0; i < 7; ++i)
+            {
+                const float low = juce::jmax (zones[i].low, rangeLow);
+                const float high = juce::jmin (zones[i].high, rangeHigh);
+
+                if (high <= low)
+                    continue;
+
+                const float x0 = xFor (fractionForHz (low));
+                const float x1 = xFor (fractionForHz (high));
+
+                g.setColour ((i % 2 == 0 ? theme::cold : theme::accent).withAlpha (0.035f));
+                g.fillRect (juce::Rectangle<float> (x0, plot.getY(), x1 - x0, plot.getHeight()));
+
+                g.setColour (theme::panelLine.withAlpha (0.7f));
+                g.drawVerticalLine ((int) std::round (x0), plot.getY(), plot.getBottom());
+
+                g.setFont (theme::labelFont (7.5f));
+                g.setColour (theme::textDim.withAlpha (0.9f));
+                g.drawText (zones[i].name,
+                            juce::Rectangle<float> (x0, plot.getBottom() - 11.0f, x1 - x0, 10.0f),
+                            juce::Justification::centred);
+            }
+        }
 
         for (float db = maxDb; db >= minDb; db -= 12.0f)
         {
@@ -456,6 +502,7 @@ private:
 
     bool hasReference = false;
     bool cursorActive = false;
+    bool showGuides = false;
     juce::Point<float> cursorPosition;
 
     float rangeLow = minFrequency;

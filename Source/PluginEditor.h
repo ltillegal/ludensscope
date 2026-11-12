@@ -36,6 +36,8 @@ public:
 
     // Freezes the current averaged spectrum as a reference curve.
     void captureReference();
+
+    void setGuidesEnabled (bool enabled);
 private:
     void timerCallback() override;
     void appendScope (const float* left, const float* right, int numSamples) noexcept;
@@ -61,6 +63,7 @@ private:
     juce::TextButton captureButton { "CAPTURE" };
     juce::TextButton monoButton { "MONO" };
     juce::TextButton spanButton { "SPAN 10" };
+    juce::TextButton guidesButton { "GUIDES" };
 
     bool monoActive = false;
 

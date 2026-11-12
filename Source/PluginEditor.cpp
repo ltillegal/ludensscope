@@ -88,6 +88,17 @@ LudensScopeEditor::LudensScopeEditor (LudensScopeProcessor& p)
     spanButton.onClick = [this] { cycleSpan(); };
     addAndMakeVisible (spanButton);
 
+    guidesButton.setClickingTogglesState (true);
+    guidesButton.setColour (juce::TextButton::buttonColourId, theme::panel);
+    guidesButton.setColour (juce::TextButton::buttonOnColourId, theme::accent);
+    guidesButton.setColour (juce::TextButton::textColourOffId, theme::text);
+    guidesButton.setColour (juce::TextButton::textColourOnId, theme::bg);
+    guidesButton.onClick = [this]
+    {
+        spectrumView.setGuides (guidesButton.getToggleState());
+    };
+    addAndMakeVisible (guidesButton);
+
     spectrumView.onRangeChange = [this] (float lowHz, float highHz)
     {
         applyRange (lowHz, highHz);
@@ -182,6 +193,8 @@ void LudensScopeEditor::resized()
     monoButton.setBounds (header.removeFromRight (74).withSizeKeepingCentre (74, 26));
     header.removeFromRight (8);
     spanButton.setBounds (header.removeFromRight (92).withSizeKeepingCentre (92, 26));
+    header.removeFromRight (8);
+    guidesButton.setBounds (header.removeFromRight (84).withSizeKeepingCentre (84, 26));
 
     r.removeFromTop (8);
 
@@ -336,6 +349,12 @@ void LudensScopeEditor::appendScope (const float* left, const float* right, int 
 
     std::memcpy (scopeLeft.data()  + keep, left  + (numSamples - take), sizeof (float) * (size_t) take);
     std::memcpy (scopeRight.data() + keep, right + (numSamples - take), sizeof (float) * (size_t) take);
+}
+
+void LudensScopeEditor::setGuidesEnabled (bool enabled)
+{
+    guidesButton.setToggleState (enabled, juce::dontSendNotification);
+    spectrumView.setGuides (enabled);
 }
 
 void LudensScopeEditor::captureReference()
