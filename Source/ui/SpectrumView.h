@@ -91,6 +91,12 @@ public:
         repaint();
     }
 
+    void setReferenceSlotState (int activeSlot, bool slotAFilled, bool slotBFilled) noexcept
+    {
+        activeReferenceSlot = juce::jlimit (0, 1, activeSlot);
+        referenceSlotFilled = { slotAFilled, slotBFilled };
+    }
+
     void setNoteGrid (bool shouldShow) noexcept
     {
         showNoteGrid = shouldShow;
@@ -135,7 +141,7 @@ public:
     std::function<void()> onPlayToggle;
     std::function<void()> onLoopToggle;
     std::function<void()> onAbToggle;
-    std::function<void()> onReferenceSlotToggle;
+    std::function<void (int)> onReferenceSlotSelect;
     std::function<void (int)> onSnapshotSelect;
     std::function<void (double)> onReferenceSeek;
     std::function<void (double, double)> onLoopRangeChange;
@@ -303,10 +309,12 @@ public:
             if (onLoopToggle)
                 onLoopToggle();
         }
-        else if (slotArea.contains (e.position))
+        else if (slotAreas[0].contains (e.position) || slotAreas[1].contains (e.position))
         {
-            if (onReferenceSlotToggle)
-                onReferenceSlotToggle();
+            const int slot = slotAreas[1].contains (e.position) ? 1 : 0;
+
+            if (onReferenceSlotSelect)
+                onReferenceSlotSelect (slot);
         }
         else if (abArea.contains (e.position))
         {
@@ -807,8 +815,8 @@ public:
         // Reference transport, only when a reference is loaded.
         if (transportEnabled)
         {
-            const juce::Rectangle<float> bar (plot.getRight() - 250.0f, plot.getY() + 6.0f,
-                                              242.0f, 18.0f);
+            const juce::Rectangle<float> bar (plot.getRight() - 306.0f, plot.getY() + 6.0f,
+                                              306.0f, 18.0f);
 
             g.setColour (theme::bg.withAlpha (0.66f));
             g.fillRoundedRectangle (bar, 9.0f);
@@ -816,9 +824,13 @@ public:
             g.drawRoundedRectangle (bar, 9.0f, 1.0f);
 
             playArea = { bar.getX() + 4.0f, bar.getY(), 24.0f, bar.getHeight() };
-            slotArea = { bar.getX() + 30.0f, bar.getY(), 18.0f, bar.getHeight() };
-            loopArea = { bar.getX() + 54.0f, bar.getY(), 44.0f, bar.getHeight() };
-            abArea = { bar.getX() + 102.0f, bar.getY(), 42.0f, bar.getHeight() };
+            loopArea = { bar.getX() + 34.0f, bar.getY(), 44.0f, bar.getHeight() };
+            abArea = { bar.getX() + 84.0f, bar.getY(), 42.0f, bar.getHeight() };
+
+            const juce::Rectangle<float> slotGroup (bar.getX() + 214.0f, bar.getY(),
+                                                    88.0f, bar.getHeight());
+            slotAreas[0] = slotGroup.reduced (2.0f).withWidth (42.0f);
+            slotAreas[1] = slotAreas[0].translated (44.0f, 0.0f);
 
             g.setColour (transportPlaying ? theme::accent2 : theme::accent);
 
@@ -843,15 +855,40 @@ public:
             g.setColour (transportAudible ? theme::accent : theme::textDim);
             g.drawText (transportAudible ? "REF" : "MIX", abArea, juce::Justification::centred);
 
-            g.setFont (theme::monoFont (10.0f));
-            g.setColour (theme::accent);
-            g.drawText (activeReferenceSlot == 0 ? "A" : "B", slotArea,
-                        juce::Justification::centred);
+            // Reference slots, BluPrint-style segmented control.
+            g.setColour (theme::panel);
+            g.fillRoundedRectangle (slotGroup, 5.0f);
+
+            for (int i = 0; i < 2; ++i)
+            {
+                const bool active = i == activeReferenceSlot;
+                const bool filled = referenceSlotFilled[(size_t) i];
+
+                if (active)
+                {
+                    g.setColour (theme::text);
+                    g.fillRoundedRectangle (slotAreas[(size_t) i], 4.0f);
+                }
+
+                g.setFont (theme::monoFont (11.0f));
+                g.setColour (active ? theme::bg
+                                    : (filled ? theme::text.withAlpha (0.75f)
+                                              : theme::textDim));
+                g.drawText (i == 0 ? "A" : "B", slotAreas[(size_t) i],
+                            juce::Justification::centred);
+
+                if (filled && ! active)
+                {
+                    g.setColour (theme::accent);
+                    g.fillEllipse (slotAreas[(size_t) i].getRight() - 7.0f,
+                                   slotAreas[(size_t) i].getBottom() - 6.0f, 3.0f, 3.0f);
+                }
+            }
 
             g.setFont (theme::monoFont (9.0f));
             g.setColour (theme::textDim);
             g.drawText (formatTime (transportPosition) + " / " + formatTime (transportLength),
-                        bar.withTrimmedLeft (148.0f).withTrimmedRight (8.0f),
+                        bar.withTrimmedLeft (132.0f).withTrimmedRight (100.0f),
                         juce::Justification::centredRight);
 
             loopBar = { bar.getX(), bar.getBottom() + 4.0f, bar.getWidth(), 20.0f };
@@ -1193,7 +1230,9 @@ private:
     double loopPreviewStart = 0.0;
     double loopPreviewEnd = 0.0;
 
-    juce::Rectangle<float> playArea, slotArea, loopArea, abArea;
+    juce::Rectangle<float> playArea, loopArea, abArea;
+    std::array<juce::Rectangle<float>, 2> slotAreas {};
+    std::array<bool, 2> referenceSlotFilled { false, false };
 
     juce::Point<float> cursorPosition;
 

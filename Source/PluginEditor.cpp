@@ -223,7 +223,7 @@ LudensScopeEditor::LudensScopeEditor (LudensScopeProcessor& p)
     spectrumView.onPlayToggle = [this] { toggleReferencePlay(); };
     spectrumView.onLoopToggle = [this] { toggleReferenceLoop(); };
     spectrumView.onAbToggle = [this] { toggleReferenceAb(); };
-    spectrumView.onReferenceSlotToggle = [this] { toggleReferenceSlot(); };
+    spectrumView.onReferenceSlotSelect = [this] (int slot) { selectReferenceSlot (slot); };
 
     spectrumView.onReferenceSeek = [this] (double seconds)
     {
@@ -526,6 +526,9 @@ void LudensScopeEditor::timerCallback()
     const double referenceRate = preparedSampleRate > 0.0 ? preparedSampleRate : 48000.0;
 
     undoButton.setEnabled (processor.hasUndo());
+    spectrumView.setReferenceSlotState (processor.getActiveReferenceSlot(),
+                                        processor.isReferenceSlotFilled (0),
+                                        processor.isReferenceSlotFilled (1));
 
     spectrumView.setTransport (processor.hasReferenceAudio(),
                                processor.isReferencePlaying(),
@@ -1297,9 +1300,12 @@ void LudensScopeEditor::downloadUpdate (const UpdateInfo& info)
         });
 }
 
-void LudensScopeEditor::toggleReferenceSlot()
+void LudensScopeEditor::selectReferenceSlot (int slot)
 {
-    processor.switchReferenceSlot (1 - processor.getActiveReferenceSlot());
+    if (slot == processor.getActiveReferenceSlot())
+        return;
+
+    processor.switchReferenceSlot (slot);
     applyReferenceSettings();
 }
 
