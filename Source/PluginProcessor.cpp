@@ -49,12 +49,14 @@ void LudensScopeProcessor::restoreReferenceAudio (std::shared_ptr<juce::AudioBuf
                                                   double loopEndSeconds, double positionSeconds)
 {
     const auto length = audio != nullptr ? (std::int64_t) audio->getNumSamples() : 0;
+    auto keep = audio;
 
     {
         const juce::SpinLock::ScopedLockType guard (referenceLock);
         referenceAudio = std::move (audio);
     }
 
+    referenceSlots[(size_t) activeReferenceSlot.load()].audio = keep;
     referenceLength.store (length);
     referenceLufsValue.store (lufs);
     referencePlaying.store (false);
@@ -86,6 +88,10 @@ void LudensScopeProcessor::setReferenceAudio (std::unique_ptr<juce::AudioBuffer<
     referenceLufsValue.store (lufs);
     referencePlaying.store (false);
     referenceAudible.store (false);
+
+    auto& slot = referenceSlots[(size_t) activeReferenceSlot.load()];
+    slot.audio = newAudio;
+    slot.lufs = lufs;
 
     rebuildReferenceWaveform();
 }
@@ -153,6 +159,7 @@ void LudensScopeProcessor::clearReferenceAudio()
     slot.loopStart = 0.0;
     slot.loopEnd = 0.0;
     slot.position = 0.0;
+    slot.audio.reset();
     referenceGenerationValue.fetch_add (1);
 }
 
@@ -181,6 +188,9 @@ void LudensScopeProcessor::syncActiveReferenceSlot()
         slot.loopStart = (double) referenceLoopStart.load (std::memory_order_relaxed) / rate;
         slot.loopEnd = (double) referenceLoopEnd.load (std::memory_order_relaxed) / rate;
         slot.position = (double) referencePosition.load (std::memory_order_relaxed) / rate;
+
+        const juce::SpinLock::ScopedLockType guard (referenceLock);
+        slot.audio = referenceAudio;
     }
 }
 
@@ -194,19 +204,31 @@ void LudensScopeProcessor::switchReferenceSlot (int slot)
     syncActiveReferenceSlot();
     activeReferenceSlot.store (slot);
 
+    auto& next = referenceSlots[(size_t) slot];
+
     {
         const juce::SpinLock::ScopedLockType guard (referenceLock);
-        referenceAudio.reset();
+        referenceAudio = next.audio;
     }
 
-    referenceLength.store (0);
+    const auto length = next.audio != nullptr
+        ? (std::int64_t) next.audio->getNumSamples() : 0;
+
+    referenceLength.store (length);
     referencePosition.store (0);
     referenceLoopStart.store (0);
     referenceLoopEnd.store (0);
     referencePlaying.store (false);
     referenceAudible.store (false);
-    referenceWaveformData.clear();
-    referenceLufsValue.store (referenceSlots[(size_t) slot].lufs);
+    referenceLufsValue.store (next.lufs);
+
+    if (length > 0)
+    {
+        setReferenceLoopRange (next.loopStart, next.loopEnd);
+        setReferencePositionSeconds (next.position);
+    }
+
+    rebuildReferenceWaveform();
     referenceGenerationValue.fetch_add (1);
 }
 
@@ -242,6 +264,28 @@ void LudensScopeProcessor::unloadReferenceAudio() noexcept
         const juce::SpinLock::ScopedLockType guard (referenceLock);
         referenceAudio.reset();
     }
+
+    referenceLength.store (0);
+    referencePosition.store (0);
+    referenceLoopStart.store (0);
+    referenceLoopEnd.store (0);
+    referencePlaying.store (false);
+    referenceAudible.store (false);
+    referenceWaveformData.clear();
+    referenceGenerationValue.fetch_add (1);
+}
+
+void LudensScopeProcessor::dropReferenceAudioCaches()
+{
+    syncActiveReferenceSlot();
+
+    {
+        const juce::SpinLock::ScopedLockType guard (referenceLock);
+        referenceAudio.reset();
+    }
+
+    for (auto& slot : referenceSlots)
+        slot.audio.reset();
 
     referenceLength.store (0);
     referencePosition.store (0);

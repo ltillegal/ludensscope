@@ -406,6 +406,12 @@ void LudensScopeEditor::timerCallback()
         analyzer.prepare (sampleRate);
         sideAnalyzer.prepare (sampleRate);
         oscilloscopeView.setSampleRate (sampleRate);
+
+        // Cached reference audio is at the old rate; reload it.
+        processor.dropReferenceAudioCaches();
+
+        if (processor.getReferenceSettings().valid)
+            applyReferenceSettings();
     }
 
     const int numRead = processor.readSamples (readLeft.data(), readRight.data(), readChunk);
@@ -959,8 +965,16 @@ void LudensScopeEditor::exportSnapshots()
 
 void LudensScopeEditor::updateReferenceGain()
 {
-    const float mixLufs = processor.integratedLufs();
+    float mixLufs = processor.integratedLufs();
     const float referenceLufs = processor.referenceLufs();
+
+    if (mixLufs < -70.0f)
+    {
+        const float target = meterPanel.getTarget();
+
+        if (target > -90.0f)
+            mixLufs = target;
+    }
 
     float gainDb = 0.0f;
 
