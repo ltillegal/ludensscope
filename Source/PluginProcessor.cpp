@@ -49,6 +49,8 @@ void LudensScopeProcessor::setReferenceAudio (std::unique_ptr<juce::AudioBuffer<
 
     referenceLength.store (length);
     referencePosition.store (0);
+    referenceLoopStart.store (0);
+    referenceLoopEnd.store (length);
     referenceLufsValue.store (lufs);
     referencePlaying.store (false);
     referenceAudible.store (false);
@@ -63,18 +65,86 @@ void LudensScopeProcessor::clearReferenceAudio()
 
     referenceLength.store (0);
     referencePosition.store (0);
+    referenceLoopStart.store (0);
+    referenceLoopEnd.store (0);
     referencePlaying.store (false);
     referenceAudible.store (false);
 }
 
+void LudensScopeProcessor::setReferencePositionSeconds (double seconds) noexcept
+{
+    const auto length = referenceLength.load (std::memory_order_relaxed);
+
+    if (length <= 0)
+        return;
+
+    const double rate = getSampleRate() > 0.0 ? getSampleRate() : 48000.0;
+    const auto position = (std::int64_t) std::llround (
+        juce::jlimit (0.0, (double) length, seconds * rate));
+
+    referencePosition.store (juce::jlimit ((std::int64_t) 0, length, position),
+                             std::memory_order_relaxed);
+}
+
+void LudensScopeProcessor::setReferenceLoopRange (double startSeconds, double endSeconds) noexcept
+{
+    const auto length = referenceLength.load (std::memory_order_relaxed);
+
+    if (length <= 0)
+        return;
+
+    const double rate = getSampleRate() > 0.0 ? getSampleRate() : 48000.0;
+
+    auto start = (std::int64_t) std::llround (
+        juce::jlimit (0.0, (double) length, startSeconds * rate));
+    auto end = (std::int64_t) std::llround (
+        juce::jlimit (0.0, (double) length, endSeconds * rate));
+
+    if (end <= start)
+    {
+        start = 0;
+        end = length;
+    }
+
+    referenceLoopStart.store (start, std::memory_order_relaxed);
+    referenceLoopEnd.store (end, std::memory_order_relaxed);
+
+    const auto position = referencePosition.load (std::memory_order_relaxed);
+
+    if (position < start || position >= end)
+        referencePosition.store (start, std::memory_order_relaxed);
+}
+
+double LudensScopeProcessor::referenceLoopStartSeconds() const noexcept
+{
+    const double rate = getSampleRate() > 0.0 ? getSampleRate() : 48000.0;
+    return (double) referenceLoopStart.load() / rate;
+}
+
+double LudensScopeProcessor::referenceLoopEndSeconds() const noexcept
+{
+    const double rate = getSampleRate() > 0.0 ? getSampleRate() : 48000.0;
+    return (double) referenceLoopEnd.load() / rate;
+}
+
 void LudensScopeProcessor::setReferencePlaying (bool shouldPlay) noexcept
 {
-    if (shouldPlay
-        && referenceLength.load (std::memory_order_relaxed) > 0
-        && referencePosition.load (std::memory_order_relaxed)
-               >= referenceLength.load (std::memory_order_relaxed))
+    if (shouldPlay)
     {
-        referencePosition.store (0, std::memory_order_relaxed);
+        const auto length = referenceLength.load (std::memory_order_relaxed);
+
+        if (length > 0)
+        {
+            const auto start = referenceLoopStart.load (std::memory_order_relaxed);
+            const auto end = referenceLoopEnd.load (std::memory_order_relaxed);
+
+            auto position = referencePosition.load (std::memory_order_relaxed);
+
+            if (position >= length || (end > start && (position < start || position >= end)))
+                position = end > start ? start : 0;
+
+            referencePosition.store (position, std::memory_order_relaxed);
+        }
     }
 
     referencePlaying.store (shouldPlay, std::memory_order_relaxed);
@@ -169,6 +239,10 @@ void LudensScopeProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce:
             auto* outL = buffer.getWritePointer (0);
             auto* outR = buffer.getNumChannels() > 1 ? buffer.getWritePointer (1) : outL;
 
+            const auto loopStart = referenceLoopStart.load (std::memory_order_relaxed);
+            const auto loopEnd = referenceLoopEnd.load (std::memory_order_relaxed);
+            const auto effectiveEnd = loopEnd > loopStart ? loopEnd : length;
+
             auto pos = referencePosition.load (std::memory_order_relaxed);
             bool stillPlaying = playing;
             float targetMix = (audible && playing) ? 1.0f : 0.0f;
@@ -188,11 +262,11 @@ void LudensScopeProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce:
                     refL = audio->getSample (0, p);
                     refR = refChannels > 1 ? audio->getSample (1, p) : refL;
 
-                    if (++pos >= length)
+                    if (++pos >= effectiveEnd)
                     {
                         if (referenceLoop.load (std::memory_order_relaxed))
                         {
-                            pos = 0;
+                            pos = effectiveEnd == loopEnd ? loopStart : 0;
                         }
                         else
                         {

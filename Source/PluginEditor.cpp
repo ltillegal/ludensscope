@@ -165,6 +165,16 @@ LudensScopeEditor::LudensScopeEditor (LudensScopeProcessor& p)
     spectrumView.onLoopToggle = [this] { toggleReferenceLoop(); };
     spectrumView.onAbToggle = [this] { toggleReferenceAb(); };
 
+    spectrumView.onReferenceSeek = [this] (double seconds)
+    {
+        processor.setReferencePositionSeconds (seconds);
+    };
+
+    spectrumView.onLoopRangeChange = [this] (double start, double end)
+    {
+        processor.setReferenceLoopRange (start, end);
+    };
+
     spectrumView.setSnapshots (snapshots, snapshotFilled, snapshotSlot);
 
     spectrumView.onSnapshotSelect = [this] (int slot)
@@ -410,7 +420,9 @@ void LudensScopeEditor::timerCallback()
                                processor.isReferenceLooping(),
                                processor.isReferenceAudible(),
                                (double) processor.referencePositionSamples() / referenceRate,
-                               (double) processor.referenceLengthSamples() / referenceRate);
+                               (double) processor.referenceLengthSamples() / referenceRate,
+                               processor.referenceLoopStartSeconds(),
+                               processor.referenceLoopEndSeconds());
 
     if (processor.snapshotGeneration() != snapshotGeneration)
         syncSnapshots();
@@ -524,6 +536,9 @@ void LudensScopeEditor::showFftMenu()
     menu.addItem (301, "+3 dB/oct", true, analyzer.getTilt() == 3.0f);
     menu.addItem (302, "+4.5 dB/oct", true, analyzer.getTilt() == 4.5f);
 
+    menu.addSeparator();
+    menu.addItem (600, "Peak markers", true, showPeakMarkers);
+
     bool anySnapshot = false;
 
     for (int slot = 0; slot < LudensScopeProcessor::snapshotSlots; ++slot)
@@ -587,6 +602,11 @@ void LudensScopeEditor::applyFftMenu (int result)
     else if (result == 500)
     {
         exportSnapshots();
+    }
+    else if (result == 600)
+    {
+        showPeakMarkers = ! showPeakMarkers;
+        spectrumView.setPeakMarkers (showPeakMarkers);
     }
 }
 
@@ -858,7 +878,7 @@ void LudensScopeEditor::resetDisplay()
     syncSnapshots();
 
     processor.clearReferenceAudio();
-    spectrumView.setTransport (false, false, true, false, 0.0, 0.0);
+    spectrumView.setTransport (false, false, true, false, 0.0, 0.0, 0.0, 0.0);
 
     clearGuideSolo();
 
