@@ -32,7 +32,7 @@ juce_add_plugin(LudensScope
   BUNDLE_ID "local.ludensscope"
   PLUGIN_MANUFACTURER_CODE LDNS
   PLUGIN_CODE LDSC
-  FORMATS VST3
+  FORMATS VST3 AU
   PRODUCT_NAME "LudensScope"
   DESCRIPTION "Stereo spectrum, loudness and scope analyzer"
   IS_SYNTH FALSE
