@@ -85,6 +85,12 @@ public:
         repaint();
     }
 
+    void setNoteGrid (bool shouldShow) noexcept
+    {
+        showNoteGrid = shouldShow;
+        repaint();
+    }
+
     void setSideData (const float* levelsDb, const float* peaksDb) noexcept
     {
         std::copy (levelsDb, levelsDb + numBins, sideLevels.begin());
@@ -382,6 +388,24 @@ public:
         };
 
         g.setFont (theme::monoFont (9.0f));
+
+        // Note grid: octave C markers for tonal checks.
+        if (showNoteGrid)
+        {
+            static const float noteHz[] = { 32.703f, 65.406f, 130.813f, 261.626f,
+                                            523.251f, 1046.502f, 2093.005f, 4186.009f };
+
+            g.setColour (theme::gridStrong.withAlpha (0.55f));
+
+            for (const float hz : noteHz)
+            {
+                if (hz < rangeLow || hz > rangeHigh)
+                    continue;
+
+                const float x = xFor (fractionForHz (hz));
+                g.drawVerticalLine ((int) std::round (x), plot.getY(), plot.getBottom());
+            }
+        }
 
         // Placement guides: where the fundamental of each element usually sits.
         if (showGuides)
@@ -881,7 +905,58 @@ public:
 
             const juce::String line1 = formatHzLong (hz) + "  " + note + "   "
                                        + juce::String (levelDb, 1) + " dBFS";
-            const juce::String line2 = "peak " + juce::String (peakLevelDb, 1) + " dBFS";
+
+            // Q of the nearest spectral peak, from its -3 dB width.
+            float qValue = 0.0f;
+
+            if (levelDb > -80.0f)
+            {
+                const int cursorBin = juce::jlimit (0, numBins - 1,
+                    (int) std::lround (fraction * (float) (numBins - 1)));
+                int peakBin = -1;
+
+                for (int i = juce::jmax (1, cursorBin - 24);
+                     i <= juce::jmin (numBins - 2, cursorBin + 24); ++i)
+                {
+                    if (levels[(size_t) i] >= levels[(size_t) (i - 1)]
+                        && levels[(size_t) i] > levels[(size_t) (i + 1)]
+                        && levels[(size_t) i] > -84.0f)
+                    {
+                        if (peakBin < 0 || levels[(size_t) i] > levels[(size_t) peakBin])
+                            peakBin = i;
+                    }
+                }
+
+                if (peakBin >= 0 && levels[(size_t) peakBin] - levelDb < 8.0f)
+                {
+                    const float threshold = levels[(size_t) peakBin] - 3.0f;
+                    int left = peakBin;
+                    int right = peakBin;
+
+                    while (left > 0 && levels[(size_t) (left - 1)] > threshold)
+                        --left;
+
+                    while (right < numBins - 1 && levels[(size_t) (right + 1)] > threshold)
+                        ++right;
+
+                    const auto hzForBin = [] (int bin)
+                    {
+                        return minFrequency * std::pow (maxFrequency / minFrequency,
+                                                        (float) bin / (float) (numBins - 1));
+                    };
+
+                    const float bandwidth = hzForBin (right) - hzForBin (left);
+                    const float peakHz = hzForBin (peakBin);
+
+                    if (bandwidth > 0.0f)
+                        qValue = peakHz / bandwidth;
+                }
+            }
+
+            juce::String line2 = "peak " + juce::String (peakLevelDb, 1) + " dBFS";
+
+            if (qValue > 0.0f)
+                line2 += "   Q " + juce::String (qValue, 1);
 
             const float difference = levelDb - referenceLevelDb;
             const juce::String line3 = "ref " + juce::String (referenceLevelDb, 1)
@@ -1066,6 +1141,7 @@ private:
     double transportLoopEnd = 0.0;
     bool showPeakMarkers = true;
     bool showDifference = false;
+    bool showNoteGrid = false;
 
     juce::Rectangle<float> loopBar;
 

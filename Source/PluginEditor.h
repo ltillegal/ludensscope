@@ -93,7 +93,9 @@ private:
     bool showPeakMarkers = true;
     bool showDifference = false;
     bool showSide = false;
+    bool showNoteGrid = false;
     int smoothingPreset = 0;
+    int overlapPreset = 0;
     int waterfallHistory = 2;
     int soloZone = -1;
 

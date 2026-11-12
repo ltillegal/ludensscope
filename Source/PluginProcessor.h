@@ -99,6 +99,8 @@ public:
         float tiltDbPerOctave = 0.0f;
         int windowType = 0;
         int smoothingPreset = 0;
+        int overlapPreset = 0;
+        int noteGrid = 0;
     };
 
     FftSettings getFftSettings() const noexcept { return fftSettingsValue; }
