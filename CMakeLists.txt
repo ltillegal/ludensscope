@@ -8,6 +8,8 @@ endif()
 
 project(LudensScope VERSION 0.2.0 LANGUAGES C CXX)
 
+enable_testing()
+
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
@@ -99,4 +101,8 @@ if(LUDENSCOPE_BUILD_TESTS)
     juce::juce_audio_utils
     juce::juce_dsp
     juce::juce_recommended_config_flags)
+
+  add_test(NAME loudness COMMAND LudensScopeLoudnessCalibration)
+  add_test(NAME spectrum COMMAND LudensScopeCalibration)
+  add_test(NAME ui_snapshot COMMAND LudensScopeUiSnapshot)
 endif()

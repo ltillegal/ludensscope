@@ -1,0 +1,47 @@
+name: build
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            name: linux
+          - os: macos-latest
+            name: macos
+          - os: windows-latest
+            name: windows
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DLUDENSCOPE_BUILD_TESTS=ON
+
+      - name: Build
+        run: cmake --build build --config Release --parallel 4
+
+      - name: Test (Linux)
+        if: runner.os == 'Linux'
+        run: xvfb-run -a ctest --test-dir build --output-on-failure -C Release
+
+      - name: Test (macOS / Windows)
+        if: runner.os != 'Linux'
+        run: ctest --test-dir build --output-on-failure -C Release
+
+      - name: Upload artefacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ludensscope-${{ matrix.name }}
+          if-no-files-found: ignore
+          path: |
+            build/LudensScope_artefacts/Release/VST3/LudensScope.vst3
+            build/LudensScope_artefacts/Release/AU/LudensScope.component
