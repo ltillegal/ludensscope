@@ -179,6 +179,53 @@ public:
 
         drawChannel (right, theme::cold);
         drawChannel (left, theme::accent);
+
+        if (drawCount >= 8)
+        {
+            double sumSquares = 0.0;
+            float peak = 0.0f;
+
+            for (int i = 0; i < drawCount; ++i)
+            {
+                const float l = left[(size_t) (start + i)];
+                const float r = right[(size_t) (start + i)];
+
+                sumSquares += (double) l * l + (double) r * r;
+                peak = juce::jmax (peak, juce::jmax (std::abs (l), std::abs (r)));
+            }
+
+            const float rms = (float) std::sqrt (sumSquares / (double) (2 * drawCount));
+            const float peakDb = 20.0f * std::log10 (juce::jmax (peak, 1.0e-5f));
+            const float rmsDb = 20.0f * std::log10 (juce::jmax (rms, 1.0e-5f));
+
+            const juce::Rectangle<float> stats (plot.getX() + 8.0f, plot.getY() + 6.0f, 286.0f, 18.0f);
+
+            g.setColour (theme::bg.withAlpha (0.66f));
+            g.fillRoundedRectangle (stats, 9.0f);
+            g.setColour (theme::panelLine);
+            g.drawRoundedRectangle (stats, 9.0f, 1.0f);
+
+            g.setFont (theme::labelFont (8.5f));
+            g.setColour (theme::textDim);
+            g.drawText ("PEAK", stats.withTrimmedLeft (9.0f).withWidth (28.0f),
+                        juce::Justification::centredLeft);
+            g.drawText ("RMS", stats.withTrimmedLeft (84.0f).withWidth (26.0f),
+                        juce::Justification::centredLeft);
+            g.drawText ("CREST", stats.withTrimmedLeft (160.0f).withWidth (34.0f),
+                        juce::Justification::centredLeft);
+
+            g.setFont (theme::monoFont (9.5f));
+            g.setColour (theme::accent);
+            g.drawText (juce::String (peakDb, 1), stats.withTrimmedLeft (36.0f).withWidth (42.0f),
+                        juce::Justification::centredLeft);
+            g.setColour (theme::cold);
+            g.drawText (juce::String (rmsDb, 1), stats.withTrimmedLeft (110.0f).withWidth (42.0f),
+                        juce::Justification::centredLeft);
+            g.setColour (theme::accent2);
+            g.drawText (juce::String (peakDb - rmsDb, 1) + " dB",
+                        stats.withTrimmedLeft (194.0f).withWidth (86.0f),
+                        juce::Justification::centredLeft);
+        }
     }
 
 private:
