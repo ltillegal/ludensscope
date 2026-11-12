@@ -77,6 +77,33 @@ public:
     }
 };
 
+void DonateButton::paintButton (juce::Graphics& g, bool isMouseOver, bool isMouseDown)
+{
+    const auto bounds = getLocalBounds().toFloat();
+
+    g.setColour (isMouseDown ? theme::panelTop : theme::panel);
+    g.fillRoundedRectangle (bounds, bounds.getHeight() * 0.5f);
+    g.setColour (theme::panelLine);
+    g.drawRoundedRectangle (bounds.reduced (0.5f), bounds.getHeight() * 0.5f, 1.0f);
+
+    const float cx = bounds.getCentreX();
+    const float cy = bounds.getCentreY();
+    const float s = 6.5f;
+
+    juce::Path heart;
+    heart.startNewSubPath (cx, cy + s * 0.85f);
+    heart.cubicTo (cx - s * 1.5f, cy - s * 0.1f,
+                   cx - s * 0.95f, cy - s * 1.25f,
+                   cx, cy - s * 0.45f);
+    heart.cubicTo (cx + s * 0.95f, cy - s * 1.25f,
+                   cx + s * 1.5f, cy - s * 0.1f,
+                   cx, cy + s * 0.85f);
+    heart.closeSubPath();
+
+    g.setColour (isMouseOver ? theme::accent2.brighter (0.2f) : theme::accent2);
+    g.fillPath (heart);
+}
+
 LudensScopeEditor::LudensScopeEditor (LudensScopeProcessor& p)
     : juce::AudioProcessorEditor (&p), processor (p)
 {
@@ -120,6 +147,14 @@ LudensScopeEditor::LudensScopeEditor (LudensScopeProcessor& p)
     undoButton.setEnabled (false);
     undoButton.setTooltip ("Restore the meters, snapshot, reference and counters from before the last RESET");
     addAndMakeVisible (undoButton);
+
+    donateButton.setTooltip ("Donate via PayPal (0eskimo0@gmail.com)");
+    donateButton.onClick = []
+    {
+        juce::URL ("https://www.paypal.com/donate/?business=0eskimo0%40gmail.com"
+                   "&item_name=LudensScope&currency_code=USD").launchInDefaultBrowser();
+    };
+    addAndMakeVisible (donateButton);
 
     captureButton.setColour (juce::TextButton::buttonColourId, theme::panel);
     captureButton.setColour (juce::TextButton::textColourOffId, theme::text);
@@ -308,6 +343,8 @@ void LudensScopeEditor::resized()
     auto r = getLocalBounds().reduced (14);
     auto header = r.removeFromTop (36);
 
+    donateButton.setBounds (header.removeFromRight (26).withSizeKeepingCentre (26, 26));
+    header.removeFromRight (6);
     resetButton.setBounds (header.removeFromRight (84).withSizeKeepingCentre (84, 26));
     header.removeFromRight (8);
     undoButton.setBounds (header.removeFromRight (68).withSizeKeepingCentre (68, 26));

@@ -174,3 +174,11 @@ Cubase. Плагин появится в категории `Analyzer`. Для L
 - Пресетов нет намеренно: в состоянии проекта хранятся снапшоты FFT,
   настройки анализатора и вид интерфейса.
 - AAX и AUv3 не собираются.
+
+## Поддержать проект
+
+Если LudensScope экономит время — можно поддержать разработку через PayPal:
+
+[![Donate](https://img.shields.io/badge/Donate-PayPal-00457C?logo=paypal&logoColor=white)](https://www.paypal.com/donate/?business=0eskimo0%40gmail.com&item_name=LudensScope&currency_code=USD)
+
+PayPal: **0eskimo0@gmail.com**
