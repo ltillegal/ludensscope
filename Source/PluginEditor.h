@@ -20,6 +20,20 @@
 class ScopeLookAndFeel;
 class ReferenceLoader;
 
+class ReferenceSlotSwitch : public juce::Component,
+                             public juce::SettableTooltipClient
+{
+public:
+    void setState (int activeSlot, bool slotAFilled, bool slotBFilled);
+    std::function<void (int)> onSelect;
+    void paint (juce::Graphics&) override;
+    void mouseDown (const juce::MouseEvent&) override;
+
+private:
+    int active = 0;
+    std::array<bool, 2> filled { false, false };
+};
+
 class DonateButton : public juce::Button
 {
 public:
@@ -105,6 +119,7 @@ private:
     juce::TextButton resetButton  { "RESET" };
     juce::TextButton undoButton   { "UNDO" };
     DonateButton donateButton;
+    ReferenceSlotSwitch slotSwitch;
     juce::TextButton captureButton { "CAPTURE" };
     juce::TextButton monoButton { "MONO" };
     juce::TextButton spanButton { "SPAN 10" };

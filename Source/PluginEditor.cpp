@@ -77,6 +77,56 @@ public:
     }
 };
 
+void ReferenceSlotSwitch::setState (int activeSlot, bool slotAFilled, bool slotBFilled)
+{
+    active = juce::jlimit (0, 1, activeSlot);
+    filled = { slotAFilled, slotBFilled };
+    repaint();
+}
+
+void ReferenceSlotSwitch::paint (juce::Graphics& g)
+{
+    const auto bounds = getLocalBounds().toFloat();
+
+    g.setColour (theme::panel);
+    g.fillRoundedRectangle (bounds, 6.0f);
+
+    const auto inner = bounds.reduced (2.0f);
+    const float segmentWidth = (inner.getWidth() - 2.0f) * 0.5f;
+
+    for (int i = 0; i < 2; ++i)
+    {
+        auto segment = inner.withWidth (segmentWidth).translated (i * (segmentWidth + 2.0f), 0.0f);
+        const bool activeSegment = i == active;
+
+        if (activeSegment)
+        {
+            g.setColour (theme::text);
+            g.fillRoundedRectangle (segment, 5.0f);
+        }
+
+        g.setColour (activeSegment ? theme::bg
+                                   : (filled[(size_t) i] ? theme::text.withAlpha (0.8f)
+                                                         : theme::textDim));
+        g.setFont (theme::monoFont (14.0f));
+        g.drawText (i == 0 ? "A" : "B", segment, juce::Justification::centred);
+
+        if (filled[(size_t) i] && ! activeSegment)
+        {
+            g.setColour (theme::accent);
+            g.fillEllipse (segment.getRight() - 7.0f, segment.getBottom() - 7.0f, 3.0f, 3.0f);
+        }
+    }
+}
+
+void ReferenceSlotSwitch::mouseDown (const juce::MouseEvent& e)
+{
+    const int slot = e.x >= getWidth() / 2 ? 1 : 0;
+
+    if (slot != active && onSelect)
+        onSelect (slot);
+}
+
 void DonateButton::paintButton (juce::Graphics& g, bool isMouseOver, bool isMouseDown)
 {
     const auto bounds = getLocalBounds().toFloat();
@@ -114,7 +164,7 @@ LudensScopeEditor::LudensScopeEditor (LudensScopeProcessor& p)
     setWantsKeyboardFocus (true);
     tooltipWindow = std::make_unique<juce::TooltipWindow> (this, 700);
     setResizable (true, true);
-    setResizeLimits (1060, 600, 2400, 1500);
+    setResizeLimits (1060, 660, 2400, 1500);
 
     addAndMakeVisible (spectrumView);
     addAndMakeVisible (spectrogramView);
@@ -147,6 +197,10 @@ LudensScopeEditor::LudensScopeEditor (LudensScopeProcessor& p)
     undoButton.setEnabled (false);
     undoButton.setTooltip ("Restore the meters, snapshot, reference and counters from before the last RESET");
     addAndMakeVisible (undoButton);
+
+    slotSwitch.setTooltip ("Reference slots A/B");
+    slotSwitch.onSelect = [this] (int slot) { selectReferenceSlot (slot); };
+    addAndMakeVisible (slotSwitch);
 
     donateButton.setTooltip ("Donate via PayPal (0eskimo0@gmail.com)");
     donateButton.onClick = []
@@ -223,8 +277,7 @@ LudensScopeEditor::LudensScopeEditor (LudensScopeProcessor& p)
     spectrumView.onPlayToggle = [this] { toggleReferencePlay(); };
     spectrumView.onLoopToggle = [this] { toggleReferenceLoop(); };
     spectrumView.onAbToggle = [this] { toggleReferenceAb(); };
-    spectrumView.onReferenceSlotSelect = [this] (int slot) { selectReferenceSlot (slot); };
-
+    
     spectrumView.onReferenceSeek = [this] (double seconds)
     {
         processor.setReferencePositionSeconds (seconds);
@@ -288,7 +341,7 @@ void LudensScopeEditor::paint (juce::Graphics& g)
     g.setGradientFill (glow);
     g.fillAll();
 
-    auto header = getLocalBounds().reduced (14).removeFromTop (36);
+    auto header = getLocalBounds().reduced (14).removeFromTop (72);
 
     auto brand = header.removeFromLeft (168);
 
@@ -325,7 +378,7 @@ void LudensScopeEditor::paint (juce::Graphics& g)
     }
 
     g.setColour (juce::Colour (0x12ffffff));
-    g.fillRect (14, 53, getWidth() - 28, 1);
+    g.fillRect (14, 89, getWidth() - 28, 1);
 
     if (fileDragActive)
     {
@@ -341,27 +394,38 @@ void LudensScopeEditor::paint (juce::Graphics& g)
 void LudensScopeEditor::resized()
 {
     auto r = getLocalBounds().reduced (14);
-    auto header = r.removeFromTop (36);
+    auto header = r.removeFromTop (72);
 
-    donateButton.setBounds (header.removeFromRight (26).withSizeKeepingCentre (26, 26));
-    header.removeFromRight (6);
-    resetButton.setBounds (header.removeFromRight (84).withSizeKeepingCentre (84, 26));
-    header.removeFromRight (8);
-    undoButton.setBounds (header.removeFromRight (68).withSizeKeepingCentre (68, 26));
-    header.removeFromRight (8);
-    freezeButton.setBounds (header.removeFromRight (94).withSizeKeepingCentre (94, 26));
-    header.removeFromRight (8);
-    captureButton.setBounds (header.removeFromRight (98).withSizeKeepingCentre (98, 26));
-    header.removeFromRight (8);
-    monoButton.setBounds (header.removeFromRight (74).withSizeKeepingCentre (74, 26));
-    header.removeFromRight (8);
-    spanButton.setBounds (header.removeFromRight (92).withSizeKeepingCentre (92, 26));
-    header.removeFromRight (8);
-    guidesButton.setBounds (header.removeFromRight (84).withSizeKeepingCentre (84, 26));
-    header.removeFromRight (8);
-    referenceButton.setBounds (header.removeFromRight (88).withSizeKeepingCentre (88, 26));
-    header.removeFromRight (8);
-    fftButton.setBounds (header.removeFromRight (84).withSizeKeepingCentre (84, 26));
+    auto rows = header;
+    rows.removeFromTop (8);
+    rows.removeFromBottom (8);
+
+    slotSwitch.setBounds (rows.removeFromRight (72));
+    rows.removeFromRight (10);
+
+    auto row1 = rows.removeFromTop (26);
+    rows.removeFromTop (4);
+    auto row2 = rows.removeFromTop (26);
+
+    monoButton.setBounds (row1.removeFromRight (74).withSizeKeepingCentre (74, 26));
+    row1.removeFromRight (8);
+    spanButton.setBounds (row1.removeFromRight (92).withSizeKeepingCentre (92, 26));
+    row1.removeFromRight (8);
+    guidesButton.setBounds (row1.removeFromRight (84).withSizeKeepingCentre (84, 26));
+    row1.removeFromRight (8);
+    referenceButton.setBounds (row1.removeFromRight (88).withSizeKeepingCentre (88, 26));
+    row1.removeFromRight (8);
+    fftButton.setBounds (row1.removeFromRight (84).withSizeKeepingCentre (84, 26));
+
+    donateButton.setBounds (row2.removeFromRight (26).withSizeKeepingCentre (26, 26));
+    row2.removeFromRight (6);
+    resetButton.setBounds (row2.removeFromRight (84).withSizeKeepingCentre (84, 26));
+    row2.removeFromRight (8);
+    undoButton.setBounds (row2.removeFromRight (68).withSizeKeepingCentre (68, 26));
+    row2.removeFromRight (8);
+    freezeButton.setBounds (row2.removeFromRight (94).withSizeKeepingCentre (94, 26));
+    row2.removeFromRight (8);
+    captureButton.setBounds (row2.removeFromRight (98).withSizeKeepingCentre (98, 26));
 
     r.removeFromTop (8);
 
@@ -526,9 +590,9 @@ void LudensScopeEditor::timerCallback()
     const double referenceRate = preparedSampleRate > 0.0 ? preparedSampleRate : 48000.0;
 
     undoButton.setEnabled (processor.hasUndo());
-    spectrumView.setReferenceSlotState (processor.getActiveReferenceSlot(),
-                                        processor.isReferenceSlotFilled (0),
-                                        processor.isReferenceSlotFilled (1));
+    slotSwitch.setState (processor.getActiveReferenceSlot(),
+                         processor.isReferenceSlotFilled (0),
+                         processor.isReferenceSlotFilled (1));
 
     spectrumView.setTransport (processor.hasReferenceAudio(),
                                processor.isReferencePlaying(),
@@ -537,8 +601,7 @@ void LudensScopeEditor::timerCallback()
                                (double) processor.referencePositionSamples() / referenceRate,
                                (double) processor.referenceLengthSamples() / referenceRate,
                                processor.referenceLoopStartSeconds(),
-                               processor.referenceLoopEndSeconds(),
-                               processor.getActiveReferenceSlot());
+                               processor.referenceLoopEndSeconds());
 
     if (processor.snapshotGeneration() != snapshotGeneration)
         syncSnapshots();
@@ -1446,7 +1509,7 @@ void LudensScopeEditor::resetDisplay()
 
     processor.clearReferenceAudio();
     spectrumView.setReferenceWaveform ({});
-    spectrumView.setTransport (false, false, true, false, 0.0, 0.0, 0.0, 0.0, 0);
+    spectrumView.setTransport (false, false, true, false, 0.0, 0.0, 0.0, 0.0);
 
     clearGuideSolo();
 
