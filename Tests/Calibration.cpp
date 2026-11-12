@@ -1,5 +1,7 @@
 #include "dsp/SpectrumAnalyzer.h"
 
+#include <memory>
+
 #include <cmath>
 #include <cstdio>
 #include <vector>
@@ -48,8 +50,8 @@ int main()
     }
 
     // Full analyser path.
-    SpectrumAnalyzer analyzer;
-    analyzer.prepare (sampleRate);
+    auto analyzer = std::make_unique<SpectrumAnalyzer>();
+    analyzer->prepare (sampleRate);
 
     std::vector<float> left ((size_t) (fftSize * 4)), right ((size_t) (fftSize * 4));
 
@@ -57,20 +59,20 @@ int main()
         left[(size_t) i] = right[(size_t) i] =
             0.5f * (float) std::sin (2.0 * pi * frequency * (double) i / sampleRate);
 
-    analyzer.push (left.data(), right.data(), (int) left.size());
+    analyzer->push (left.data(), right.data(), (int) left.size());
 
     // Let the display smoothing settle before reading the levels.
     for (int i = 0; i < 30; ++i)
-        analyzer.update();
+        analyzer->update();
 
     float best = -1000.0f;
     int bestBin = 0;
 
     for (int i = 0; i < SpectrumAnalyzer::numBins; ++i)
     {
-        if (analyzer.levels()[(size_t) i] > best)
+        if (analyzer->levels()[(size_t) i] > best)
         {
-            best = analyzer.levels()[(size_t) i];
+            best = analyzer->levels()[(size_t) i];
             bestBin = i;
         }
     }
@@ -78,36 +80,36 @@ int main()
     std::printf ("analyser peak = %.2f dBFS at bin %d (expected about -6.0)\n", best, bestBin);
 
     // A flat-top window should keep the same amplitude calibration.
-    SpectrumAnalyzer flatAnalyzer;
-    flatAnalyzer.setWindow (SpectrumAnalyzer::Window::flatTop);
-    flatAnalyzer.prepare (sampleRate);
-    flatAnalyzer.push (left.data(), right.data(), (int) left.size());
+    auto flatAnalyzer = std::make_unique<SpectrumAnalyzer>();
+    flatAnalyzer->setWindow (SpectrumAnalyzer::Window::flatTop);
+    flatAnalyzer->prepare (sampleRate);
+    flatAnalyzer->push (left.data(), right.data(), (int) left.size());
 
     for (int i = 0; i < 30; ++i)
-        flatAnalyzer.update();
+        flatAnalyzer->update();
 
     float flatBest = -1000.0f;
 
     for (int i = 0; i < SpectrumAnalyzer::numBins; ++i)
-        flatBest = std::max (flatBest, flatAnalyzer.levels()[(size_t) i]);
+        flatBest = std::max (flatBest, flatAnalyzer->levels()[(size_t) i]);
 
     const bool flatOk = std::abs (flatBest + 6.0f) <= 0.6f;
     std::printf ("flat-top window peak = %.2f dBFS (expected about -6.0) %s\n",
                  flatBest, flatOk ? "ok" : "FAIL");
 
     // The 4x overlapped FFT path must keep the same calibration.
-    SpectrumAnalyzer overlapAnalyzer;
-    overlapAnalyzer.setOverlap (4);
-    overlapAnalyzer.prepare (sampleRate);
-    overlapAnalyzer.push (left.data(), right.data(), (int) left.size());
+    auto overlapAnalyzer = std::make_unique<SpectrumAnalyzer>();
+    overlapAnalyzer->setOverlap (4);
+    overlapAnalyzer->prepare (sampleRate);
+    overlapAnalyzer->push (left.data(), right.data(), (int) left.size());
 
     for (int i = 0; i < 30; ++i)
-        overlapAnalyzer.update();
+        overlapAnalyzer->update();
 
     float overlapBest = -1000.0f;
 
     for (int i = 0; i < SpectrumAnalyzer::numBins; ++i)
-        overlapBest = std::max (overlapBest, overlapAnalyzer.levels()[(size_t) i]);
+        overlapBest = std::max (overlapBest, overlapAnalyzer->levels()[(size_t) i]);
 
     const bool overlapOk = std::abs (overlapBest + 6.0f) <= 0.6f;
     std::printf ("4x overlap peak = %.2f dBFS (expected about -6.0) %s\n",
