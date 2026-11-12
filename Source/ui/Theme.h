@@ -4,19 +4,19 @@
 
 namespace theme
 {
-    inline const juce::Colour bg         { 0xff011922 };
-    inline const juce::Colour bgBottom   { 0xff012833 };
-    inline const juce::Colour panel      { 0xff013643 };
-    inline const juce::Colour panelTop   { 0xff01495b };
-    inline const juce::Colour panelLine  { 0xff0a5a70 };
-    inline const juce::Colour grid       { 0xff012b37 };
-    inline const juce::Colour gridStrong { 0xff0a4f63 };
-    inline const juce::Colour text       { 0xffd2e9f0 };
-    inline const juce::Colour textDim    { 0xff83a7b4 };
-    inline const juce::Colour accent     { 0xff5ee1f0 };
+    inline const juce::Colour bg         { 0xff012d3a };
+    inline const juce::Colour bgBottom   { 0xff013746 };
+    inline const juce::Colour panel      { 0xff014e68 };
+    inline const juce::Colour panelTop   { 0xff01536e };
+    inline const juce::Colour panelLine  { 0xff0d6a86 };
+    inline const juce::Colour grid       { 0xff01566f };
+    inline const juce::Colour gridStrong { 0xff0d6a86 };
+    inline const juce::Colour text       { 0xffeaf8fb };
+    inline const juce::Colour textDim    { 0xffa9cdd8 };
+    inline const juce::Colour accent     { 0xff7beeff };
     inline const juce::Colour accent2    { 0xffffc46b };
-    inline const juce::Colour hot        { 0xffff7a6b };
-    inline const juce::Colour cold       { 0xff8fb4ff };
+    inline const juce::Colour hot        { 0xffff8a7a };
+    inline const juce::Colour cold       { 0xffa6c6ff };
 
     // Shared panel chrome: a near-invisible vertical gradient, a one-pixel
     // top highlight and a thin border. Keeps every view visually consistent.
