@@ -19,7 +19,10 @@ namespace
             const double t = (double) (blockIndex * numSamples + i) / sampleRate;
             const float low = 0.18f * (float) std::sin (2.0 * pi * 70.0 * t);
             const float mid = 0.22f * (float) std::sin (2.0 * pi * 950.0 * t);
-            const float high = 0.05f * (float) std::sin (2.0 * pi * 9000.0 * t);
+
+            // Slow swell on the high band so the waterfall has visible history.
+            const float highGain = 0.2f + 0.8f * (0.5f + 0.5f * (float) std::sin ((double) blockIndex * 0.01));
+            const float high = 0.05f * highGain * (float) std::sin (2.0 * pi * 9000.0 * t);
 
             buffer.setSample (0, i, low + mid + high);
             buffer.setSample (1, i, low - mid + 0.8f * high);

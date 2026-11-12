@@ -77,11 +77,13 @@ public:
             : count;
 
         const double milliseconds = 1000.0 * (double) window / sampleRate;
+        const juce::String windowText = milliseconds >= 1000.0
+            ? juce::String (milliseconds / 1000.0, 2) + " s"
+            : juce::String (milliseconds, milliseconds < 10.0 ? 2 : 1) + " ms";
 
         g.setFont (theme::labelFont (10.5f));
         g.setColour (theme::textDim);
-        g.drawText ("OSCILLOSCOPE  " + juce::String (milliseconds, milliseconds < 10.0 ? 2 : 1) + " ms",
-                    header, juce::Justification::centredLeft);
+        g.drawText ("OSCILLOSCOPE  " + windowText, header, juce::Justification::centredLeft);
 
         g.setFont (theme::labelFont (9.5f));
         g.setColour (theme::textDim);
