@@ -107,11 +107,12 @@ cmake --build --preset dev -j$(nproc)
 Горячие клавиши: `Space` — play/stop референса, `A` — A/B, `F` — freeze,
 `Esc` — снять соло полосы.
 
-## macOS + Cubase
+## macOS + Cubase / Logic
 
-Да, формат VST3 Cubase поддерживает и на Intel, и на Apple Silicon. Но собрать
-плагин нужно **на macOS** — кросс-компиляция с Linux не поддерживается.
-Исходники платформонезависимые (чистый C++ + JUCE), Linux-специфичного кода нет.
+VST3 подходит для Cubase, AU — для Logic и GarageBand; оба формата собираются
+на Intel и Apple Silicon. Собрать плагин нужно **на macOS** — кросс-компиляция
+с Linux не поддерживается. Исходники платформонезависимые (чистый C++ + JUCE),
+Linux-специфичного кода нет.
 
 ```bash
 xcode-select --install   # если ещё нет Command Line Tools
@@ -129,13 +130,17 @@ cmake --build --preset macos-universal -j$(sysctl -n hw.ncpu)
 # локальная ad-hoc подпись (обязательна для arm64)
 codesign --force --deep --sign - \
   build/LudensScope_artefacts/Release/VST3/LudensScope.vst3
+codesign --force --deep --sign - \
+  build/LudensScope_artefacts/Release/AU/LudensScope.component
 ```
 
-`COPY_PLUGIN_AFTER_BUILD` кладёт бандл в `~/Library/Audio/Plug-Ins/VST3/`
-(для всех пользователей — `/Library/Audio/Plug-Ins/VST3/`).
+`COPY_PLUGIN_AFTER_BUILD` кладёт VST3 в `~/Library/Audio/Plug-Ins/VST3/`,
+а AU — в `~/Library/Audio/Plug-Ins/Components/` (для всех пользователей —
+`/Library/Audio/Plug-Ins/...`).
 
 В Cubase: `Studio → VST Plug-in Manager → Rescan`, либо просто перезапустить
-Cubase. Плагин появится в категории `Analyzer`.
+Cubase. Плагин появится в категории `Analyzer`. Для Logic/GarageBand перезапусти
+приложение; проверить AU можно командой `auval -v aufx LDSC LDNS`.
 
 Замечания:
 
@@ -143,13 +148,13 @@ Cubase. Плагин появится в категории `Analyzer`.
   и на Intel.
 - Для раздачи другим людям — Developer ID + notarization. Для себя достаточно
   ad-hoc подписи.
-- AU не собирается (Cubase он не нужен). Для Logic добавь `AU` в `FORMATS`.
+- Собираются VST3 и AUv2; AAX и AUv3 (App Extension) — нет.
 - Проверено только на Linux; macOS-сборка ожидаемо рабочая, но на железе не
   тестировалась.
 
 ## Ограничения
 
-- Только стерео (2 in / 2 out), только VST3.
+- Только стерео (2 in / 2 out), форматы VST3 и AUv2.
 - Пресетов нет намеренно: в состоянии проекта хранятся только снапшоты FFT
   и настройки анализатора.
-- AAX/AU не собираются.
+- AAX и AUv3 не собираются.
