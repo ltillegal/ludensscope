@@ -58,6 +58,8 @@ private:
     void saveFftSettings();
     void exportSnapshots();
     void showGuidesMenu();
+    void toggleGuideSolo (int index);
+    void clearGuideSolo();
 
     static constexpr int scopeSize = 131072;
     static constexpr int readChunk = 8192;
@@ -84,6 +86,7 @@ private:
     int timingPreset = 1;
     int guidePreset = 0;
     bool guidesEnabled = false;
+    int soloZone = -1;
 
     std::unique_ptr<juce::FileChooser> referenceChooser;
     std::unique_ptr<ReferenceLoader> referenceLoader;

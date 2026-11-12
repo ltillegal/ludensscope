@@ -152,69 +152,100 @@ void LudensScopeProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce:
             audio = referenceAudio;
     }
 
-    if (audio == nullptr || audio->getNumSamples() == 0)
-        return;
-
-    const bool playing = referencePlaying.load (std::memory_order_relaxed);
-    const bool audible = referenceAudible.load (std::memory_order_relaxed);
-
-    if (! playing && ! audible && referenceMix < 1.0e-4f)
-        return;
-
-    const auto length = (std::int64_t) audio->getNumSamples();
-    const int refChannels = audio->getNumChannels();
-
-    const float gainTarget = juce::Decibels::decibelsToGain (referenceGainDb.load());
-    const float rate = (float) juce::jmax (1.0, getSampleRate());
-    const float mixStep = 1.0f / (rate * 0.02f);
-
-    auto* outL = buffer.getWritePointer (0);
-    auto* outR = buffer.getNumChannels() > 1 ? buffer.getWritePointer (1) : outL;
-
-    auto pos = referencePosition.load (std::memory_order_relaxed);
-    bool stillPlaying = playing;
-    float targetMix = (audible && playing) ? 1.0f : 0.0f;
-
-    for (int i = 0; i < numSamples; ++i)
+    if (audio != nullptr && audio->getNumSamples() > 0)
     {
-        referenceMix += juce::jlimit (-mixStep, mixStep, targetMix - referenceMix);
-        referenceCurrentGain += juce::jlimit (-mixStep, mixStep,
-                                              gainTarget - referenceCurrentGain);
+        const bool playing = referencePlaying.load (std::memory_order_relaxed);
+        const bool audible = referenceAudible.load (std::memory_order_relaxed);
 
-        float refL = 0.0f;
-        float refR = 0.0f;
-
-        if (stillPlaying && length > 0)
+        if (playing || audible || referenceMix >= 1.0e-4f)
         {
-            const auto p = (int) (pos % length);
-            refL = audio->getSample (0, p);
-            refR = refChannels > 1 ? audio->getSample (1, p) : refL;
+            const auto length = (std::int64_t) audio->getNumSamples();
+            const int refChannels = audio->getNumChannels();
 
-            if (++pos >= length)
+            const float gainTarget = juce::Decibels::decibelsToGain (referenceGainDb.load());
+            const float rate = (float) juce::jmax (1.0, getSampleRate());
+            const float mixStep = 1.0f / (rate * 0.02f);
+
+            auto* outL = buffer.getWritePointer (0);
+            auto* outR = buffer.getNumChannels() > 1 ? buffer.getWritePointer (1) : outL;
+
+            auto pos = referencePosition.load (std::memory_order_relaxed);
+            bool stillPlaying = playing;
+            float targetMix = (audible && playing) ? 1.0f : 0.0f;
+
+            for (int i = 0; i < numSamples; ++i)
             {
-                if (referenceLoop.load (std::memory_order_relaxed))
+                referenceMix += juce::jlimit (-mixStep, mixStep, targetMix - referenceMix);
+                referenceCurrentGain += juce::jlimit (-mixStep, mixStep,
+                                                      gainTarget - referenceCurrentGain);
+
+                float refL = 0.0f;
+                float refR = 0.0f;
+
+                if (stillPlaying && length > 0)
                 {
-                    pos = 0;
+                    const auto p = (int) (pos % length);
+                    refL = audio->getSample (0, p);
+                    refR = refChannels > 1 ? audio->getSample (1, p) : refL;
+
+                    if (++pos >= length)
+                    {
+                        if (referenceLoop.load (std::memory_order_relaxed))
+                        {
+                            pos = 0;
+                        }
+                        else
+                        {
+                            pos = length;
+                            stillPlaying = false;
+                            referencePlaying.store (false, std::memory_order_relaxed);
+                            referenceAudible.store (false, std::memory_order_relaxed);
+                            targetMix = 0.0f;
+                        }
+                    }
                 }
-                else
-                {
-                    pos = length;
-                    stillPlaying = false;
-                    referencePlaying.store (false, std::memory_order_relaxed);
-                    referenceAudible.store (false, std::memory_order_relaxed);
-                    targetMix = 0.0f;
-                }
+
+                const float dry = 1.0f - referenceMix;
+                outL[i] = outL[i] * dry + refL * referenceMix * referenceCurrentGain;
+
+                if (buffer.getNumChannels() > 1)
+                    outR[i] = outR[i] * dry + refR * referenceMix * referenceCurrentGain;
             }
+
+            referencePosition.store (pos, std::memory_order_relaxed);
         }
-
-        const float dry = 1.0f - referenceMix;
-        outL[i] = outL[i] * dry + refL * referenceMix * referenceCurrentGain;
-
-        if (buffer.getNumChannels() > 1)
-            outR[i] = outR[i] * dry + refR * referenceMix * referenceCurrentGain;
     }
 
-    referencePosition.store (pos, std::memory_order_relaxed);
+    // Band solo: a high-pass + low-pass pair on the outgoing audio only, so
+    // the analysers above always see the untouched mix.
+    if (bandSoloActive.load (std::memory_order_relaxed))
+    {
+        if (soloResetRequested.exchange (false, std::memory_order_relaxed))
+        {
+            for (auto& memory : soloHighPassMemory) memory = {};
+            for (auto& memory : soloLowPassMemory) memory = {};
+        }
+
+        const BiquadCoefficients highPass { soloHighPass[0].load(), soloHighPass[1].load(),
+                                            soloHighPass[2].load(), soloHighPass[3].load(),
+                                            soloHighPass[4].load() };
+        const BiquadCoefficients lowPass { soloLowPass[0].load(), soloLowPass[1].load(),
+                                           soloLowPass[2].load(), soloLowPass[3].load(),
+                                           soloLowPass[4].load() };
+
+        auto* soloL = buffer.getWritePointer (0);
+        auto* soloR = buffer.getNumChannels() > 1 ? buffer.getWritePointer (1) : soloL;
+
+        for (int i = 0; i < numSamples; ++i)
+        {
+            soloL[i] = processBiquad (lowPass, soloLowPassMemory[0],
+                                      processBiquad (highPass, soloHighPassMemory[0], soloL[i]));
+
+            if (buffer.getNumChannels() > 1)
+                soloR[i] = processBiquad (lowPass, soloLowPassMemory[1],
+                                          processBiquad (highPass, soloHighPassMemory[1], soloR[i]));
+        }
+    }
 }
 
 int LudensScopeProcessor::readSamples (float* left, float* right, int maxFrames) noexcept
@@ -372,6 +403,83 @@ void LudensScopeProcessor::setStateInformation (const void* data, int sizeInByte
     }
 
     snapshotGenerationValue.fetch_add (1);
+}
+
+LudensScopeProcessor::BiquadCoefficients LudensScopeProcessor::makeHighPass (
+    double sampleRate, double frequency, double q) noexcept
+{
+    BiquadCoefficients coefficients;
+
+    const double w0 = 2.0 * juce::MathConstants<double>::pi
+                      * juce::jlimit (10.0, sampleRate * 0.45, frequency) / sampleRate;
+    const double cosw = std::cos (w0);
+    const double alpha = std::sin (w0) / (2.0 * q);
+    const double a0 = 1.0 + alpha;
+
+    coefficients.b0 = (float) ((1.0 + cosw) * 0.5 / a0);
+    coefficients.b1 = (float) (-(1.0 + cosw) / a0);
+    coefficients.b2 = coefficients.b0;
+    coefficients.a1 = (float) (-2.0 * cosw / a0);
+    coefficients.a2 = (float) ((1.0 - alpha) / a0);
+    return coefficients;
+}
+
+LudensScopeProcessor::BiquadCoefficients LudensScopeProcessor::makeLowPass (
+    double sampleRate, double frequency, double q) noexcept
+{
+    BiquadCoefficients coefficients;
+
+    const double w0 = 2.0 * juce::MathConstants<double>::pi
+                      * juce::jlimit (10.0, sampleRate * 0.45, frequency) / sampleRate;
+    const double cosw = std::cos (w0);
+    const double alpha = std::sin (w0) / (2.0 * q);
+    const double a0 = 1.0 + alpha;
+
+    coefficients.b0 = (float) ((1.0 - cosw) * 0.5 / a0);
+    coefficients.b1 = (float) ((1.0 - cosw) / a0);
+    coefficients.b2 = coefficients.b0;
+    coefficients.a1 = (float) (-2.0 * cosw / a0);
+    coefficients.a2 = (float) ((1.0 - alpha) / a0);
+    return coefficients;
+}
+
+float LudensScopeProcessor::processBiquad (const BiquadCoefficients& coefficients,
+                                           BiquadMemory& memory, float sample) noexcept
+{
+    const float output = coefficients.b0 * sample + memory.z1;
+    memory.z1 = coefficients.b1 * sample - coefficients.a1 * output + memory.z2;
+    memory.z2 = coefficients.b2 * sample - coefficients.a2 * output;
+    return output;
+}
+
+void LudensScopeProcessor::setBandSolo (bool active, float lowHz, float highHz)
+{
+    if (! active)
+    {
+        bandSoloActive.store (false, std::memory_order_relaxed);
+        return;
+    }
+
+    const double sampleRate = getSampleRate() > 0.0 ? getSampleRate() : 48000.0;
+    const double low = juce::jlimit (20.0, sampleRate * 0.45, (double) lowHz);
+    const double high = juce::jlimit (low * 1.01, sampleRate * 0.45, (double) highHz);
+
+    const auto highPass = makeHighPass (sampleRate, low, 0.7071);
+    const auto lowPass = makeLowPass (sampleRate, high, 0.7071);
+
+    const float highPassValues[5] = { highPass.b0, highPass.b1, highPass.b2,
+                                      highPass.a1, highPass.a2 };
+    const float lowPassValues[5] = { lowPass.b0, lowPass.b1, lowPass.b2,
+                                     lowPass.a1, lowPass.a2 };
+
+    for (int i = 0; i < 5; ++i)
+    {
+        soloHighPass[i].store (highPassValues[i], std::memory_order_relaxed);
+        soloLowPass[i].store (lowPassValues[i], std::memory_order_relaxed);
+    }
+
+    soloResetRequested.store (true, std::memory_order_relaxed);
+    bandSoloActive.store (true, std::memory_order_relaxed);
 }
 
 juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter()

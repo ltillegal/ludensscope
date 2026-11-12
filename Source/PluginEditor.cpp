@@ -138,6 +138,8 @@ LudensScopeEditor::LudensScopeEditor (LudensScopeProcessor& p)
 
     spectrumView.setGuideZones (guidePresets()[0].zones);
 
+    spectrumView.onGuideSolo = [this] (int index) { toggleGuideSolo (index); };
+
     referenceButton.setColour (juce::TextButton::buttonColourId, theme::panel);
     referenceButton.setColour (juce::TextButton::textColourOffId, theme::text);
     referenceButton.onClick = [this] { chooseReferenceFile(); };
@@ -734,6 +736,39 @@ void LudensScopeEditor::setGuidesEnabled (bool enabled)
     guidesEnabled = enabled;
     guidesButton.setToggleState (enabled, juce::dontSendNotification);
     spectrumView.setGuides (enabled);
+
+    if (! enabled)
+        clearGuideSolo();
+}
+
+void LudensScopeEditor::toggleGuideSolo (int index)
+{
+    const auto& presets = guidePresets();
+
+    if (guidePreset < 0 || guidePreset >= (int) presets.size())
+        return;
+
+    const auto& zones = presets[(size_t) guidePreset].zones;
+
+    if (index < 0 || index >= (int) zones.size())
+        return;
+
+    if (soloZone == index)
+    {
+        clearGuideSolo();
+        return;
+    }
+
+    soloZone = index;
+    processor.setBandSolo (true, zones[(size_t) index].low, zones[(size_t) index].high);
+    spectrumView.setSoloZone (soloZone);
+}
+
+void LudensScopeEditor::clearGuideSolo()
+{
+    soloZone = -1;
+    processor.setBandSolo (false, 0.0f, 0.0f);
+    spectrumView.setSoloZone (-1);
 }
 
 void LudensScopeEditor::showGuidesMenu()
@@ -770,6 +805,7 @@ void LudensScopeEditor::showGuidesMenu()
                                 return;
 
                             safe->guidePreset = index;
+                            safe->clearGuideSolo();
                             safe->spectrumView.setGuideZones (list[(size_t) index].zones);
                             safe->setGuidesEnabled (true);
                         });
@@ -824,6 +860,8 @@ void LudensScopeEditor::resetDisplay()
 
     processor.clearReferenceAudio();
     spectrumView.setTransport (false, false, true, false, 0.0, 0.0);
+
+    clearGuideSolo();
 
     truePeakDb = -100.0f;
     truePeakHoldDb = -100.0f;

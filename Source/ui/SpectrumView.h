@@ -55,6 +55,14 @@ public:
         repaint();
     }
 
+    void setSoloZone (int zone) noexcept
+    {
+        soloZone = zone;
+        repaint();
+    }
+
+    std::function<void (int)> onGuideSolo;
+
     void setSnapshots (const std::array<std::array<float, numBins>, snapshotCount>& data,
                        const std::array<bool, snapshotCount>& present,
                        int selected) noexcept
@@ -171,6 +179,24 @@ public:
             if (onAbToggle)
                 onAbToggle();
         }
+        else if (showGuides && plotArea().contains (e.position))
+        {
+            const auto plot = plotArea();
+            const float fraction = juce::jlimit (0.0f, 1.0f,
+                                                 (e.position.x - plot.getX()) / plot.getWidth());
+            const float hz = frequencyForFraction (fraction);
+
+            for (size_t i = 0; i < guideZones.size(); ++i)
+            {
+                if (hz >= guideZones[i].low && hz <= guideZones[i].high)
+                {
+                    if (onGuideSolo)
+                        onGuideSolo ((int) i);
+
+                    return;
+                }
+            }
+        }
     }
 
     void paint (juce::Graphics& g) override
@@ -258,15 +284,22 @@ public:
 
                 const float x0 = xFor (fractionForHz (low));
                 const float x1 = xFor (fractionForHz (high));
+                const bool soloed = (int) zoneIndex == soloZone;
 
-                g.setColour ((zoneIndex % 2 == 0 ? theme::cold : theme::accent).withAlpha (0.035f));
+                g.setColour ((soloed ? theme::accent
+                                     : (zoneIndex % 2 == 0 ? theme::cold : theme::accent))
+                                 .withAlpha (soloed ? 0.10f : 0.035f));
                 g.fillRect (juce::Rectangle<float> (x0, plot.getY(), x1 - x0, plot.getHeight()));
 
-                g.setColour (theme::panelLine.withAlpha (0.7f));
+                g.setColour (soloed ? theme::accent.withAlpha (0.8f)
+                                    : theme::panelLine.withAlpha (0.7f));
                 g.drawVerticalLine ((int) std::round (x0), plot.getY(), plot.getBottom());
 
+                if (soloed)
+                    g.drawVerticalLine ((int) std::round (x1), plot.getY(), plot.getBottom());
+
                 g.setFont (theme::labelFont (7.5f));
-                g.setColour (theme::textDim.withAlpha (0.9f));
+                g.setColour (soloed ? theme::accent : theme::textDim.withAlpha (0.9f));
                 g.drawText (zone.name,
                             juce::Rectangle<float> (x0, plot.getBottom() - 11.0f, x1 - x0, 10.0f),
                             juce::Justification::centred);
@@ -712,6 +745,7 @@ private:
     bool cursorActive = false;
     bool showGuides = false;
     std::vector<GuideZone> guideZones;
+    int soloZone = -1;
 
     bool transportEnabled = false;
     bool transportPlaying = false;
