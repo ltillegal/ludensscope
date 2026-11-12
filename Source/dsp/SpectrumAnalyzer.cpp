@@ -14,13 +14,35 @@ namespace
 
 SpectrumAnalyzer::SpectrumAnalyzer()
 {
-    // Periodic Hann window.
-    for (int i = 0; i < fftSize; ++i)
-        window[(size_t) i] = (float) (0.5 - 0.5 * std::cos (2.0 * kPi * (double) i / (double) fftSize));
+    fft = std::make_unique<juce::dsp::FFT> (fftOrder);
 
     displayDb.fill (kFloorDb);
     peakDb.fill (kFloorDb);
     averageDb.fill (kFloorDb);
+}
+
+void SpectrumAnalyzer::setFftSize (int newSize)
+{
+    const int order = (int) std::lround (std::log2 ((double) newSize));
+
+    if (newSize < 1024 || newSize > maxFftSize || (1 << order) != newSize)
+        return;
+
+    if (newSize == fftSize)
+        return;
+
+    fftOrder = order;
+    fftSize = newSize;
+    fft = std::make_unique<juce::dsp::FFT> (fftOrder);
+
+    prepare (sampleRate);
+}
+
+void SpectrumAnalyzer::setTiming (float attack, float release, float peakDecay) noexcept
+{
+    attackCoefficient = juce::jlimit (0.01f, 0.99f, attack);
+    releaseCoefficient = juce::jlimit (0.01f, 0.99f, release);
+    peakDecayDb = juce::jlimit (0.0f, 2.0f, peakDecay);
 }
 
 void SpectrumAnalyzer::prepare (double newSampleRate)
@@ -57,6 +79,7 @@ void SpectrumAnalyzer::prepare (double newSampleRate)
 
         binStart[(size_t) i] = b0;
         binEnd[(size_t) i] = b1;
+        binHz[(size_t) i] = std::sqrt (f0 * f1) * (float) sampleRate;
     }
 
     history.fill (0.0f);
@@ -85,14 +108,14 @@ void SpectrumAnalyzer::push (const float* left, const float* right, int numSampl
 
 void SpectrumAnalyzer::update()
 {
-    std::fill (fftData.begin(), fftData.end(), 0.0f);
+    std::fill (fftData.begin(), fftData.begin() + 2 * fftSize, 0.0f);
 
     const int offset = (int) history.size() - fftSize;
 
     for (int i = 0; i < fftSize; ++i)
         fftData[(size_t) i] = history[(size_t) (offset + i)] * window[(size_t) i];
 
-    fft.performFrequencyOnlyForwardTransform (fftData.data());
+    fft->performFrequencyOnlyForwardTransform (fftData.data());
 
     const bool initializeAverage = ! averageInitialized;
 
@@ -103,10 +126,11 @@ void SpectrumAnalyzer::update()
         for (int bin = binStart[(size_t) i]; bin < binEnd[(size_t) i]; ++bin)
             magnitude = std::max (magnitude, fftData[(size_t) bin]);
 
-        const float db = juce::Decibels::gainToDecibels (magnitude * magnitudeScale, kFloorDb);
+        const float tilt = tiltDbPerOctave * std::log2 (binHz[(size_t) i] / 1000.0f);
+        const float db = juce::Decibels::gainToDecibels (magnitude * magnitudeScale, kFloorDb) + tilt;
 
         float& smoothed = displayDb[(size_t) i];
-        smoothed += (db > smoothed ? 0.55f : 0.12f) * (db - smoothed);
+        smoothed += (db > smoothed ? attackCoefficient : releaseCoefficient) * (db - smoothed);
 
         float& average = averageDb[(size_t) i];
 
@@ -116,19 +140,19 @@ void SpectrumAnalyzer::update()
             average += averageCoefficient * (db - average);
 
         float& held = peakDb[(size_t) i];
-        held = std::max (held - 0.35f, db);
+        held = std::max (held - peakDecayDb, db);
     }
 
     averageInitialized = true;
+}
+
+void SpectrumAnalyzer::resetPeaks() noexcept
+{
+    peakDb.fill (kFloorDb);
 }
 
 void SpectrumAnalyzer::resetAverage() noexcept
 {
     averageDb.fill (kFloorDb);
     averageInitialized = false;
-}
-
-void SpectrumAnalyzer::resetPeaks() noexcept
-{
-    peakDb.fill (kFloorDb);
 }

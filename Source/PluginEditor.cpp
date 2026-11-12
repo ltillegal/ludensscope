@@ -84,7 +84,7 @@ LudensScopeEditor::LudensScopeEditor (LudensScopeProcessor& p)
 
     setOpaque (true);
     setResizable (true, true);
-    setResizeLimits (860, 540, 2400, 1500);
+    setResizeLimits (1000, 600, 2400, 1500);
 
     addAndMakeVisible (spectrumView);
     addAndMakeVisible (spectrogramView);
@@ -143,6 +143,11 @@ LudensScopeEditor::LudensScopeEditor (LudensScopeProcessor& p)
     referenceButton.setColour (juce::TextButton::textColourOffId, theme::text);
     referenceButton.onClick = [this] { chooseReferenceFile(); };
     addAndMakeVisible (referenceButton);
+
+    fftButton.setColour (juce::TextButton::buttonColourId, theme::panel);
+    fftButton.setColour (juce::TextButton::textColourOffId, theme::text);
+    fftButton.onClick = [this] { showFftMenu(); };
+    addAndMakeVisible (fftButton);
 
     spectrumView.onRangeChange = [this] (float lowHz, float highHz)
     {
@@ -236,9 +241,12 @@ void LudensScopeEditor::paint (juce::Graphics& g)
     g.setColour (theme::text);
     g.drawText ("LUDENSCOPE", brand, juce::Justification::centredLeft);
 
-    g.setFont (theme::labelFont (9.5f));
-    g.setColour (theme::textDim);
-    g.drawText ("STEREO ANALYZER", header, juce::Justification::centredLeft);
+    if (getWidth() >= 1100)
+    {
+        g.setFont (theme::labelFont (9.5f));
+        g.setColour (theme::textDim);
+        g.drawText ("STEREO ANALYZER", header, juce::Justification::centredLeft);
+    }
 
     g.setColour (juce::Colour (0x12ffffff));
     g.fillRect (14, 53, getWidth() - 28, 1);
@@ -262,6 +270,8 @@ void LudensScopeEditor::resized()
     guidesButton.setBounds (header.removeFromRight (84).withSizeKeepingCentre (84, 26));
     header.removeFromRight (8);
     referenceButton.setBounds (header.removeFromRight (88).withSizeKeepingCentre (88, 26));
+    header.removeFromRight (8);
+    fftButton.setBounds (header.removeFromRight (84).withSizeKeepingCentre (84, 26));
 
     r.removeFromTop (8);
 
@@ -478,6 +488,72 @@ void LudensScopeEditor::loadReferenceFile (const juce::File& file)
         });
 
     referenceLoader->startThread();
+}
+
+void LudensScopeEditor::showFftMenu()
+{
+    juce::PopupMenu menu;
+
+    const int sizes[] = { 2048, 4096, 8192, 16384 };
+
+    menu.addSectionHeader ("FFT size");
+
+    for (int i = 0; i < 4; ++i)
+        menu.addItem (100 + i, juce::String (sizes[i]), true, analyzer.getFftSize() == sizes[i]);
+
+    menu.addSeparator();
+    menu.addSectionHeader ("Speed");
+    menu.addItem (200, "Fast", true, timingPreset == 0);
+    menu.addItem (201, "Medium", true, timingPreset == 1);
+    menu.addItem (202, "Slow", true, timingPreset == 2);
+
+    menu.addSeparator();
+    menu.addSectionHeader ("Tilt");
+    menu.addItem (300, "Off", true, analyzer.getTilt() == 0.0f);
+    menu.addItem (301, "+3 dB/oct", true, analyzer.getTilt() == 3.0f);
+    menu.addItem (302, "+4.5 dB/oct", true, analyzer.getTilt() == 4.5f);
+
+    juce::Component::SafePointer<LudensScopeEditor> safe (this);
+
+    menu.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (&fftButton),
+                        [safe] (int result)
+                        {
+                            if (safe != nullptr)
+                                safe->applyFftMenu (result);
+                        });
+}
+
+void LudensScopeEditor::applyFftMenu (int result)
+{
+    if (result >= 100 && result < 104)
+    {
+        const int sizes[] = { 2048, 4096, 8192, 16384 };
+        const int size = sizes[result - 100];
+
+        analyzer.setFftSize (size);
+        analyzer.resetPeaks();
+        analyzer.resetAverage();
+        analyzer.update();
+
+        fftButton.setButtonText ("FFT " + juce::String (size));
+        spectrumView.setData (analyzer.levels().data(), analyzer.peaks().data());
+        spectrumView.repaint();
+    }
+    else if (result >= 200 && result < 203)
+    {
+        timingPreset = result - 200;
+
+        if (timingPreset == 0)
+            analyzer.setTiming (0.85f, 0.30f, 0.80f);
+        else if (timingPreset == 1)
+            analyzer.setTiming (0.55f, 0.12f, 0.35f);
+        else
+            analyzer.setTiming (0.25f, 0.03f, 0.12f);
+    }
+    else if (result >= 300 && result < 303)
+    {
+        analyzer.setTilt (result == 300 ? 0.0f : (result == 301 ? 3.0f : 4.5f));
+    }
 }
 
 void LudensScopeEditor::updateReferenceGain()

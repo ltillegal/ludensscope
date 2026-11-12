@@ -3,6 +3,7 @@
 #include <juce_dsp/juce_dsp.h>
 
 #include <array>
+#include <memory>
 
 // Log-frequency FFT analyser. Audio is pushed in from the UI thread (the
 // processor hands samples over through a lock-free FIFO), the transform is
@@ -11,8 +12,8 @@ class SpectrumAnalyzer
 {
 public:
     static constexpr int numBins = 512;
-    static constexpr int fftOrder = 12;
-    static constexpr int fftSize = 1 << fftOrder;
+    static constexpr int maxFftOrder = 14;
+    static constexpr int maxFftSize = 1 << maxFftOrder;
 
     SpectrumAnalyzer();
 
@@ -20,19 +21,29 @@ public:
     void push (const float* left, const float* right, int numSamples) noexcept;
     void update();
     void resetPeaks() noexcept;
+    void resetAverage() noexcept;
+
+    // FFT window size (2048 - 16384), display ballistics and a dB/oct tilt.
+    void setFftSize (int newSize);
+    void setTiming (float attack, float release, float peakDecay) noexcept;
+    void setTilt (float dbPerOctave) noexcept { tiltDbPerOctave = dbPerOctave; }
+
+    int getFftSize() const noexcept { return fftSize; }
+    float getTilt() const noexcept { return tiltDbPerOctave; }
 
     const std::array<float, numBins>& levels() const noexcept { return displayDb; }
     const std::array<float, numBins>& peaks()  const noexcept { return peakDb; }
     const std::array<float, numBins>& averageLevels() const noexcept { return averageDb; }
 
-    void resetAverage() noexcept;
-
 private:
-    juce::dsp::FFT fft { fftOrder };
+    std::unique_ptr<juce::dsp::FFT> fft;
 
-    std::array<float, 2 * fftSize> fftData {};
-    std::array<float, fftSize> window {};
-    std::array<float, 2 * fftSize> history {};
+    int fftOrder = 12;
+    int fftSize = 4096;
+
+    std::array<float, 2 * maxFftSize> fftData {};
+    std::array<float, maxFftSize> window {};
+    std::array<float, maxFftSize> history {};
 
     std::array<float, numBins> displayDb {};
     std::array<float, numBins> peakDb {};
@@ -40,10 +51,16 @@ private:
 
     std::array<int, numBins> binStart {};
     std::array<int, numBins> binEnd {};
+    std::array<float, numBins> binHz {};
 
     float magnitudeScale = 1.0f;
     double sampleRate = 48000.0;
     bool averageInitialized = false;
+
+    float attackCoefficient = 0.55f;
+    float releaseCoefficient = 0.12f;
+    float peakDecayDb = 0.35f;
+    float tiltDbPerOctave = 0.0f;
 
     static constexpr float averageCoefficient = 0.08f;
 };
