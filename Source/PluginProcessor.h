@@ -57,6 +57,11 @@ public:
     void setReferenceAudible (bool shouldBeAudible) noexcept;
     void setReferenceLoop (bool shouldLoop) noexcept { referenceLoop.store (shouldLoop); }
     void setReferenceGainDb (float gainDb) noexcept { referenceGainDb.store (gainDb); }
+    void setReferencePositionSeconds (double seconds) noexcept;
+    void setReferenceLoopRange (double startSeconds, double endSeconds) noexcept;
+
+    double referenceLoopStartSeconds() const noexcept;
+    double referenceLoopEndSeconds() const noexcept;
 
     bool isReferencePlaying() const noexcept { return referencePlaying.load(); }
     bool isReferenceAudible() const noexcept { return referenceAudible.load(); }
@@ -144,6 +149,8 @@ private:
     std::atomic<bool> referenceLoop { true };
     std::atomic<std::int64_t> referencePosition { 0 };
     std::atomic<std::int64_t> referenceLength { 0 };
+    std::atomic<std::int64_t> referenceLoopStart { 0 };
+    std::atomic<std::int64_t> referenceLoopEnd { 0 };
     std::atomic<float> referenceGainDb { 0.0f };
     std::atomic<float> referenceLufsValue { -100.0f };
 

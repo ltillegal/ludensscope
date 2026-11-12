@@ -242,6 +242,25 @@ int main (int argc, char** argv)
         && settingsPersisted;
     std::printf ("snapshot state round-trip: %s\n", snapshotPersisted ? "ok" : "FAIL");
 
+    // Loop range: playback must stay inside [0.5, 1.0] s.
+    processor.setReferenceLoopRange (0.5, 1.0);
+    processor.setReferencePositionSeconds (0.9);
+    processor.setReferencePlaying (true);
+    processor.setReferenceAudible (true);
+
+    {
+        juce::AudioBuffer<float> loopBuffer (2, 512);
+        juce::MidiBuffer loopMidi;
+        loopBuffer.clear();
+
+        for (int b = 0; b < 47; ++b)
+            processor.processBlock (loopBuffer, loopMidi);
+    }
+
+    const double loopPosition = (double) processor.referencePositionSamples() / 48000.0;
+    const bool loopOk = loopPosition >= 0.49 && loopPosition < 1.01;
+    std::printf ("reference loop position %.3f s (%s)\n", loopPosition, loopOk ? "ok" : "FAIL");
+
     // Band solo: the 1 kHz tone should pass a 500-2000 Hz solo, 100 Hz cut.
     processor.setReferencePlaying (false);
     processor.setReferenceAudible (false);
@@ -281,5 +300,5 @@ int main (int argc, char** argv)
     processor.setBandSolo (false, 0.0f, 0.0f);
 
     editor.reset();
-    return clipped == 2 && referenceOk && snapshotPersisted && soloOk ? 0 : 1;
+    return clipped == 2 && referenceOk && snapshotPersisted && soloOk && loopOk ? 0 : 1;
 }

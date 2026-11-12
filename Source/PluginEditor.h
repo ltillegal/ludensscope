@@ -86,6 +86,7 @@ private:
     int timingPreset = 1;
     int guidePreset = 0;
     bool guidesEnabled = false;
+    bool showPeakMarkers = true;
     int soloZone = -1;
 
     std::unique_ptr<juce::FileChooser> referenceChooser;

@@ -73,8 +73,15 @@ public:
         repaint();
     }
 
+    void setPeakMarkers (bool shouldShow) noexcept
+    {
+        showPeakMarkers = shouldShow;
+        repaint();
+    }
+
     void setTransport (bool enabled, bool playing, bool looping, bool audible,
-                       double positionSeconds, double lengthSeconds) noexcept
+                       double positionSeconds, double lengthSeconds,
+                       double loopStartSeconds, double loopEndSeconds) noexcept
     {
         transportEnabled = enabled;
         transportPlaying = playing;
@@ -82,17 +89,71 @@ public:
         transportAudible = audible;
         transportPosition = positionSeconds;
         transportLength = lengthSeconds;
+        transportLoopStart = loopStartSeconds;
+        transportLoopEnd = loopEndSeconds;
     }
 
     std::function<void()> onPlayToggle;
     std::function<void()> onLoopToggle;
     std::function<void()> onAbToggle;
     std::function<void (int)> onSnapshotSelect;
+    std::function<void (double)> onReferenceSeek;
+    std::function<void (double, double)> onLoopRangeChange;
 
     // Emitted when the user zooms with the wheel; the editor applies the range
     // to the waterfall as well so both views stay aligned.
     std::function<void (float, float)> onRangeChange;
     std::function<void()> onRangeReset;
+
+    void mouseDrag (const juce::MouseEvent& e) override
+    {
+        if (! transportEnabled || transportLength <= 0.0 || loopDrag == LoopDrag::none)
+            return;
+
+        const double time = timeAtX (e.position.x);
+
+        if (loopDrag == LoopDrag::selecting)
+        {
+            loopPreviewStart = juce::jmin (loopAnchor, time);
+            loopPreviewEnd = juce::jmax (loopAnchor, time);
+            repaint();
+            return;
+        }
+
+        if (loopDrag == LoopDrag::startHandle)
+        {
+            const double start = juce::jlimit (0.0, transportLoopEnd - 0.02, time);
+
+            if (onLoopRangeChange)
+                onLoopRangeChange (start, transportLoopEnd);
+        }
+        else if (loopDrag == LoopDrag::endHandle)
+        {
+            const double end = juce::jlimit (transportLoopStart + 0.02, transportLength, time);
+
+            if (onLoopRangeChange)
+                onLoopRangeChange (transportLoopStart, end);
+        }
+    }
+
+    void mouseUp (const juce::MouseEvent&) override
+    {
+        if (loopDrag == LoopDrag::selecting)
+        {
+            if (loopPreviewEnd - loopPreviewStart > 0.05)
+            {
+                if (onLoopRangeChange)
+                    onLoopRangeChange (loopPreviewStart, loopPreviewEnd);
+            }
+            else if (onReferenceSeek)
+            {
+                onReferenceSeek (loopAnchor);
+            }
+        }
+
+        loopDrag = LoopDrag::none;
+        repaint();
+    }
 
     void mouseMove (const juce::MouseEvent& e) override
     {
@@ -159,6 +220,34 @@ public:
 
                 return;
             }
+        }
+
+        if (transportEnabled && transportLength > 0.0
+            && loopBar.expanded (0.0f, 4.0f).contains (e.position))
+        {
+            const float startX = loopBar.getX() + loopBar.getWidth()
+                                 * (float) (transportLoopStart / transportLength);
+            const float endX = loopBar.getX() + loopBar.getWidth()
+                               * (float) (transportLoopEnd / transportLength);
+
+            if (std::abs (e.position.x - startX) <= 4.0f)
+            {
+                loopDrag = LoopDrag::startHandle;
+            }
+            else if (std::abs (e.position.x - endX) <= 4.0f)
+            {
+                loopDrag = LoopDrag::endHandle;
+            }
+            else
+            {
+                loopDrag = LoopDrag::selecting;
+                loopAnchor = timeAtX (e.position.x);
+                loopPreviewStart = loopAnchor;
+                loopPreviewEnd = loopAnchor;
+            }
+
+            repaint();
+            return;
         }
 
         if (! transportEnabled)
@@ -455,6 +544,75 @@ public:
             }
         }
 
+        // Automatic markers on the strongest spectral peaks.
+        if (showPeakMarkers)
+        {
+            struct Peak { int bin; float db; };
+
+            std::vector<Peak> peaks;
+
+            for (int i = 8; i < numBins - 8; ++i)
+            {
+                const float db = levels[(size_t) i];
+
+                if (db < -84.0f)
+                    continue;
+
+                if (db >= levels[(size_t) (i - 1)] && db > levels[(size_t) (i + 1)])
+                    peaks.push_back ({ i, db });
+            }
+
+            std::sort (peaks.begin(), peaks.end(),
+                       [] (const Peak& a, const Peak& b) { return a.db > b.db; });
+
+            std::vector<float> usedX;
+            int drawn = 0;
+
+            for (const auto& peak : peaks)
+            {
+                if (drawn >= 3)
+                    break;
+
+                const float fraction = (float) peak.bin / (float) (numBins - 1);
+                const float hz = minFrequency * std::pow (maxFrequency / minFrequency, fraction);
+
+                if (hz < rangeLow || hz > rangeHigh)
+                    continue;
+
+                const float x = xFor (fractionForHz (hz));
+
+                bool crowded = false;
+
+                for (const float other : usedX)
+                {
+                    if (std::abs (other - x) < 48.0f)
+                        crowded = true;
+                }
+
+                if (crowded)
+                    continue;
+
+                usedX.push_back (x);
+                ++drawn;
+
+                const float y = yFor (peak.db);
+
+                g.setColour (theme::accent2);
+                g.fillEllipse (x - 2.0f, y - 2.0f, 4.0f, 4.0f);
+
+                const juce::String label = formatHzShort (hz);
+                const float labelY = (y - 18.0f < plot.getY() + 28.0f) ? y + 6.0f : y - 18.0f;
+
+                g.setColour (theme::bg.withAlpha (0.7f));
+                g.fillRoundedRectangle (x - 18.0f, labelY, 36.0f, 12.0f, 3.0f);
+
+                g.setColour (theme::accent2);
+                g.setFont (theme::monoFont (8.5f));
+                g.drawText (label, juce::Rectangle<float> (x - 18.0f, labelY, 36.0f, 12.0f),
+                            juce::Justification::centred);
+            }
+        }
+
         // Signature HUD: rough low / mid / high energy balance.
         {
             float bandPower[3] = {};
@@ -553,6 +711,44 @@ public:
             g.drawText (formatTime (transportPosition) + " / " + formatTime (transportLength),
                         bar.withTrimmedLeft (134.0f).withTrimmedRight (8.0f),
                         juce::Justification::centredRight);
+
+            loopBar = { bar.getX(), bar.getBottom() + 4.0f, bar.getWidth(), 7.0f };
+
+            g.setColour (theme::panelLine);
+            g.fillRoundedRectangle (loopBar, 3.5f);
+
+            const bool selectingLoop = loopDrag == LoopDrag::selecting;
+            const double regionStart = selectingLoop ? loopPreviewStart : transportLoopStart;
+            const double regionEnd = selectingLoop ? loopPreviewEnd : transportLoopEnd;
+
+            if (transportLength > 0.0)
+            {
+                const float startF = (float) juce::jlimit (0.0, 1.0,
+                                                           regionStart / transportLength);
+                const float endF = (float) juce::jlimit (0.0, 1.0,
+                                                         regionEnd / transportLength);
+
+                juce::Rectangle<float> region (loopBar.getX() + loopBar.getWidth() * startF,
+                                               loopBar.getY(),
+                                               loopBar.getWidth() * (endF - startF),
+                                               loopBar.getHeight());
+
+                g.setColour (theme::accent.withAlpha (0.35f));
+                g.fillRect (region);
+
+                g.setColour (theme::accent);
+                g.fillRect (region.getX() - 1.0f, loopBar.getY() - 1.0f,
+                            2.0f, loopBar.getHeight() + 2.0f);
+                g.fillRect (region.getRight() - 1.0f, loopBar.getY() - 1.0f,
+                            2.0f, loopBar.getHeight() + 2.0f);
+
+                const float posF = (float) juce::jlimit (0.0, 1.0,
+                                                         transportPosition / transportLength);
+
+                g.setColour (theme::text);
+                g.fillRect (loopBar.getX() + loopBar.getWidth() * posF - 0.5f,
+                            loopBar.getY() - 2.0f, 1.0f, loopBar.getHeight() + 4.0f);
+            }
         }
 
         if (cursorActive && plot.contains (cursorPosition))
@@ -609,7 +805,7 @@ public:
             const float rawX = x > plot.getCentreX() ? x - boxWidth - 10.0f : x + 10.0f;
             const float boxX = juce::jlimit (plot.getX() + 4.0f,
                                              plot.getRight() - boxWidth - 4.0f, rawX);
-            const juce::Rectangle<float> box (boxX, plot.getY() + 30.0f, boxWidth, boxHeight);
+            const juce::Rectangle<float> box (boxX, plot.getY() + 52.0f, boxWidth, boxHeight);
 
             g.setColour (theme::bg.withAlpha (0.95f));
             g.fillRoundedRectangle (box, 7.0f);
@@ -699,6 +895,16 @@ private:
         return juce::String ((int) std::lround (hz)) + " Hz";
     }
 
+    double timeAtX (float x) const noexcept
+    {
+        if (loopBar.getWidth() <= 0.0f || transportLength <= 0.0)
+            return 0.0;
+
+        return juce::jlimit (0.0, 1.0,
+                             (double) ((x - loopBar.getX()) / loopBar.getWidth()))
+               * transportLength;
+    }
+
     static juce::Colour snapshotColour (int slot)
     {
         switch (slot)
@@ -753,6 +959,17 @@ private:
     bool transportAudible = false;
     double transportPosition = 0.0;
     double transportLength = 0.0;
+    double transportLoopStart = 0.0;
+    double transportLoopEnd = 0.0;
+    bool showPeakMarkers = true;
+
+    juce::Rectangle<float> loopBar;
+
+    enum class LoopDrag { none, startHandle, endHandle, selecting };
+    LoopDrag loopDrag = LoopDrag::none;
+    double loopAnchor = 0.0;
+    double loopPreviewStart = 0.0;
+    double loopPreviewEnd = 0.0;
 
     juce::Rectangle<float> playArea, loopArea, abArea;
 
