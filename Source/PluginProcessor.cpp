@@ -313,6 +313,15 @@ void LudensScopeProcessor::clearSnapshots() noexcept
     snapshotGenerationValue.fetch_add (1);
 }
 
+void LudensScopeProcessor::clearSnapshot (int slot) noexcept
+{
+    if (slot < 0 || slot >= snapshotSlots)
+        return;
+
+    snapshotFilled[(size_t) slot] = false;
+    snapshotGenerationValue.fetch_add (1);
+}
+
 int LudensScopeProcessor::selectedSnapshot() const noexcept
 {
     return selectedSnapshotValue.load();

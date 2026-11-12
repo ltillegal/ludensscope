@@ -77,6 +77,7 @@ public:
     bool isSnapshotFilled (int slot) const noexcept;
     const float* snapshotLevels (int slot) const noexcept;
     void clearSnapshots() noexcept;
+    void clearSnapshot (int slot) noexcept;
     int selectedSnapshot() const noexcept;
     void setSelectedSnapshot (int slot) noexcept;
     int snapshotGeneration() const noexcept;

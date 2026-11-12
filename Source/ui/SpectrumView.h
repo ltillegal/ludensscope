@@ -298,10 +298,10 @@ public:
                 if (soloed)
                     g.drawVerticalLine ((int) std::round (x1), plot.getY(), plot.getBottom());
 
-                g.setFont (theme::labelFont (7.5f));
+                g.setFont (theme::labelFont (9.0f));
                 g.setColour (soloed ? theme::accent : theme::textDim.withAlpha (0.9f));
                 g.drawText (zone.name,
-                            juce::Rectangle<float> (x0, plot.getBottom() - 11.0f, x1 - x0, 10.0f),
+                            juce::Rectangle<float> (x0, plot.getBottom() - 12.0f, x1 - x0, 11.0f),
                             juce::Justification::centred);
             }
         }
