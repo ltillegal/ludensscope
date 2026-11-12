@@ -256,6 +256,61 @@ public:
             g.strokePath (dashed, juce::PathStrokeType (1.0f));
         }
 
+        // Signature HUD: rough low / mid / high energy balance.
+        {
+            float bandPower[3] = {};
+
+            for (int i = 0; i < numBins; ++i)
+            {
+                const float hz = minFrequency * std::pow (maxFrequency / minFrequency,
+                                                          (float) i / (float) (numBins - 1));
+                const float power = std::pow (10.0f, levels[(size_t) i] / 10.0f) * hz;
+                const int band = hz < 250.0f ? 0 : (hz < 4000.0f ? 1 : 2);
+
+                bandPower[band] += power;
+            }
+
+            const float total = bandPower[0] + bandPower[1] + bandPower[2];
+
+            if (total > 1.0e-9f)
+            {
+                const char* labels[] = { "LOW", "MID", "HIGH" };
+                const juce::Colour colours[] = { theme::cold, theme::accent, theme::accent2 };
+
+                constexpr float pillWidth = 74.0f;
+                constexpr float pillHeight = 16.0f;
+                constexpr float pillGap = 4.0f;
+
+                float x = plot.getX() + 8.0f;
+                const float y = plot.getY() + 6.0f;
+
+                for (int band = 0; band < 3; ++band)
+                {
+                    const juce::Rectangle<float> pill (x, y, pillWidth, pillHeight);
+
+                    g.setColour (theme::bg.withAlpha (0.62f));
+                    g.fillRoundedRectangle (pill, 7.0f);
+                    g.setColour (theme::panelLine.withAlpha (0.9f));
+                    g.drawRoundedRectangle (pill, 7.0f, 1.0f);
+
+                    g.setColour (colours[band]);
+                    g.fillEllipse (pill.getX() + 7.0f, pill.getCentreY() - 1.5f, 3.0f, 3.0f);
+
+                    g.setFont (theme::labelFont (8.5f));
+                    g.setColour (theme::textDim);
+                    g.drawText (labels[band], pill.withTrimmedLeft (14.0f),
+                                juce::Justification::centredLeft);
+
+                    g.setFont (theme::monoFont (9.0f));
+                    g.setColour (theme::text);
+                    g.drawText (juce::String (juce::roundToInt (100.0f * bandPower[band] / total)) + "%",
+                                pill.withTrimmedRight (7.0f), juce::Justification::centredRight);
+
+                    x += pillWidth + pillGap;
+                }
+            }
+        }
+
         if (cursorActive && plot.contains (cursorPosition))
         {
             const float fraction = juce::jlimit (0.0f, 1.0f,
@@ -296,7 +351,7 @@ public:
             const float rawX = x > plot.getCentreX() ? x - boxWidth - 10.0f : x + 10.0f;
             const float boxX = juce::jlimit (plot.getX() + 4.0f,
                                              plot.getRight() - boxWidth - 4.0f, rawX);
-            const juce::Rectangle<float> box (boxX, plot.getY() + 6.0f, boxWidth, boxHeight);
+            const juce::Rectangle<float> box (boxX, plot.getY() + 30.0f, boxWidth, boxHeight);
 
             g.setColour (theme::bg.withAlpha (0.95f));
             g.fillRoundedRectangle (box, 7.0f);

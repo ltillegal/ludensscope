@@ -90,9 +90,9 @@ int main (int argc, char** argv)
     // The editor is never shown on screen, so mark it visible for hit-testing.
     editor->setVisible (true);
 
-    if (auto* target = editor->getComponentAt (628, 300))
+    if (auto* target = editor->getComponentAt (628, 200))
     {
-        const auto local = target->getLocalPoint (editor.get(), juce::Point<int> (628, 300)).toFloat();
+        const auto local = target->getLocalPoint (editor.get(), juce::Point<int> (628, 200)).toFloat();
         const juce::MouseEvent moveEvent (juce::Desktop::getInstance().getMainMouseSource(),
                                           local, juce::ModifierKeys(), 1.0f, 0.0f, 0.0f, 0.0f, 0.0f,
                                           target, target, juce::Time::getCurrentTime(),
