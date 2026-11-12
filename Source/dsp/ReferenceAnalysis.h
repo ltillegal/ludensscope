@@ -55,6 +55,9 @@ inline ReferenceAnalysis analyzeReferenceFile (const juce::File& file,
 
     const int sourceChannels = juce::jlimit (1, 2, (int) reader->numChannels);
 
+    std::array<float, SpectrumAnalyzer::numBins> levelSum {};
+    int levelCount = 0;
+
     for (juce::int64 pos = 0; pos < totalSamples; pos += blockSize)
     {
         if (shouldExit && shouldExit())
@@ -79,9 +82,26 @@ inline ReferenceAnalysis analyzeReferenceFile (const juce::File& file,
 
         analyzer->push (mono.data(), mono.data(), n);
         analyzer->update();
+
+        // True mean over the whole file, not the live EMA of the analyser.
+        const auto& levels = analyzer->levels();
+
+        for (int i = 0; i < SpectrumAnalyzer::numBins; ++i)
+            levelSum[(size_t) i] += levels[(size_t) i];
+
+        ++levelCount;
     }
 
-    result.levels = analyzer->averageLevels();
+    if (levelCount > 0)
+    {
+        for (int i = 0; i < SpectrumAnalyzer::numBins; ++i)
+            result.levels[(size_t) i] = levelSum[(size_t) i] / (float) levelCount;
+    }
+    else
+    {
+        result.levels.fill (-100.0f);
+    }
+
     result.lufs = loudness->integratedLufs();
     result.ok = true;
     return result;

@@ -242,6 +242,31 @@ int main (int argc, char** argv)
     if (referencePeak < 0.05f)
         referenceOk = false;
 
+    // Gain match: -6 dB halves the reference output.
+    processor.setReferenceGainDb (-6.0f);
+
+    for (int block = 0; block < 4; ++block)
+    {
+        refOut.clear();
+        processor.processBlock (refOut, refMidi);
+    }
+
+    const float referenceGainPeak = refOut.getMagnitude (0, 0, 512);
+    processor.setReferenceGainDb (0.0f);
+    const bool gainOk = std::abs (referenceGainPeak - 0.25f) < 0.02f;
+    std::printf ("reference -6 dB peak %.3f (%s)\n",
+                 referenceGainPeak, gainOk ? "ok" : "FAIL");
+
+    // Seek to 0.5 s and play one block.
+    processor.setReferencePlaying (true);
+    processor.setReferenceAudible (true);
+    processor.setReferencePositionSeconds (0.5);
+    refOut.clear();
+    processor.processBlock (refOut, refMidi);
+    const double seekPosition = (double) processor.referencePositionSamples() / 48000.0;
+    const bool seekOk = std::abs (seekPosition - 0.5 - 512.0 / 48000.0) < 0.01;
+    std::printf ("reference seek %.3f s (%s)\n", seekPosition, seekOk ? "ok" : "FAIL");
+
     // Snapshot persistence: the project blob must round-trip the slots.
     std::array<float, LudensScopeProcessor::snapshotBins> testLevels {};
 
@@ -401,7 +426,8 @@ int main (int argc, char** argv)
     processor.setBandSolo (false, 0.0f, 0.0f);
 
     editor.reset();
-    return clipped == 2 && undoOk && referenceOk && snapshotPersisted && settingsPersisted
+    return clipped == 2 && undoOk && referenceOk && gainOk && seekOk
+           && snapshotPersisted && settingsPersisted
            && referencePersisted
            && viewPersisted && slotsOk && soloOk && loopOk && waveformOk ? 0 : 1;
 }

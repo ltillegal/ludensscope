@@ -119,6 +119,9 @@ public:
     // Drop the audio but keep path/curve so the saved reference still shows.
     void unloadReferenceAudio() noexcept;
 
+    // Invalidate all cached slot audio (e.g. after a sample-rate change).
+    void dropReferenceAudioCaches();
+
     // Band solo: high-pass + low-pass pair on the output (monitoring aid).
     void setBandSolo (bool active, float lowHz, float highHz);
     bool isBandSolo() const noexcept { return bandSoloActive.load(); }
@@ -249,6 +252,7 @@ private:
         double loopStart = 0.0;
         double loopEnd = 0.0;
         double position = 0.0;
+        std::shared_ptr<juce::AudioBuffer<float>> audio;
     };
 
     std::array<ReferenceSlotInfo, 2> referenceSlots;
