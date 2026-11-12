@@ -77,6 +77,18 @@ public:
     void setSelectedSnapshot (int slot) noexcept;
     int snapshotGeneration() const noexcept;
 
+    // Analyzer settings (UI state, persisted in the project).
+    struct FftSettings
+    {
+        int fftSize = 4096;
+        int timingPreset = 1;
+        float tiltDbPerOctave = 0.0f;
+        int windowType = 0;
+    };
+
+    FftSettings getFftSettings() const noexcept { return fftSettingsValue; }
+    void setFftSettings (const FftSettings& settings) noexcept { fftSettingsValue = settings; }
+
     std::uint64_t clippedSampleCount() const noexcept
     {
         return clippedSamples.load (std::memory_order_relaxed);
@@ -122,6 +134,8 @@ private:
     std::array<bool, snapshotSlots> snapshotFilled {};
     std::atomic<int> selectedSnapshotValue { 0 };
     std::atomic<int> snapshotGenerationValue { 0 };
+
+    FftSettings fftSettingsValue;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (LudensScopeProcessor)
 };

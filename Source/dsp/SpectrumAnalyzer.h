@@ -15,6 +15,8 @@ public:
     static constexpr int maxFftOrder = 14;
     static constexpr int maxFftSize = 1 << maxFftOrder;
 
+    enum class Window { hann, blackmanHarris, flatTop };
+
     SpectrumAnalyzer();
 
     void prepare (double newSampleRate);
@@ -23,12 +25,15 @@ public:
     void resetPeaks() noexcept;
     void resetAverage() noexcept;
 
-    // FFT window size (2048 - 16384), display ballistics and a dB/oct tilt.
+    // FFT window size (2048 - 16384), window shape, display ballistics and
+    // a dB/oct tilt.
     void setFftSize (int newSize);
+    void setWindow (Window newWindow);
     void setTiming (float attack, float release, float peakDecay) noexcept;
     void setTilt (float dbPerOctave) noexcept { tiltDbPerOctave = dbPerOctave; }
 
     int getFftSize() const noexcept { return fftSize; }
+    Window getWindow() const noexcept { return windowType; }
     float getTilt() const noexcept { return tiltDbPerOctave; }
 
     const std::array<float, numBins>& levels() const noexcept { return displayDb; }
@@ -61,6 +66,7 @@ private:
     float releaseCoefficient = 0.12f;
     float peakDecayDb = 0.35f;
     float tiltDbPerOctave = 0.0f;
+    Window windowType = Window::hann;
 
     static constexpr float averageCoefficient = 0.08f;
 };

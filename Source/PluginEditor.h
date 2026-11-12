@@ -54,6 +54,9 @@ private:
     void updateReferenceGain();
     void showFftMenu();
     void applyFftMenu (int result);
+    void applyFftSettings (const LudensScopeProcessor::FftSettings& settings);
+    void saveFftSettings();
+    void exportSnapshots();
 
     static constexpr int scopeSize = 131072;
     static constexpr int readChunk = 8192;
@@ -81,6 +84,7 @@ private:
 
     std::unique_ptr<juce::FileChooser> referenceChooser;
     std::unique_ptr<ReferenceLoader> referenceLoader;
+    std::unique_ptr<juce::FileChooser> snapshotChooser;
 
     bool monoActive = false;
 

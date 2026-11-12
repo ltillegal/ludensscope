@@ -182,6 +182,8 @@ LudensScopeEditor::LudensScopeEditor (LudensScopeProcessor& p)
     analyzer.prepare (preparedSampleRate);
     oscilloscopeView.setSampleRate (preparedSampleRate);
 
+    applyFftSettings (processor.getFftSettings());
+
     setSize (1060, 700);
     startTimerHz (30);
 }
@@ -502,6 +504,14 @@ void LudensScopeEditor::showFftMenu()
         menu.addItem (100 + i, juce::String (sizes[i]), true, analyzer.getFftSize() == sizes[i]);
 
     menu.addSeparator();
+    menu.addSectionHeader ("Window");
+
+    const char* windows[] = { "Hann", "Blackman-Harris", "Flat-top" };
+
+    for (int i = 0; i < 3; ++i)
+        menu.addItem (400 + i, windows[i], true, (int) analyzer.getWindow() == i);
+
+    menu.addSeparator();
     menu.addSectionHeader ("Speed");
     menu.addItem (200, "Fast", true, timingPreset == 0);
     menu.addItem (201, "Medium", true, timingPreset == 1);
@@ -512,6 +522,14 @@ void LudensScopeEditor::showFftMenu()
     menu.addItem (300, "Off", true, analyzer.getTilt() == 0.0f);
     menu.addItem (301, "+3 dB/oct", true, analyzer.getTilt() == 3.0f);
     menu.addItem (302, "+4.5 dB/oct", true, analyzer.getTilt() == 4.5f);
+
+    bool anySnapshot = false;
+
+    for (int slot = 0; slot < LudensScopeProcessor::snapshotSlots; ++slot)
+        anySnapshot = anySnapshot || processor.isSnapshotFilled (slot);
+
+    menu.addSeparator();
+    menu.addItem (500, "Export snapshots (CSV)...", anySnapshot);
 
     juce::Component::SafePointer<LudensScopeEditor> safe (this);
 
@@ -538,6 +556,7 @@ void LudensScopeEditor::applyFftMenu (int result)
         fftButton.setButtonText ("FFT " + juce::String (size));
         spectrumView.setData (analyzer.levels().data(), analyzer.peaks().data());
         spectrumView.repaint();
+        saveFftSettings();
     }
     else if (result >= 200 && result < 203)
     {
@@ -549,11 +568,114 @@ void LudensScopeEditor::applyFftMenu (int result)
             analyzer.setTiming (0.55f, 0.12f, 0.35f);
         else
             analyzer.setTiming (0.25f, 0.03f, 0.12f);
+
+        saveFftSettings();
     }
     else if (result >= 300 && result < 303)
     {
         analyzer.setTilt (result == 300 ? 0.0f : (result == 301 ? 3.0f : 4.5f));
+        saveFftSettings();
     }
+    else if (result >= 400 && result < 403)
+    {
+        analyzer.setWindow (static_cast<SpectrumAnalyzer::Window> (result - 400));
+        analyzer.resetPeaks();
+        analyzer.resetAverage();
+        saveFftSettings();
+    }
+    else if (result == 500)
+    {
+        exportSnapshots();
+    }
+}
+
+void LudensScopeEditor::applyFftSettings (const LudensScopeProcessor::FftSettings& settings)
+{
+    timingPreset = juce::jlimit (0, 2, settings.timingPreset);
+
+    analyzer.setFftSize (settings.fftSize);
+    analyzer.setWindow (static_cast<SpectrumAnalyzer::Window> (
+        juce::jlimit (0, 2, settings.windowType)));
+    analyzer.setTilt (juce::jlimit (0.0f, 6.0f, settings.tiltDbPerOctave));
+
+    if (timingPreset == 0)
+        analyzer.setTiming (0.85f, 0.30f, 0.80f);
+    else if (timingPreset == 1)
+        analyzer.setTiming (0.55f, 0.12f, 0.35f);
+    else
+        analyzer.setTiming (0.25f, 0.03f, 0.12f);
+
+    fftButton.setButtonText ("FFT " + juce::String (analyzer.getFftSize()));
+}
+
+void LudensScopeEditor::saveFftSettings()
+{
+    LudensScopeProcessor::FftSettings settings;
+    settings.fftSize = analyzer.getFftSize();
+    settings.timingPreset = timingPreset;
+    settings.tiltDbPerOctave = analyzer.getTilt();
+    settings.windowType = (int) analyzer.getWindow();
+
+    processor.setFftSettings (settings);
+}
+
+void LudensScopeEditor::exportSnapshots()
+{
+    bool anySnapshot = false;
+
+    for (int slot = 0; slot < LudensScopeProcessor::snapshotSlots; ++slot)
+        anySnapshot = anySnapshot || processor.isSnapshotFilled (slot);
+
+    if (! anySnapshot)
+        return;
+
+    snapshotChooser = std::make_unique<juce::FileChooser> (
+        "Export snapshots",
+        juce::File::getSpecialLocation (juce::File::userDocumentsDirectory)
+            .getChildFile ("ludensscope-snapshots.csv"),
+        "*.csv");
+
+    snapshotChooser->launchAsync (juce::FileBrowserComponent::saveMode
+                                      | juce::FileBrowserComponent::canSelectFiles
+                                      | juce::FileBrowserComponent::warnAboutOverwriting,
+                                  [this] (const juce::FileChooser& chooser)
+                                  {
+                                      const auto file = chooser.getResult();
+
+                                      if (file == juce::File())
+                                          return;
+
+                                      file.deleteFile();
+
+                                      auto stream = std::unique_ptr<juce::FileOutputStream> (
+                                          file.createOutputStream());
+
+                                      if (stream == nullptr)
+                                          return;
+
+                                      juce::String csv = "bin,frequency_hz,A_dB,B_dB,C_dB,D_dB\n";
+
+                                      for (int i = 0; i < SpectrumAnalyzer::numBins; ++i)
+                                      {
+                                          const double hz = 20.0 * std::pow (
+                                              1000.0,
+                                              (double) i / (double) (SpectrumAnalyzer::numBins - 1));
+
+                                          csv += juce::String (i) + "," + juce::String (hz, 2);
+
+                                          for (int slot = 0; slot < LudensScopeProcessor::snapshotSlots; ++slot)
+                                          {
+                                              csv += ",";
+
+                                              if (processor.isSnapshotFilled (slot))
+                                                  csv += juce::String (processor.snapshotLevels (slot)[i], 2);
+                                          }
+
+                                          csv += "\n";
+                                      }
+
+                                      stream->writeText (csv, false, false, "\n");
+                                  });
 }
 
 void LudensScopeEditor::updateReferenceGain()
@@ -635,6 +757,8 @@ void LudensScopeEditor::syncSnapshots()
     snapshotSlot = juce::jlimit (0, LudensScopeProcessor::snapshotSlots - 1,
                                  processor.selectedSnapshot());
     snapshotGeneration = processor.snapshotGeneration();
+
+    applyFftSettings (processor.getFftSettings());
 
     spectrumView.setSnapshots (snapshots, snapshotFilled, snapshotSlot);
 }

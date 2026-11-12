@@ -219,13 +219,27 @@ int main (int argc, char** argv)
 
     processor.setSnapshot (1, testLevels.data());
 
+    LudensScopeProcessor::FftSettings testSettings;
+    testSettings.fftSize = 8192;
+    testSettings.timingPreset = 2;
+    testSettings.tiltDbPerOctave = 4.5f;
+    testSettings.windowType = 2;
+    processor.setFftSettings (testSettings);
+
     juce::MemoryBlock projectState;
     processor.getStateInformation (projectState);
     processor.clearSnapshots();
     processor.setStateInformation (projectState.getData(), (int) projectState.getSize());
 
+    const auto restoredSettings = processor.getFftSettings();
+    const bool settingsPersisted = restoredSettings.fftSize == 8192
+        && restoredSettings.timingPreset == 2
+        && restoredSettings.windowType == 2
+        && std::abs (restoredSettings.tiltDbPerOctave - 4.5f) < 1.0e-4f;
+
     const bool snapshotPersisted = processor.isSnapshotFilled (1)
-        && std::abs (processor.snapshotLevels (1)[100] - testLevels[100]) < 1.0e-4f;
+        && std::abs (processor.snapshotLevels (1)[100] - testLevels[100]) < 1.0e-4f
+        && settingsPersisted;
     std::printf ("snapshot state round-trip: %s\n", snapshotPersisted ? "ok" : "FAIL");
 
     editor.reset();
