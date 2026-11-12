@@ -204,6 +204,7 @@ LudensScopeEditor::LudensScopeEditor (LudensScopeProcessor& p)
 
     preparedSampleRate = processor.getSampleRate() > 0.0 ? processor.getSampleRate() : 48000.0;
     analyzer.prepare (preparedSampleRate);
+    sideAnalyzer.prepare (preparedSampleRate);
     oscilloscopeView.setSampleRate (preparedSampleRate);
 
     applyFftSettings (processor.getFftSettings());
@@ -340,6 +341,7 @@ void LudensScopeEditor::timerCallback()
     {
         preparedSampleRate = sampleRate;
         analyzer.prepare (sampleRate);
+        sideAnalyzer.prepare (sampleRate);
         oscilloscopeView.setSampleRate (sampleRate);
     }
 
@@ -414,6 +416,32 @@ void LudensScopeEditor::timerCallback()
     analyzer.update();
 
     spectrogramView.push (analyzer.levels().data(), SpectrumAnalyzer::numBins);
+
+    // Side-channel analyser mirrors the settings and runs only for M/S view.
+    sideAnalyzer.setFftSize (analyzer.getFftSize());
+    sideAnalyzer.setWindow (analyzer.getWindow());
+    sideAnalyzer.setTilt (analyzer.getTilt());
+    sideAnalyzer.setOctaveSmoothing (analyzer.getOctaveSmoothing());
+
+    if (timingPreset == 0)
+        sideAnalyzer.setTiming (0.85f, 0.30f, 0.80f);
+    else if (timingPreset == 1)
+        sideAnalyzer.setTiming (0.55f, 0.12f, 0.35f);
+    else
+        sideAnalyzer.setTiming (0.25f, 0.03f, 0.12f);
+
+    if (numRead > 0)
+    {
+        sideBuffer.resize ((size_t) numRead);
+
+        for (int i = 0; i < numRead; ++i)
+            sideBuffer[(size_t) i] = 0.5f * (readLeft[(size_t) i] - readRight[(size_t) i]);
+
+        sideAnalyzer.pushMono (sideBuffer.data(), numRead);
+    }
+
+    sideAnalyzer.update();
+    spectrumView.setSideData (sideAnalyzer.levels().data(), sideAnalyzer.peaks().data());
 
     const float integrated = processor.integratedLufs();
     const float plr = (integrated > -70.0f && truePeakHoldDb > -99.0f)
@@ -513,6 +541,7 @@ void LudensScopeEditor::loadReferenceFile (const juce::File& file)
             safe->spectrumView.setReference (safe->referenceDb.data(), true);
 
             safe->processor.setReferenceAudio (std::move (analysis.audio), analysis.lufs);
+            safe->spectrumView.setReferenceWaveform (safe->processor.referenceWaveform());
         });
 
     referenceLoader->startThread();
@@ -566,6 +595,7 @@ void LudensScopeEditor::showFftMenu()
     menu.addSeparator();
     menu.addItem (601, "Difference shading", true, showDifference);
     menu.addItem (600, "Peak markers", true, showPeakMarkers);
+    menu.addItem (602, "Side (M/S) curve", true, showSide);
 
     bool anySnapshot = false;
 
@@ -641,6 +671,11 @@ void LudensScopeEditor::applyFftMenu (int result)
     {
         showDifference = ! showDifference;
         spectrumView.setDifferenceShading (showDifference);
+    }
+    else if (result == 602)
+    {
+        showSide = ! showSide;
+        spectrumView.setShowSide (showSide);
     }
     else if (result == 501)
     {
@@ -973,6 +1008,7 @@ void LudensScopeEditor::resetDisplay()
     syncSnapshots();
 
     processor.clearReferenceAudio();
+    spectrumView.setReferenceWaveform ({});
     spectrumView.setTransport (false, false, true, false, 0.0, 0.0, 0.0, 0.0);
 
     clearGuideSolo();

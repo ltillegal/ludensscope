@@ -54,6 +54,36 @@ void LudensScopeProcessor::setReferenceAudio (std::unique_ptr<juce::AudioBuffer<
     referenceLufsValue.store (lufs);
     referencePlaying.store (false);
     referenceAudible.store (false);
+
+    referenceWaveformData.assign (referenceWaveformColumns * 2, 0.0f);
+
+    if (newAudio != nullptr && newAudio->getNumSamples() > 0)
+    {
+        const int samples = newAudio->getNumSamples();
+        const int channels = newAudio->getNumChannels();
+
+        for (int c = 0; c < referenceWaveformColumns; ++c)
+        {
+            const int from = (int) ((juce::int64) c * samples / referenceWaveformColumns);
+            const int to = (int) ((juce::int64) (c + 1) * samples / referenceWaveformColumns);
+
+            float low = 0.0f;
+            float high = 0.0f;
+
+            for (int i = from; i < to; ++i)
+            {
+                const float value = channels > 1
+                    ? 0.5f * (newAudio->getSample (0, i) + newAudio->getSample (1, i))
+                    : newAudio->getSample (0, i);
+
+                low = std::min (low, value);
+                high = std::max (high, value);
+            }
+
+            referenceWaveformData[(size_t) (c * 2)] = low;
+            referenceWaveformData[(size_t) (c * 2 + 1)] = high;
+        }
+    }
 }
 
 void LudensScopeProcessor::clearReferenceAudio()
@@ -69,6 +99,7 @@ void LudensScopeProcessor::clearReferenceAudio()
     referenceLoopEnd.store (0);
     referencePlaying.store (false);
     referenceAudible.store (false);
+    referenceWaveformData.clear();
 }
 
 void LudensScopeProcessor::setReferencePositionSeconds (double seconds) noexcept

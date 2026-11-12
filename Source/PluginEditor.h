@@ -92,6 +92,7 @@ private:
     bool guidesEnabled = false;
     bool showPeakMarkers = true;
     bool showDifference = false;
+    bool showSide = false;
     int smoothingPreset = 0;
     int waterfallHistory = 2;
     int soloZone = -1;
@@ -123,6 +124,8 @@ private:
     bool draggingDivider = false;
 
     SpectrumAnalyzer analyzer;
+    SpectrumAnalyzer sideAnalyzer;
+    std::vector<float> sideBuffer;
     TruePeakDetector truePeakLeft, truePeakRight;
 
     std::vector<float> readLeft, readRight;

@@ -30,6 +30,14 @@ public:
         plr = newPlr;
         clipSamples = newClipSamples;
         truePeakOvers = newTruePeakOvers;
+
+        if (++historyTick >= 3)
+        {
+            historyTick = 0;
+            historyValues[(size_t) historyWrite] = newShortTerm;
+            historyWrite = (historyWrite + 1) % historyCapacity;
+            historyCount = juce::jmin (historyCapacity, historyCount + 1);
+        }
     }
 
     // Measured integrated loudness target in LUFS; values below -90 disable it.
@@ -73,20 +81,23 @@ public:
                                  chevron.getCentreX(), chevron.getBottom());
         g.fillPath (chevronPath);
 
-        drawLoudnessRow (g, area.removeFromTop (44.0f), "MOMENTARY", momentary, false);
-        drawLoudnessRow (g, area.removeFromTop (44.0f), "SHORT-TERM", shortTerm, false);
-        drawLoudnessRow (g, area.removeFromTop (44.0f), "INTEGRATED", integrated, true);
+        drawLoudnessRow (g, area.removeFromTop (40.0f), "MOMENTARY", momentary, false);
+        drawLoudnessRow (g, area.removeFromTop (40.0f), "SHORT-TERM", shortTerm, false);
+        drawLoudnessRow (g, area.removeFromTop (40.0f), "INTEGRATED", integrated, true);
 
-        area.removeFromTop (8.0f);
+        area.removeFromTop (6.0f);
+        drawHistory (g, area.removeFromTop (28.0f));
+
+        area.removeFromTop (6.0f);
         g.setColour (theme::panelLine);
         g.fillRect (area.removeFromTop (1.0f));
-        area.removeFromTop (10.0f);
+        area.removeFromTop (8.0f);
 
         g.setFont (theme::labelFont (10.0f));
         g.setColour (theme::textDim);
         g.drawText ("TRUE PEAK", area.removeFromTop (14.0f), juce::Justification::centredLeft);
 
-        auto peakRow = area.removeFromTop (32.0f);
+        auto peakRow = area.removeFromTop (30.0f);
         g.setFont (theme::monoFont (27.0f));
         g.setColour (theme::peakColour (truePeak));
         g.drawText (juce::String (truePeak, 1),
@@ -101,7 +112,7 @@ public:
         g.drawText ("max " + juce::String (truePeakHold, 1),
                     area.removeFromTop (12.0f), juce::Justification::centredRight);
 
-        auto sampleRow = area.removeFromTop (18.0f);
+        auto sampleRow = area.removeFromTop (16.0f);
         g.setFont (theme::labelFont (10.0f));
         g.setColour (theme::textDim);
         g.drawText ("SAMPLE PEAK", sampleRow, juce::Justification::centredLeft);
@@ -110,21 +121,21 @@ public:
         g.drawText (juce::String (samplePeak, 1) + " dBFS", sampleRow, juce::Justification::centredRight);
 
         area.removeFromTop (6.0f);
-        drawInfoRow (g, area.removeFromTop (16.0f), "LRA",
+        drawInfoRow (g, area.removeFromTop (15.0f), "LRA",
                      lra >= 0.0f ? juce::String (lra, 1) + " LU" : juce::String ("--"),
                      theme::text);
-        drawInfoRow (g, area.removeFromTop (16.0f), "PLR",
+        drawInfoRow (g, area.removeFromTop (15.0f), "PLR",
                      plr > -99.0f ? juce::String (plr, 1) + " dB" : juce::String ("--"),
                      theme::text);
-        drawInfoRow (g, area.removeFromTop (16.0f), "CLIP",
+        drawInfoRow (g, area.removeFromTop (15.0f), "CLIP",
                      juce::String ((juce::int64) clipSamples) + " smp / "
                          + juce::String (truePeakOvers) + " TP",
                      (clipSamples > 0 || truePeakOvers > 0) ? theme::hot : theme::textDim);
 
-        area.removeFromTop (8.0f);
+        area.removeFromTop (6.0f);
         g.setColour (theme::panelLine);
         g.fillRect (area.removeFromTop (1.0f));
-        area.removeFromTop (10.0f);
+        area.removeFromTop (8.0f);
 
         auto corrHeader = area.removeFromTop (14.0f);
         g.setFont (theme::labelFont (10.0f));
@@ -243,6 +254,67 @@ private:
         }
     }
 
+    void drawHistory (juce::Graphics& g, juce::Rectangle<float> area) const
+    {
+        g.setColour (theme::grid);
+        g.fillRoundedRectangle (area, 4.0f);
+
+        g.setFont (theme::labelFont (7.5f));
+        g.setColour (theme::textDim);
+        g.drawText ("60 s", area.reduced (5.0f, 2.0f), juce::Justification::topRight);
+
+        if (historyCount < 2)
+            return;
+
+        constexpr float minDb = -60.0f;
+        constexpr float maxDb = 0.0f;
+
+        const auto yFor = [&] (float db)
+        {
+            const float t = juce::jlimit (0.0f, 1.0f, (db - minDb) / (maxDb - minDb));
+            return area.getBottom() - area.getHeight() * t;
+        };
+
+        juce::Path path, filled;
+
+        for (int k = 0; k < historyCount; ++k)
+        {
+            const int index = (historyWrite - historyCount + k + historyCapacity) % historyCapacity;
+            const float x = area.getX() + area.getWidth() * (float) k
+                            / (float) (historyCount - 1);
+            const float y = yFor (historyValues[(size_t) index]);
+
+            if (k == 0)
+            {
+                path.startNewSubPath (x, y);
+                filled.startNewSubPath (x, area.getBottom());
+                filled.lineTo (x, y);
+            }
+            else
+            {
+                path.lineTo (x, y);
+                filled.lineTo (x, y);
+            }
+        }
+
+        filled.lineTo (area.getRight(), area.getBottom());
+        filled.closeSubPath();
+
+        g.setGradientFill (juce::ColourGradient::vertical (theme::accent.withAlpha (0.25f), area.getY(),
+                                                           theme::accent.withAlpha (0.02f), area.getBottom()));
+        g.fillPath (filled);
+
+        g.setColour (theme::accent.withAlpha (0.9f));
+        g.strokePath (path, juce::PathStrokeType (1.2f));
+
+        if (targetEnabled)
+        {
+            const float y = yFor (targetLufs);
+            g.setColour (theme::accent2.withAlpha (0.6f));
+            g.drawHorizontalLine ((int) std::round (y), area.getX(), area.getRight());
+        }
+    }
+
     void drawInfoRow (juce::Graphics& g, juce::Rectangle<float> row,
                       const juce::String& label, const juce::String& value,
                       juce::Colour valueColour) const
@@ -255,6 +327,12 @@ private:
         g.setColour (valueColour);
         g.drawText (value, row, juce::Justification::centredRight);
     }
+
+    static constexpr int historyCapacity = 600;
+    std::array<float, historyCapacity> historyValues {};
+    int historyWrite = 0;
+    int historyCount = 0;
+    int historyTick = 0;
 
     float momentary = -100.0f;
     float shortTerm = -100.0f;
