@@ -57,6 +57,7 @@ private:
     void applyFftSettings (const LudensScopeProcessor::FftSettings& settings);
     void saveFftSettings();
     void exportSnapshots();
+    void showGuidesMenu();
 
     static constexpr int scopeSize = 131072;
     static constexpr int readChunk = 8192;
@@ -81,6 +82,8 @@ private:
     juce::TextButton fftButton { "FFT 4096" };
 
     int timingPreset = 1;
+    int guidePreset = 0;
+    bool guidesEnabled = false;
 
     std::unique_ptr<juce::FileChooser> referenceChooser;
     std::unique_ptr<ReferenceLoader> referenceLoader;

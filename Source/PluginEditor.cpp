@@ -3,6 +3,7 @@
 #include <cmath>
 
 #include "dsp/ReferenceAnalysis.h"
+#include "ui/GuidePresets.h"
 
 #include <algorithm>
 
@@ -128,16 +129,14 @@ LudensScopeEditor::LudensScopeEditor (LudensScopeProcessor& p)
     spanButton.onClick = [this] { cycleSpan(); };
     addAndMakeVisible (spanButton);
 
-    guidesButton.setClickingTogglesState (true);
     guidesButton.setColour (juce::TextButton::buttonColourId, theme::panel);
     guidesButton.setColour (juce::TextButton::buttonOnColourId, theme::accent);
     guidesButton.setColour (juce::TextButton::textColourOffId, theme::text);
     guidesButton.setColour (juce::TextButton::textColourOnId, theme::bg);
-    guidesButton.onClick = [this]
-    {
-        spectrumView.setGuides (guidesButton.getToggleState());
-    };
+    guidesButton.onClick = [this] { showGuidesMenu(); };
     addAndMakeVisible (guidesButton);
+
+    spectrumView.setGuideZones (guidePresets()[0].zones);
 
     referenceButton.setColour (juce::TextButton::buttonColourId, theme::panel);
     referenceButton.setColour (juce::TextButton::textColourOffId, theme::text);
@@ -732,8 +731,48 @@ void LudensScopeEditor::toggleReferenceAb()
 
 void LudensScopeEditor::setGuidesEnabled (bool enabled)
 {
+    guidesEnabled = enabled;
     guidesButton.setToggleState (enabled, juce::dontSendNotification);
     spectrumView.setGuides (enabled);
+}
+
+void LudensScopeEditor::showGuidesMenu()
+{
+    juce::PopupMenu menu;
+
+    menu.addItem (1, "Off", true, ! guidesEnabled);
+    menu.addSeparator();
+
+    const auto& presets = guidePresets();
+
+    for (int i = 0; i < (int) presets.size(); ++i)
+        menu.addItem (10 + i, presets[(size_t) i].name, true,
+                      guidesEnabled && guidePreset == i);
+
+    juce::Component::SafePointer<LudensScopeEditor> safe (this);
+
+    menu.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (&guidesButton),
+                        [safe] (int result)
+                        {
+                            if (safe == nullptr || result == 0)
+                                return;
+
+                            if (result == 1)
+                            {
+                                safe->setGuidesEnabled (false);
+                                return;
+                            }
+
+                            const int index = result - 10;
+                            const auto& list = guidePresets();
+
+                            if (index < 0 || index >= (int) list.size())
+                                return;
+
+                            safe->guidePreset = index;
+                            safe->spectrumView.setGuideZones (list[(size_t) index].zones);
+                            safe->setGuidesEnabled (true);
+                        });
 }
 
 void LudensScopeEditor::captureReference()
