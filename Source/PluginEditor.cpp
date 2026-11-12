@@ -157,6 +157,14 @@ LudensScopeEditor::LudensScopeEditor (LudensScopeProcessor& p)
     spectrumView.onLoopToggle = [this] { toggleReferenceLoop(); };
     spectrumView.onAbToggle = [this] { toggleReferenceAb(); };
 
+    spectrumView.setSnapshots (snapshots, snapshotFilled, snapshotSlot);
+
+    spectrumView.onSnapshotSelect = [this] (int slot)
+    {
+        snapshotSlot = juce::jlimit (0, SpectrumView::snapshotCount - 1, slot);
+        spectrumView.setSnapshots (snapshots, snapshotFilled, snapshotSlot);
+    };
+
     readLeft.resize (readChunk);
     readRight.resize (readChunk);
 
@@ -524,9 +532,10 @@ void LudensScopeEditor::setGuidesEnabled (bool enabled)
 
 void LudensScopeEditor::captureReference()
 {
-    referenceDb = analyzer.averageLevels();
-    hasReference = true;
-    spectrumView.setReference (referenceDb.data(), true);
+    snapshots[(size_t) snapshotSlot] = analyzer.averageLevels();
+    snapshotFilled[(size_t) snapshotSlot] = true;
+
+    spectrumView.setSnapshots (snapshots, snapshotFilled, snapshotSlot);
 }
 
 void LudensScopeEditor::resetDisplay()
@@ -542,6 +551,12 @@ void LudensScopeEditor::resetDisplay()
     hasReference = false;
     spectrumView.setReference (nullptr, false);
     spectrogramView.clear();
+
+    for (auto& filled : snapshotFilled)
+        filled = false;
+
+    snapshotSlot = 0;
+    spectrumView.setSnapshots (snapshots, snapshotFilled, snapshotSlot);
 
     processor.clearReferenceAudio();
     spectrumView.setTransport (false, false, true, false, 0.0, 0.0);

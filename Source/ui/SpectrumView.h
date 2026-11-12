@@ -15,6 +15,7 @@ public:
     SpectrumView() = default;
 
     static constexpr int numBins = 512;
+    static constexpr int snapshotCount = 4;
     static constexpr float minFrequency = 20.0f;
     static constexpr float maxFrequency = 20000.0f;
 
@@ -46,6 +47,16 @@ public:
         repaint();
     }
 
+    void setSnapshots (const std::array<std::array<float, numBins>, snapshotCount>& data,
+                       const std::array<bool, snapshotCount>& present,
+                       int selected) noexcept
+    {
+        snapshots = data;
+        snapshotPresent = present;
+        selectedSnapshot = juce::jlimit (0, snapshotCount - 1, selected);
+        repaint();
+    }
+
     void setTransport (bool enabled, bool playing, bool looping, bool audible,
                        double positionSeconds, double lengthSeconds) noexcept
     {
@@ -60,6 +71,7 @@ public:
     std::function<void()> onPlayToggle;
     std::function<void()> onLoopToggle;
     std::function<void()> onAbToggle;
+    std::function<void (int)> onSnapshotSelect;
 
     // Emitted when the user zooms with the wheel; the editor applies the range
     // to the waterfall as well so both views stay aligned.
@@ -122,6 +134,17 @@ public:
 
     void mouseDown (const juce::MouseEvent& e) override
     {
+        for (int i = 0; i < snapshotCount; ++i)
+        {
+            if (snapshotLetterAreas[(size_t) i].contains (e.position))
+            {
+                if (onSnapshotSelect)
+                    onSnapshotSelect (i);
+
+                return;
+            }
+        }
+
         if (! transportEnabled)
             return;
 
@@ -154,6 +177,35 @@ public:
         g.setFont (theme::labelFont (10.5f));
         g.setColour (theme::textDim);
         g.drawText ("SPECTRUM  " + rangeText(), titleRow, juce::Justification::centredLeft);
+
+        // Snapshot slots A-D.
+        const juce::Rectangle<float> snapArea (titleRow.getRight() - 44.0f - 112.0f,
+                                               titleRow.getY(), 108.0f, titleRow.getHeight());
+        g.setFont (theme::labelFont (8.5f));
+        g.setColour (theme::textDim);
+        g.drawText ("SNAP", snapArea.withWidth (32.0f), juce::Justification::centredLeft);
+
+        for (int i = 0; i < snapshotCount; ++i)
+        {
+            const juce::Rectangle<float> letter (snapArea.getX() + 36.0f + (float) i * 18.0f,
+                                                 titleRow.getY() + 2.0f, 15.0f,
+                                                 titleRow.getHeight() - 4.0f);
+            snapshotLetterAreas[(size_t) i] = letter;
+
+            if (i == selectedSnapshot)
+            {
+                g.setColour (snapshotColour (i).withAlpha (0.18f));
+                g.fillRoundedRectangle (letter.expanded (1.0f, 0.0f), 3.0f);
+                g.setColour (snapshotColour (i).withAlpha (0.75f));
+                g.drawRoundedRectangle (letter.expanded (1.0f, 0.0f), 3.0f, 1.0f);
+            }
+
+            g.setFont (theme::labelFont (9.0f));
+            g.setColour (snapshotPresent[(size_t) i] ? snapshotColour (i)
+                                                     : theme::textDim.withAlpha (0.45f));
+            g.drawText (juce::String::charToString ((juce::juce_wchar) ('A' + i)),
+                        letter, juce::Justification::centred);
+        }
 
         if (hasReference)
         {
@@ -335,8 +387,41 @@ public:
             juce::Path dashed;
             juce::PathStrokeType (1.0f).createDashedStroke (dashed, referencePath, dashes, 2);
 
-            g.setColour (theme::cold.withAlpha (0.8f));
+            g.setColour (theme::text.withAlpha (0.65f));
             g.strokePath (dashed, juce::PathStrokeType (1.0f));
+        }
+
+        for (int pass = 0; pass < 2; ++pass)
+        {
+            for (int slot = 0; slot < snapshotCount; ++slot)
+            {
+                if (! snapshotPresent[(size_t) slot])
+                    continue;
+
+                const bool selected = slot == selectedSnapshot;
+
+                if ((pass == 0) == selected)
+                    continue;
+
+                juce::Path path;
+
+                for (int s = 0; s < steps; ++s)
+                {
+                    const float fraction = (float) s / (float) (steps - 1);
+                    const float x = xFor (fraction);
+                    const float y = yFor (levelAt (snapshots[(size_t) slot], fraction));
+
+                    if (s == 0) path.startNewSubPath (x, y);
+                    else        path.lineTo (x, y);
+                }
+
+                const float dashes[] = { 4.0f, 4.0f };
+                juce::Path dashed;
+                juce::PathStrokeType (1.0f).createDashedStroke (dashed, path, dashes, 2);
+
+                g.setColour (snapshotColour (slot).withAlpha (selected ? 0.95f : 0.45f));
+                g.strokePath (dashed, juce::PathStrokeType (selected ? 1.3f : 0.9f));
+            }
         }
 
         // Signature HUD: rough low / mid / high energy balance.
@@ -449,6 +534,11 @@ public:
             const float peakLevelDb = levelAt (peaks, fraction);
             const float referenceLevelDb = levelAt (reference, fraction);
 
+            const bool hasSelectedSnapshot = snapshotPresent[(size_t) selectedSnapshot];
+            const float snapshotLevelDb = hasSelectedSnapshot
+                ? levelAt (snapshots[(size_t) selectedSnapshot], fraction)
+                : 0.0f;
+
             const float x = xFor (fraction);
             const float y = yFor (levelDb);
 
@@ -473,8 +563,17 @@ public:
                                        + "   \xce\x94 " + (difference >= 0.0f ? "+" : "")
                                        + juce::String (difference, 1) + " dB";
 
+            const float snapshotDifference = levelDb - snapshotLevelDb;
+            const juce::String snapshotLine =
+                juce::String::charToString ((juce::juce_wchar) ('A' + selectedSnapshot))
+                + " " + juce::String (snapshotLevelDb, 1)
+                + "   \xce\x94 " + (snapshotDifference >= 0.0f ? "+" : "")
+                + juce::String (snapshotDifference, 1) + " dB";
+
             constexpr float boxWidth = 196.0f;
-            const float boxHeight = hasReference ? 47.0f : 34.0f;
+            const float boxHeight = 34.0f
+                                    + (hasReference ? 12.0f : 0.0f)
+                                    + (hasSelectedSnapshot ? 12.0f : 0.0f);
 
             const float rawX = x > plot.getCentreX() ? x - boxWidth - 10.0f : x + 10.0f;
             const float boxX = juce::jlimit (plot.getX() + 4.0f,
@@ -497,8 +596,15 @@ public:
 
             if (hasReference)
             {
-                g.setColour (theme::cold);
+                g.setColour (theme::text.withAlpha (0.8f));
                 g.drawText (line3, textArea.removeFromTop (12.0f),
+                            juce::Justification::centredLeft);
+            }
+
+            if (hasSelectedSnapshot)
+            {
+                g.setColour (snapshotColour (selectedSnapshot));
+                g.drawText (snapshotLine, textArea.removeFromTop (12.0f),
                             juce::Justification::centredLeft);
             }
         }
@@ -562,6 +668,17 @@ private:
         return juce::String ((int) std::lround (hz)) + " Hz";
     }
 
+    static juce::Colour snapshotColour (int slot)
+    {
+        switch (slot)
+        {
+            case 0:  return theme::cold;
+            case 1:  return theme::accent2;
+            case 2:  return theme::hot;
+            default: return juce::Colour (0xffb18cff);
+        }
+    }
+
     static juce::String formatTime (double seconds)
     {
         const int total = juce::jmax (0, (int) seconds);
@@ -587,6 +704,11 @@ private:
     std::array<float, numBins> levels {};
     std::array<float, numBins> peaks {};
     std::array<float, numBins> reference {};
+
+    std::array<std::array<float, numBins>, snapshotCount> snapshots {};
+    std::array<bool, snapshotCount> snapshotPresent {};
+    int selectedSnapshot = 0;
+    std::array<juce::Rectangle<float>, snapshotCount> snapshotLetterAreas {};
 
     bool hasReference = false;
     bool cursorActive = false;
