@@ -1,7 +1,14 @@
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
 
+#include <algorithm>
 #include <cmath>
+
+namespace
+{
+    constexpr int snapshotMagic = 0x4c444e53; // 'LDNS'
+    constexpr int snapshotVersion = 1;
+}
 
 LudensScopeProcessor::LudensScopeProcessor()
     : juce::AudioProcessor (BusesProperties()
@@ -245,14 +252,103 @@ juce::AudioProcessorEditor* LudensScopeProcessor::createEditor()
     return new LudensScopeEditor (*this);
 }
 
-void LudensScopeProcessor::getStateInformation (juce::MemoryBlock& destData)
+void LudensScopeProcessor::setSnapshot (int slot, const float* levelsDb)
 {
-    // No parameters, no presets: the state is intentionally empty.
-    destData.reset();
+    if (slot < 0 || slot >= snapshotSlots || levelsDb == nullptr)
+        return;
+
+    std::copy (levelsDb, levelsDb + snapshotBins, snapshots[(size_t) slot].begin());
+    snapshotFilled[(size_t) slot] = true;
+    snapshotGenerationValue.fetch_add (1);
 }
 
-void LudensScopeProcessor::setStateInformation (const void*, int)
+bool LudensScopeProcessor::isSnapshotFilled (int slot) const noexcept
 {
+    return slot >= 0 && slot < snapshotSlots && snapshotFilled[(size_t) slot];
+}
+
+const float* LudensScopeProcessor::snapshotLevels (int slot) const noexcept
+{
+    if (slot < 0 || slot >= snapshotSlots)
+        return nullptr;
+
+    return snapshots[(size_t) slot].data();
+}
+
+void LudensScopeProcessor::clearSnapshots() noexcept
+{
+    std::fill (snapshotFilled.begin(), snapshotFilled.end(), false);
+    selectedSnapshotValue.store (0);
+    snapshotGenerationValue.fetch_add (1);
+}
+
+int LudensScopeProcessor::selectedSnapshot() const noexcept
+{
+    return selectedSnapshotValue.load();
+}
+
+void LudensScopeProcessor::setSelectedSnapshot (int slot) noexcept
+{
+    selectedSnapshotValue.store (juce::jlimit (0, snapshotSlots - 1, slot));
+}
+
+int LudensScopeProcessor::snapshotGeneration() const noexcept
+{
+    return snapshotGenerationValue.load();
+}
+
+void LudensScopeProcessor::getStateInformation (juce::MemoryBlock& destData)
+{
+    juce::MemoryOutputStream stream (destData, false);
+
+    stream.writeInt (snapshotMagic);
+    stream.writeInt (snapshotVersion);
+    stream.writeInt (snapshotSlots);
+    stream.writeInt (snapshotBins);
+    stream.writeInt (selectedSnapshotValue.load());
+
+    for (int slot = 0; slot < snapshotSlots; ++slot)
+    {
+        const bool filled = snapshotFilled[(size_t) slot];
+        stream.writeBool (filled);
+
+        if (filled)
+            stream.write (snapshots[(size_t) slot].data(),
+                          sizeof (float) * (size_t) snapshotBins);
+    }
+}
+
+void LudensScopeProcessor::setStateInformation (const void* data, int sizeInBytes)
+{
+    clearSnapshots();
+
+    if (data == nullptr || sizeInBytes < 20)
+        return;
+
+    juce::MemoryInputStream stream (data, (size_t) sizeInBytes, false);
+
+    const int magic = stream.readInt();
+    const int version = stream.readInt();
+    const int slots = stream.readInt();
+    const int bins = stream.readInt();
+    const int selected = stream.readInt();
+
+    if (magic != snapshotMagic || version != snapshotVersion
+        || slots != snapshotSlots || bins != snapshotBins)
+        return;
+
+    for (int slot = 0; slot < slots; ++slot)
+    {
+        if (! stream.readBool())
+            continue;
+
+        stream.read (snapshots[(size_t) slot].data(),
+                     (int) (sizeof (float) * (size_t) bins));
+        snapshotFilled[(size_t) slot] = true;
+    }
+
+    selectedSnapshotValue.store (juce::jlimit (0, snapshotSlots - 1, selected));
+    snapshotGenerationValue.fetch_add (1);
 }
 
 juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter()

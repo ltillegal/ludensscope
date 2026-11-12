@@ -8,6 +8,7 @@
 #include <memory>
 
 #include "dsp/LoudnessMeter.h"
+#include "dsp/SpectrumAnalyzer.h"
 
 class LudensScopeProcessor : public juce::AudioProcessor
 {
@@ -64,6 +65,18 @@ public:
     std::int64_t referenceLengthSamples() const noexcept { return referenceLength.load(); }
     float referenceLufs() const noexcept { return referenceLufsValue.load(); }
 
+    // FFT snapshots (UI state, persisted in the project).
+    static constexpr int snapshotBins = SpectrumAnalyzer::numBins;
+    static constexpr int snapshotSlots = 4;
+
+    void setSnapshot (int slot, const float* levelsDb);
+    bool isSnapshotFilled (int slot) const noexcept;
+    const float* snapshotLevels (int slot) const noexcept;
+    void clearSnapshots() noexcept;
+    int selectedSnapshot() const noexcept;
+    void setSelectedSnapshot (int slot) noexcept;
+    int snapshotGeneration() const noexcept;
+
     std::uint64_t clippedSampleCount() const noexcept
     {
         return clippedSamples.load (std::memory_order_relaxed);
@@ -104,6 +117,11 @@ private:
 
     float referenceMix = 0.0f;
     float referenceCurrentGain = 1.0f;
+
+    std::array<std::array<float, snapshotBins>, snapshotSlots> snapshots {};
+    std::array<bool, snapshotSlots> snapshotFilled {};
+    std::atomic<int> selectedSnapshotValue { 0 };
+    std::atomic<int> snapshotGenerationValue { 0 };
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (LudensScopeProcessor)
 };

@@ -211,6 +211,23 @@ int main (int argc, char** argv)
     if (referencePeak < 0.05f)
         referenceOk = false;
 
+    // Snapshot persistence: the project blob must round-trip the slots.
+    std::array<float, LudensScopeProcessor::snapshotBins> testLevels {};
+
+    for (int i = 0; i < (int) testLevels.size(); ++i)
+        testLevels[(size_t) i] = -60.0f - 0.05f * (float) i;
+
+    processor.setSnapshot (1, testLevels.data());
+
+    juce::MemoryBlock projectState;
+    processor.getStateInformation (projectState);
+    processor.clearSnapshots();
+    processor.setStateInformation (projectState.getData(), (int) projectState.getSize());
+
+    const bool snapshotPersisted = processor.isSnapshotFilled (1)
+        && std::abs (processor.snapshotLevels (1)[100] - testLevels[100]) < 1.0e-4f;
+    std::printf ("snapshot state round-trip: %s\n", snapshotPersisted ? "ok" : "FAIL");
+
     editor.reset();
-    return clipped == 2 && referenceOk ? 0 : 1;
+    return clipped == 2 && referenceOk && snapshotPersisted ? 0 : 1;
 }
