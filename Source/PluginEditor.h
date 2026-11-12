@@ -19,6 +19,14 @@
 class ScopeLookAndFeel;
 class ReferenceLoader;
 
+class DonateButton : public juce::Button
+{
+public:
+    DonateButton() : juce::Button ("donate") {}
+
+    void paintButton (juce::Graphics& g, bool isMouseOver, bool isMouseDown) override;
+};
+
 class LudensScopeEditor : public juce::AudioProcessorEditor,
                            private juce::Timer,
                            public juce::FileDragAndDropTarget
@@ -92,6 +100,7 @@ private:
     juce::TextButton freezeButton { "FREEZE" };
     juce::TextButton resetButton  { "RESET" };
     juce::TextButton undoButton   { "UNDO" };
+    DonateButton donateButton;
     juce::TextButton captureButton { "CAPTURE" };
     juce::TextButton monoButton { "MONO" };
     juce::TextButton spanButton { "SPAN 10" };
