@@ -593,9 +593,16 @@ void LudensScopeEditor::showFftMenu()
     menu.addItem (702, "Slow (~14 s)", true, waterfallHistory == 4);
 
     menu.addSeparator();
+    menu.addSectionHeader ("FFT overlap");
+    menu.addItem (900, "Off", true, overlapPreset == 0);
+    menu.addItem (901, "2x (50%)", true, overlapPreset == 1);
+    menu.addItem (902, "4x (75%)", true, overlapPreset == 2);
+
+    menu.addSeparator();
     menu.addItem (601, "Difference shading", true, showDifference);
     menu.addItem (600, "Peak markers", true, showPeakMarkers);
     menu.addItem (602, "Side (M/S) curve", true, showSide);
+    menu.addItem (603, "Note grid", true, showNoteGrid);
 
     bool anySnapshot = false;
 
@@ -677,6 +684,18 @@ void LudensScopeEditor::applyFftMenu (int result)
         showSide = ! showSide;
         spectrumView.setShowSide (showSide);
     }
+    else if (result == 603)
+    {
+        showNoteGrid = ! showNoteGrid;
+        spectrumView.setNoteGrid (showNoteGrid);
+        saveFftSettings();
+    }
+    else if (result >= 900 && result < 903)
+    {
+        overlapPreset = result - 900;
+        analyzer.setOverlap (overlapPreset == 0 ? 1 : (overlapPreset == 1 ? 2 : 4));
+        saveFftSettings();
+    }
     else if (result == 501)
     {
         exportViewPng();
@@ -755,6 +774,12 @@ void LudensScopeEditor::applyFftSettings (const LudensScopeProcessor::FftSetting
     smoothingPreset = juce::jlimit (0, 3, settings.smoothingPreset);
     applySmoothing();
 
+    overlapPreset = juce::jlimit (0, 2, settings.overlapPreset);
+    analyzer.setOverlap (overlapPreset == 0 ? 1 : (overlapPreset == 1 ? 2 : 4));
+
+    showNoteGrid = settings.noteGrid != 0;
+    spectrumView.setNoteGrid (showNoteGrid);
+
     fftButton.setButtonText ("FFT " + juce::String (analyzer.getFftSize()));
 }
 
@@ -766,6 +791,8 @@ void LudensScopeEditor::saveFftSettings()
     settings.tiltDbPerOctave = analyzer.getTilt();
     settings.windowType = (int) analyzer.getWindow();
     settings.smoothingPreset = smoothingPreset;
+    settings.overlapPreset = overlapPreset;
+    settings.noteGrid = showNoteGrid ? 1 : 0;
 
     processor.setFftSettings (settings);
 }

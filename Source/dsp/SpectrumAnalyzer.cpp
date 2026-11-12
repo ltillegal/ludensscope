@@ -158,14 +158,27 @@ void SpectrumAnalyzer::pushMono (const float* samples, int numSamples) noexcept
 
 void SpectrumAnalyzer::update()
 {
-    std::fill (fftData.begin(), fftData.begin() + 2 * fftSize, 0.0f);
+    const int windows = juce::jlimit (1, 8, overlapFactor);
+    const int hop = fftSize / windows;
 
-    const int offset = (int) history.size() - fftSize;
+    std::fill (powerSum.begin(), powerSum.begin() + fftSize / 2, 0.0f);
 
-    for (int i = 0; i < fftSize; ++i)
-        fftData[(size_t) i] = history[(size_t) (offset + i)] * window[(size_t) i];
+    for (int w = 0; w < windows; ++w)
+    {
+        const int start = (int) history.size() - fftSize - w * hop;
 
-    fft->performFrequencyOnlyForwardTransform (fftData.data());
+        std::fill (fftData.begin(), fftData.begin() + 2 * fftSize, 0.0f);
+
+        for (int i = 0; i < fftSize; ++i)
+            fftData[(size_t) i] = history[(size_t) (start + i)] * window[(size_t) i];
+
+        fft->performFrequencyOnlyForwardTransform (fftData.data());
+
+        for (int bin = 0; bin < fftSize / 2; ++bin)
+            powerSum[(size_t) bin] += fftData[(size_t) bin] * fftData[(size_t) bin];
+    }
+
+    const float powerScale = 1.0f / (float) windows;
 
     const bool initializeAverage = ! averageInitialized;
 
@@ -176,7 +189,9 @@ void SpectrumAnalyzer::update()
         float magnitude = 0.0f;
 
         for (int bin = binStart[(size_t) i]; bin < binEnd[(size_t) i]; ++bin)
-            magnitude = std::max (magnitude, fftData[(size_t) bin]);
+            magnitude = std::max (magnitude, powerSum[(size_t) bin] * powerScale);
+
+        magnitude = std::sqrt (magnitude);
 
         const float tilt = tiltDbPerOctave * std::log2 (binHz[(size_t) i] / 1000.0f);
         rawDb[(size_t) i] = juce::Decibels::gainToDecibels (magnitude * magnitudeScale, kFloorDb) + tilt;

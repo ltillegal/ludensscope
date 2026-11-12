@@ -95,5 +95,23 @@ int main()
     std::printf ("flat-top window peak = %.2f dBFS (expected about -6.0) %s\n",
                  flatBest, flatOk ? "ok" : "FAIL");
 
-    return flatOk ? 0 : 1;
+    // The 4x overlapped FFT path must keep the same calibration.
+    SpectrumAnalyzer overlapAnalyzer;
+    overlapAnalyzer.setOverlap (4);
+    overlapAnalyzer.prepare (sampleRate);
+    overlapAnalyzer.push (left.data(), right.data(), (int) left.size());
+
+    for (int i = 0; i < 30; ++i)
+        overlapAnalyzer.update();
+
+    float overlapBest = -1000.0f;
+
+    for (int i = 0; i < SpectrumAnalyzer::numBins; ++i)
+        overlapBest = std::max (overlapBest, overlapAnalyzer.levels()[(size_t) i]);
+
+    const bool overlapOk = std::abs (overlapBest + 6.0f) <= 0.6f;
+    std::printf ("4x overlap peak = %.2f dBFS (expected about -6.0) %s\n",
+                 overlapBest, overlapOk ? "ok" : "FAIL");
+
+    return flatOk && overlapOk ? 0 : 1;
 }

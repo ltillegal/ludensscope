@@ -37,10 +37,16 @@ public:
         octaveSmoothing = juce::jlimit (0.0f, 1.0f, octaves);
     }
 
+    void setOverlap (int factor) noexcept
+    {
+        overlapFactor = juce::jlimit (1, 8, factor);
+    }
+
     int getFftSize() const noexcept { return fftSize; }
     Window getWindow() const noexcept { return windowType; }
     float getTilt() const noexcept { return tiltDbPerOctave; }
     float getOctaveSmoothing() const noexcept { return octaveSmoothing; }
+    int getOverlap() const noexcept { return overlapFactor; }
 
     const std::array<float, numBins>& levels() const noexcept { return displayDb; }
     const std::array<float, numBins>& peaks()  const noexcept { return peakDb; }
@@ -54,7 +60,7 @@ private:
 
     std::array<float, 2 * maxFftSize> fftData {};
     std::array<float, maxFftSize> window {};
-    std::array<float, maxFftSize> history {};
+    std::array<float, 2 * maxFftSize> history {};
 
     std::array<float, numBins> displayDb {};
     std::array<float, numBins> peakDb {};
@@ -73,6 +79,8 @@ private:
     float peakDecayDb = 0.35f;
     float tiltDbPerOctave = 0.0f;
     float octaveSmoothing = 0.0f;
+    int overlapFactor = 1;
+    std::array<float, maxFftSize> powerSum {};
     Window windowType = Window::hann;
 
     static constexpr float averageCoefficient = 0.08f;

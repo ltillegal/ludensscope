@@ -7,7 +7,7 @@
 namespace
 {
     constexpr int snapshotMagic = 0x4c444e53; // 'LDNS'
-    constexpr int snapshotVersion = 3;
+    constexpr int snapshotVersion = 4;
 }
 
 LudensScopeProcessor::LudensScopeProcessor()
@@ -467,6 +467,8 @@ void LudensScopeProcessor::getStateInformation (juce::MemoryBlock& destData)
     stream.writeInt (fftSettingsValue.windowType);
     stream.writeFloat (fftSettingsValue.tiltDbPerOctave);
     stream.writeInt (fftSettingsValue.smoothingPreset);
+    stream.writeInt (fftSettingsValue.overlapPreset);
+    stream.writeInt (fftSettingsValue.noteGrid);
 }
 
 void LudensScopeProcessor::setStateInformation (const void* data, int sizeInBytes)
@@ -484,7 +486,8 @@ void LudensScopeProcessor::setStateInformation (const void* data, int sizeInByte
     const int bins = stream.readInt();
     const int selected = stream.readInt();
 
-    if (magic != snapshotMagic || (version != 1 && version != 2 && version != 3)
+    if (magic != snapshotMagic
+        || (version != 1 && version != 2 && version != 3 && version != 4)
         || slots != snapshotSlots || bins != snapshotBins)
         return;
 
@@ -510,6 +513,12 @@ void LudensScopeProcessor::setStateInformation (const void* data, int sizeInByte
 
         if (version >= 3)
             settings.smoothingPreset = juce::jlimit (0, 3, stream.readInt());
+
+        if (version >= 4)
+        {
+            settings.overlapPreset = juce::jlimit (0, 2, stream.readInt());
+            settings.noteGrid = stream.readInt() != 0 ? 1 : 0;
+        }
 
         if (settings.fftSize != 2048 && settings.fftSize != 4096
             && settings.fftSize != 8192 && settings.fftSize != 16384)

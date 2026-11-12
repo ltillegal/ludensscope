@@ -225,6 +225,8 @@ int main (int argc, char** argv)
     testSettings.tiltDbPerOctave = 4.5f;
     testSettings.windowType = 2;
     testSettings.smoothingPreset = 2;
+    testSettings.overlapPreset = 2;
+    testSettings.noteGrid = 1;
     processor.setFftSettings (testSettings);
 
     juce::MemoryBlock projectState;
@@ -237,6 +239,8 @@ int main (int argc, char** argv)
         && restoredSettings.timingPreset == 2
         && restoredSettings.windowType == 2
         && restoredSettings.smoothingPreset == 2
+        && restoredSettings.overlapPreset == 2
+        && restoredSettings.noteGrid == 1
         && std::abs (restoredSettings.tiltDbPerOctave - 4.5f) < 1.0e-4f;
 
     const bool snapshotPersisted = processor.isSnapshotFilled (1)
