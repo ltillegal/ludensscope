@@ -116,6 +116,16 @@ public:
         repaint();
     }
 
+    void setTargetCurve (const float* curveDb, bool active, const juce::String& name)
+    {
+        if (curveDb != nullptr)
+            std::copy (curveDb, curveDb + numBins, targetCurve.begin());
+
+        hasTargetCurve = active && curveDb != nullptr;
+        targetCurveName = name;
+        repaint();
+    }
+
     void setTransport (bool enabled, bool playing, bool looping, bool audible,
                        double positionSeconds, double lengthSeconds,
                        double loopStartSeconds, double loopEndSeconds) noexcept
@@ -582,6 +592,37 @@ public:
 
             g.setColour (theme::text.withAlpha (0.65f));
             g.strokePath (dashed, juce::PathStrokeType (1.0f));
+        }
+
+        if (hasTargetCurve)
+        {
+            juce::Path targetPath;
+
+            for (int s = 0; s < steps; ++s)
+            {
+                const float fraction = (float) s / (float) (steps - 1);
+                const float x = xFor (fraction);
+                const float y = yFor (levelAt (targetCurve, fraction));
+
+                if (s == 0) targetPath.startNewSubPath (x, y);
+                else        targetPath.lineTo (x, y);
+            }
+
+            const float dashes[] = { 3.0f, 3.0f };
+            juce::Path dashedTarget;
+            juce::PathStrokeType (1.2f).createDashedStroke (dashedTarget, targetPath, dashes, 2);
+
+            g.setColour (theme::accent2.withAlpha (0.9f));
+            g.strokePath (dashedTarget, juce::PathStrokeType (1.2f));
+
+            const juce::Rectangle<float> chip (plot.getCentreX() - 90.0f, plot.getY() + 6.0f,
+                                               180.0f, 16.0f);
+            g.setColour (theme::panel.withAlpha (0.85f));
+            g.fillRoundedRectangle (chip, 4.0f);
+            g.setColour (theme::accent2);
+            g.setFont (theme::labelFont (8.5f));
+            g.drawText ("TARGET  " + targetCurveName.substring (0, 24), chip,
+                        juce::Justification::centred);
         }
 
         for (int pass = 0; pass < 2; ++pass)
@@ -1140,6 +1181,7 @@ private:
     std::array<float, numBins> levels {};
     std::array<float, numBins> peaks {};
     std::array<float, numBins> reference {};
+    std::array<float, numBins> targetCurve {};
     std::array<float, numBins> sideLevels {};
     std::array<float, numBins> sidePeaks {};
     std::vector<float> referenceWaveform;
@@ -1152,6 +1194,8 @@ private:
     std::array<juce::Rectangle<float>, snapshotCount> snapshotLetterAreas {};
 
     bool hasReference = false;
+    bool hasTargetCurve = false;
+    juce::String targetCurveName;
     bool cursorActive = false;
     bool showGuides = false;
     std::vector<GuideZone> guideZones;
