@@ -57,6 +57,68 @@ int main (int argc, char** argv)
     processor.setPlayConfigDetails (2, 2, 48000.0, 512);
     processor.prepareToPlay (48000.0, 512);
 
+    // Reference file: write a 2 s 1 kHz wav, analyse it, and load it into the
+    // player near the end of the snapshot loop.
+    juce::File referenceFile ("/tmp/ludensscope-reference-test.wav");
+    bool referenceOk = false;
+    ReferenceAnalysis referenceAnalysis;
+
+    {
+        referenceFile.deleteFile();
+
+        juce::WavAudioFormat wavFormat;
+        std::unique_ptr<juce::AudioFormatWriter> writer (
+            wavFormat.createWriterFor (new juce::FileOutputStream (referenceFile),
+                                       48000.0, 2, 16, juce::StringPairArray(), 0));
+
+        if (writer != nullptr)
+        {
+            juce::AudioBuffer<float> sine (2, 96000);
+
+            for (int i = 0; i < sine.getNumSamples(); ++i)
+            {
+                const float value = 0.5f * (float) std::sin (2.0 * pi * 1000.0 * (double) i / 48000.0);
+                sine.setSample (0, i, value);
+                sine.setSample (1, i, value);
+            }
+
+            writer->writeFromAudioSampleBuffer (sine, 0, sine.getNumSamples());
+        }
+    }
+
+    if (referenceFile.existsAsFile())
+    {
+        referenceAnalysis = analyzeReferenceFile (referenceFile);
+
+        if (referenceAnalysis.ok)
+        {
+            int bestBin = 0;
+
+            for (int i = 1; i < SpectrumAnalyzer::numBins; ++i)
+                if (referenceAnalysis.levels[(size_t) i] > referenceAnalysis.levels[(size_t) bestBin])
+                    bestBin = i;
+
+            std::printf ("reference peak bin %d, LUFS %.2f, samples %d\n",
+                         bestBin, referenceAnalysis.lufs,
+                         referenceAnalysis.audio != nullptr
+                             ? referenceAnalysis.audio->getNumSamples() : 0);
+
+            referenceOk = std::abs (bestBin - 290) <= 4
+                          && referenceAnalysis.audio != nullptr
+                          && referenceAnalysis.audio->getNumSamples() == 96000
+                          && std::abs (referenceAnalysis.lufs + 6.0f) <= 0.6f;
+        }
+    }
+
+    juce::Timer::callAfterDelay (7000, [&processor, &referenceAnalysis]
+    {
+        const float lufs = referenceAnalysis.lufs;
+        processor.setReferenceAudio (std::move (referenceAnalysis.audio), lufs);
+        processor.setReferenceGainDb (0.0f);
+        processor.setReferencePlaying (true);
+        processor.setReferenceAudible (true);
+    });
+
     juce::AudioBuffer<float> buffer (2, 512);
     juce::MidiBuffer midi;
 
@@ -134,49 +196,17 @@ int main (int argc, char** argv)
     const auto clipped = processor.clippedSampleCount();
     std::printf ("clip counter %llu (expected 2)\n", (unsigned long long) clipped);
 
-    // Reference file analysis: a 1 kHz sine should peak near bin 290.
-    juce::File referenceFile ("/tmp/ludensscope-reference-test.wav");
-    bool referenceOk = false;
+    // The reference player should output the loaded file instead of silence.
+    juce::AudioBuffer<float> refOut (2, 512);
+    refOut.clear();
+    juce::MidiBuffer refMidi;
+    processor.processBlock (refOut, refMidi);
 
-    {
-        referenceFile.deleteFile();
+    const float referencePeak = refOut.getMagnitude (0, 0, 512);
+    std::printf ("reference output peak %.3f\n", referencePeak);
 
-        juce::WavAudioFormat wavFormat;
-        std::unique_ptr<juce::AudioFormatWriter> writer (
-            wavFormat.createWriterFor (new juce::FileOutputStream (referenceFile),
-                                       48000.0, 2, 16, juce::StringPairArray(), 0));
-
-        if (writer != nullptr)
-        {
-            juce::AudioBuffer<float> sine (2, 96000);
-
-            for (int i = 0; i < sine.getNumSamples(); ++i)
-            {
-                const float value = 0.5f * (float) std::sin (2.0 * pi * 1000.0 * (double) i / 48000.0);
-                sine.setSample (0, i, value);
-                sine.setSample (1, i, value);
-            }
-
-            writer->writeFromAudioSampleBuffer (sine, 0, sine.getNumSamples());
-        }
-    }
-
-    if (referenceFile.existsAsFile())
-    {
-        const auto analysis = analyzeReferenceFile (referenceFile);
-
-        if (analysis.ok)
-        {
-            int bestBin = 0;
-
-            for (int i = 1; i < SpectrumAnalyzer::numBins; ++i)
-                if (analysis.levels[(size_t) i] > analysis.levels[(size_t) bestBin])
-                    bestBin = i;
-
-            std::printf ("reference peak bin %d (expected near 290)\n", bestBin);
-            referenceOk = std::abs (bestBin - 290) <= 4;
-        }
-    }
+    if (referencePeak < 0.05f)
+        referenceOk = false;
 
     editor.reset();
     return clipped == 2 && referenceOk ? 0 : 1;

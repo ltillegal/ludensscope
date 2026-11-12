@@ -47,6 +47,10 @@ private:
     void applyRange (float lowHz, float highHz);
     void chooseReferenceFile();
     void loadReferenceFile (const juce::File& file);
+    void toggleReferencePlay();
+    void toggleReferenceLoop();
+    void toggleReferenceAb();
+    void updateReferenceGain();
 
     static constexpr int scopeSize = 16384;
     static constexpr int readChunk = 8192;

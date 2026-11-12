@@ -5,6 +5,7 @@
 #include <array>
 #include <atomic>
 #include <cstdint>
+#include <memory>
 
 #include "dsp/LoudnessMeter.h"
 
@@ -42,6 +43,27 @@ public:
 
     void requestReset() noexcept { resetRequested.store (true, std::memory_order_relaxed); }
 
+    // Reference player. The editor decodes/resamples on a background thread
+    // and hands the finished buffer over here; the audio thread only reads it.
+    void setReferenceAudio (std::unique_ptr<juce::AudioBuffer<float>> audio, float lufs);
+    void clearReferenceAudio();
+    bool hasReferenceAudio() const noexcept
+    {
+        return referenceLength.load (std::memory_order_relaxed) > 0;
+    }
+
+    void setReferencePlaying (bool shouldPlay) noexcept;
+    void setReferenceAudible (bool shouldBeAudible) noexcept;
+    void setReferenceLoop (bool shouldLoop) noexcept { referenceLoop.store (shouldLoop); }
+    void setReferenceGainDb (float gainDb) noexcept { referenceGainDb.store (gainDb); }
+
+    bool isReferencePlaying() const noexcept { return referencePlaying.load(); }
+    bool isReferenceAudible() const noexcept { return referenceAudible.load(); }
+    bool isReferenceLooping() const noexcept { return referenceLoop.load(); }
+    std::int64_t referencePositionSamples() const noexcept { return referencePosition.load(); }
+    std::int64_t referenceLengthSamples() const noexcept { return referenceLength.load(); }
+    float referenceLufs() const noexcept { return referenceLufsValue.load(); }
+
     std::uint64_t clippedSampleCount() const noexcept
     {
         return clippedSamples.load (std::memory_order_relaxed);
@@ -69,6 +91,19 @@ private:
 
     std::atomic<bool> resetRequested { false };
     std::atomic<std::uint64_t> clippedSamples { 0 };
+
+    juce::SpinLock referenceLock;
+    std::shared_ptr<juce::AudioBuffer<float>> referenceAudio;
+    std::atomic<bool> referencePlaying { false };
+    std::atomic<bool> referenceAudible { false };
+    std::atomic<bool> referenceLoop { true };
+    std::atomic<std::int64_t> referencePosition { 0 };
+    std::atomic<std::int64_t> referenceLength { 0 };
+    std::atomic<float> referenceGainDb { 0.0f };
+    std::atomic<float> referenceLufsValue { -100.0f };
+
+    float referenceMix = 0.0f;
+    float referenceCurrentGain = 1.0f;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (LudensScopeProcessor)
 };

@@ -22,6 +22,63 @@ void LudensScopeProcessor::prepareToPlay (double sampleRate, int)
     fifo.reset();
     fifoLeft.fill (0.0f);
     fifoRight.fill (0.0f);
+
+    referenceMix = 0.0f;
+    referenceCurrentGain = 1.0f;
+    referencePlaying.store (false);
+    referenceAudible.store (false);
+}
+
+void LudensScopeProcessor::setReferenceAudio (std::unique_ptr<juce::AudioBuffer<float>> audio,
+                                              float lufs)
+{
+    std::shared_ptr<juce::AudioBuffer<float>> newAudio = std::move (audio);
+    const auto length = newAudio != nullptr ? (std::int64_t) newAudio->getNumSamples() : 0;
+
+    {
+        const juce::SpinLock::ScopedLockType guard (referenceLock);
+        referenceAudio = newAudio;
+    }
+
+    referenceLength.store (length);
+    referencePosition.store (0);
+    referenceLufsValue.store (lufs);
+    referencePlaying.store (false);
+    referenceAudible.store (false);
+}
+
+void LudensScopeProcessor::clearReferenceAudio()
+{
+    {
+        const juce::SpinLock::ScopedLockType guard (referenceLock);
+        referenceAudio.reset();
+    }
+
+    referenceLength.store (0);
+    referencePosition.store (0);
+    referencePlaying.store (false);
+    referenceAudible.store (false);
+}
+
+void LudensScopeProcessor::setReferencePlaying (bool shouldPlay) noexcept
+{
+    if (shouldPlay
+        && referenceLength.load (std::memory_order_relaxed) > 0
+        && referencePosition.load (std::memory_order_relaxed)
+               >= referenceLength.load (std::memory_order_relaxed))
+    {
+        referencePosition.store (0, std::memory_order_relaxed);
+    }
+
+    referencePlaying.store (shouldPlay, std::memory_order_relaxed);
+
+    if (! shouldPlay)
+        referenceAudible.store (false, std::memory_order_relaxed);
+}
+
+void LudensScopeProcessor::setReferenceAudible (bool shouldBeAudible) noexcept
+{
+    referenceAudible.store (shouldBeAudible, std::memory_order_relaxed);
 }
 
 void LudensScopeProcessor::releaseResources()
@@ -76,6 +133,81 @@ void LudensScopeProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce:
     }
 
     fifo.finishedWrite (size1 + size2);
+
+    // Reference player / A-B. Analysis above always sees the dry input; only
+    // the outgoing audio is replaced while the reference is audible.
+    std::shared_ptr<juce::AudioBuffer<float>> audio;
+
+    {
+        const juce::SpinLock::ScopedTryLockType guard (referenceLock);
+
+        if (guard.isLocked())
+            audio = referenceAudio;
+    }
+
+    if (audio == nullptr || audio->getNumSamples() == 0)
+        return;
+
+    const bool playing = referencePlaying.load (std::memory_order_relaxed);
+    const bool audible = referenceAudible.load (std::memory_order_relaxed);
+
+    if (! playing && ! audible && referenceMix < 1.0e-4f)
+        return;
+
+    const auto length = (std::int64_t) audio->getNumSamples();
+    const int refChannels = audio->getNumChannels();
+
+    const float gainTarget = juce::Decibels::decibelsToGain (referenceGainDb.load());
+    const float rate = (float) juce::jmax (1.0, getSampleRate());
+    const float mixStep = 1.0f / (rate * 0.02f);
+
+    auto* outL = buffer.getWritePointer (0);
+    auto* outR = buffer.getNumChannels() > 1 ? buffer.getWritePointer (1) : outL;
+
+    auto pos = referencePosition.load (std::memory_order_relaxed);
+    bool stillPlaying = playing;
+    float targetMix = (audible && playing) ? 1.0f : 0.0f;
+
+    for (int i = 0; i < numSamples; ++i)
+    {
+        referenceMix += juce::jlimit (-mixStep, mixStep, targetMix - referenceMix);
+        referenceCurrentGain += juce::jlimit (-mixStep, mixStep,
+                                              gainTarget - referenceCurrentGain);
+
+        float refL = 0.0f;
+        float refR = 0.0f;
+
+        if (stillPlaying && length > 0)
+        {
+            const auto p = (int) (pos % length);
+            refL = audio->getSample (0, p);
+            refR = refChannels > 1 ? audio->getSample (1, p) : refL;
+
+            if (++pos >= length)
+            {
+                if (referenceLoop.load (std::memory_order_relaxed))
+                {
+                    pos = 0;
+                }
+                else
+                {
+                    pos = length;
+                    stillPlaying = false;
+                    referencePlaying.store (false, std::memory_order_relaxed);
+                    referenceAudible.store (false, std::memory_order_relaxed);
+                    targetMix = 0.0f;
+                }
+            }
+        }
+
+        const float dry = 1.0f - referenceMix;
+        outL[i] = outL[i] * dry + refL * referenceMix * referenceCurrentGain;
+
+        if (buffer.getNumChannels() > 1)
+            outR[i] = outR[i] * dry + refR * referenceMix * referenceCurrentGain;
+    }
+
+    referencePosition.store (pos, std::memory_order_relaxed);
 }
 
 int LudensScopeProcessor::readSamples (float* left, float* right, int maxFrames) noexcept
