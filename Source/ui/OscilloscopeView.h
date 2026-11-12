@@ -64,10 +64,7 @@ public:
     {
         const auto bounds = getLocalBounds().toFloat();
 
-        g.setColour (theme::panel);
-        g.fillRoundedRectangle (bounds, 8.0f);
-        g.setColour (theme::panelLine);
-        g.drawRoundedRectangle (bounds.reduced (0.5f), 8.0f, 1.0f);
+        theme::drawPanel (g, bounds);
 
         auto area = bounds.reduced (12.0f);
 
@@ -144,11 +141,25 @@ public:
             return path;
         };
 
-        g.setColour (theme::cold.withAlpha (0.55f));
+        const auto leftPath = buildPath (left);
+
+        juce::Path filled = leftPath;
+        filled.lineTo (plot.getRight(), plot.getBottom());
+        filled.lineTo (plot.getX(), plot.getBottom());
+        filled.closeSubPath();
+
+        g.setGradientFill (juce::ColourGradient::vertical (theme::accent.withAlpha (0.16f), plot.getY(),
+                                                           theme::accent.withAlpha (0.0f), plot.getBottom()));
+        g.fillPath (filled);
+
+        g.setColour (theme::accent.withAlpha (0.09f));
+        g.strokePath (leftPath, juce::PathStrokeType (5.0f));
+
+        g.setColour (theme::cold.withAlpha (0.45f));
         g.strokePath (buildPath (right), juce::PathStrokeType (1.1f));
 
-        g.setColour (theme::accent.withAlpha (0.85f));
-        g.strokePath (buildPath (left), juce::PathStrokeType (1.2f));
+        g.setColour (theme::accent);
+        g.strokePath (leftPath, juce::PathStrokeType (1.3f));
     }
 
 private:

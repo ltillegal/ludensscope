@@ -21,10 +21,7 @@ public:
     {
         const auto bounds = getLocalBounds().toFloat();
 
-        g.setColour (theme::panel);
-        g.fillRoundedRectangle (bounds, 8.0f);
-        g.setColour (theme::panelLine);
-        g.drawRoundedRectangle (bounds.reduced (0.5f), 8.0f, 1.0f);
+        theme::drawPanel (g, bounds);
 
         auto area = bounds.reduced (12.0f);
 
@@ -37,6 +34,12 @@ public:
 
         const float radius = side * 0.5f - 2.0f;
         const auto centre = square.getCentre();
+
+        g.setGradientFill (juce::ColourGradient (theme::accent.withAlpha (0.05f),
+                                                 centre.x, centre.y,
+                                                 juce::Colours::transparentBlack,
+                                                 centre.x + radius, centre.y, true));
+        g.fillEllipse (centre.x - radius, centre.y - radius, radius * 2.0f, radius * 2.0f);
 
         g.setColour (theme::grid);
         g.drawEllipse (centre.x - radius, centre.y - radius, radius * 2.0f, radius * 2.0f, 1.0f);
