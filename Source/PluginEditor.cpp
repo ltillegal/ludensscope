@@ -852,10 +852,9 @@ void LudensScopeEditor::resetDisplay()
     spectrumView.setReference (nullptr, false);
     spectrogramView.clear();
 
-    for (auto& filled : snapshotFilled)
-        filled = false;
+    if (processor.isSnapshotFilled (snapshotSlot))
+        processor.clearSnapshot (snapshotSlot);
 
-    processor.clearSnapshots();
     syncSnapshots();
 
     processor.clearReferenceAudio();
