@@ -153,6 +153,8 @@ void SpectrumAnalyzer::update()
 
     const bool initializeAverage = ! averageInitialized;
 
+    std::array<float, numBins> rawDb {};
+
     for (int i = 0; i < numBins; ++i)
     {
         float magnitude = 0.0f;
@@ -161,7 +163,34 @@ void SpectrumAnalyzer::update()
             magnitude = std::max (magnitude, fftData[(size_t) bin]);
 
         const float tilt = tiltDbPerOctave * std::log2 (binHz[(size_t) i] / 1000.0f);
-        const float db = juce::Decibels::gainToDecibels (magnitude * magnitudeScale, kFloorDb) + tilt;
+        rawDb[(size_t) i] = juce::Decibels::gainToDecibels (magnitude * magnitudeScale, kFloorDb) + tilt;
+    }
+
+    std::array<float, numBins> targetDb = rawDb;
+
+    if (octaveSmoothing > 0.0f)
+    {
+        const float binsPerOctave = (float) numBins
+                                    / std::log2 (kMaxFrequency / kMinFrequency);
+        const int radius = juce::jmax (1, (int) std::lround (binsPerOctave * octaveSmoothing * 0.5f));
+
+        for (int i = 0; i < numBins; ++i)
+        {
+            const int first = juce::jmax (0, i - radius);
+            const int last = juce::jmin (numBins - 1, i + radius);
+
+            float sum = 0.0f;
+
+            for (int j = first; j <= last; ++j)
+                sum += rawDb[(size_t) j];
+
+            targetDb[(size_t) i] = sum / (float) (last - first + 1);
+        }
+    }
+
+    for (int i = 0; i < numBins; ++i)
+    {
+        const float db = targetDb[(size_t) i];
 
         float& smoothed = displayDb[(size_t) i];
         smoothed += (db > smoothed ? attackCoefficient : releaseCoefficient) * (db - smoothed);

@@ -84,6 +84,8 @@ LudensScopeEditor::LudensScopeEditor (LudensScopeProcessor& p)
     setLookAndFeel (lookAndFeel.get());
 
     setOpaque (true);
+    setWantsKeyboardFocus (true);
+    tooltipWindow = std::make_unique<juce::TooltipWindow> (this, 700);
     setResizable (true, true);
     setResizeLimits (1000, 600, 2400, 1500);
 
@@ -140,6 +142,8 @@ LudensScopeEditor::LudensScopeEditor (LudensScopeProcessor& p)
 
     spectrumView.onGuideSolo = [this] (int index) { toggleGuideSolo (index); };
 
+    spectrogramView.setPushDivider (waterfallHistory);
+
     referenceButton.setColour (juce::TextButton::buttonColourId, theme::panel);
     referenceButton.setColour (juce::TextButton::textColourOffId, theme::text);
     referenceButton.onClick = [this] { chooseReferenceFile(); };
@@ -149,6 +153,15 @@ LudensScopeEditor::LudensScopeEditor (LudensScopeProcessor& p)
     fftButton.setColour (juce::TextButton::textColourOffId, theme::text);
     fftButton.onClick = [this] { showFftMenu(); };
     addAndMakeVisible (fftButton);
+
+    fftButton.setTooltip ("FFT size, window, ballistics, tilt, smoothing");
+    referenceButton.setTooltip ("Load a reference track; the transport appears on the spectrum");
+    guidesButton.setTooltip ("Placement guides; click a zone to solo that band");
+    spanButton.setTooltip ("Frequency span in octaves (wheel over the spectrum zooms)");
+    monoButton.setTooltip ("Analyse the mono sum to check phase cancellations");
+    captureButton.setTooltip ("Store the averaged spectrum in the selected snapshot slot");
+    freezeButton.setTooltip ("Freeze the spectrum, waterfall and meters");
+    resetButton.setTooltip ("Reset meters, the loaded reference and the selected snapshot");
 
     spectrumView.onRangeChange = [this] (float lowHz, float highHz)
     {
@@ -537,6 +550,21 @@ void LudensScopeEditor::showFftMenu()
     menu.addItem (302, "+4.5 dB/oct", true, analyzer.getTilt() == 4.5f);
 
     menu.addSeparator();
+    menu.addSectionHeader ("Smoothing");
+
+    const char* smoothing[] = { "Off", "1/1 octave", "1/3 octave", "1/6 octave" };
+
+    for (int i = 0; i < 4; ++i)
+        menu.addItem (800 + i, smoothing[i], true, smoothingPreset == i);
+
+    menu.addSeparator();
+    menu.addSectionHeader ("Waterfall");
+    menu.addItem (700, "Fast (~3 s)", true, waterfallHistory == 1);
+    menu.addItem (701, "Medium (~7 s)", true, waterfallHistory == 2);
+    menu.addItem (702, "Slow (~14 s)", true, waterfallHistory == 4);
+
+    menu.addSeparator();
+    menu.addItem (601, "Difference shading", true, showDifference);
     menu.addItem (600, "Peak markers", true, showPeakMarkers);
 
     bool anySnapshot = false;
@@ -546,6 +574,7 @@ void LudensScopeEditor::showFftMenu()
 
     menu.addSeparator();
     menu.addItem (500, "Export snapshots (CSV)...", anySnapshot);
+    menu.addItem (501, "Export view (PNG)...", true);
 
     juce::Component::SafePointer<LudensScopeEditor> safe (this);
 
@@ -608,6 +637,68 @@ void LudensScopeEditor::applyFftMenu (int result)
         showPeakMarkers = ! showPeakMarkers;
         spectrumView.setPeakMarkers (showPeakMarkers);
     }
+    else if (result == 601)
+    {
+        showDifference = ! showDifference;
+        spectrumView.setDifferenceShading (showDifference);
+    }
+    else if (result == 501)
+    {
+        exportViewPng();
+    }
+    else if (result >= 700 && result < 703)
+    {
+        waterfallHistory = result == 700 ? 1 : (result == 701 ? 2 : 4);
+        spectrogramView.setPushDivider (waterfallHistory);
+    }
+    else if (result >= 800 && result < 804)
+    {
+        smoothingPreset = result - 800;
+        applySmoothing();
+        saveFftSettings();
+    }
+}
+
+void LudensScopeEditor::applySmoothing()
+{
+    const float octaves = smoothingPreset == 0 ? 0.0f
+                        : smoothingPreset == 1 ? 1.0f
+                        : smoothingPreset == 2 ? 1.0f / 3.0f
+                                               : 1.0f / 6.0f;
+
+    analyzer.setOctaveSmoothing (octaves);
+}
+
+void LudensScopeEditor::exportViewPng()
+{
+    pngChooser = std::make_unique<juce::FileChooser> (
+        "Export view",
+        juce::File::getSpecialLocation (juce::File::userDocumentsDirectory)
+            .getChildFile ("ludensscope.png"),
+        "*.png");
+
+    pngChooser->launchAsync (juce::FileBrowserComponent::saveMode
+                                 | juce::FileBrowserComponent::canSelectFiles
+                                 | juce::FileBrowserComponent::warnAboutOverwriting,
+                             [this] (const juce::FileChooser& chooser)
+                             {
+                                 const auto file = chooser.getResult();
+
+                                 if (file == juce::File())
+                                     return;
+
+                                 file.deleteFile();
+
+                                 auto stream = std::unique_ptr<juce::FileOutputStream> (
+                                     file.createOutputStream());
+
+                                 if (stream == nullptr)
+                                     return;
+
+                                 const auto image = createComponentSnapshot (getLocalBounds());
+                                 juce::PNGImageFormat png;
+                                 png.writeImageToStream (image, *stream);
+                             });
 }
 
 void LudensScopeEditor::applyFftSettings (const LudensScopeProcessor::FftSettings& settings)
@@ -626,6 +717,9 @@ void LudensScopeEditor::applyFftSettings (const LudensScopeProcessor::FftSetting
     else
         analyzer.setTiming (0.25f, 0.03f, 0.12f);
 
+    smoothingPreset = juce::jlimit (0, 3, settings.smoothingPreset);
+    applySmoothing();
+
     fftButton.setButtonText ("FFT " + juce::String (analyzer.getFftSize()));
 }
 
@@ -636,6 +730,7 @@ void LudensScopeEditor::saveFftSettings()
     settings.timingPreset = timingPreset;
     settings.tiltDbPerOctave = analyzer.getTilt();
     settings.windowType = (int) analyzer.getWindow();
+    settings.smoothingPreset = smoothingPreset;
 
     processor.setFftSettings (settings);
 }
@@ -943,6 +1038,45 @@ void LudensScopeEditor::applyRange (float lowHz, float highHz)
     const int octaves = juce::jlimit (1, 10,
                                       (int) std::lround (std::log2 (highHz / lowHz)));
     spanButton.setButtonText ("SPAN " + juce::String (octaves));
+}
+
+bool LudensScopeEditor::keyPressed (const juce::KeyPress& key)
+{
+    if (key.getModifiers().isCommandDown() || key.getModifiers().isCtrlDown()
+        || key.getModifiers().isAltDown())
+    {
+        return false;
+    }
+
+    if (key.getKeyCode() == juce::KeyPress::spaceKey)
+    {
+        toggleReferencePlay();
+        return true;
+    }
+
+    if (key.getKeyCode() == juce::KeyPress::escapeKey)
+    {
+        clearGuideSolo();
+        return true;
+    }
+
+    switch (key.getKeyCode())
+    {
+        case 'a':
+        case 'A':
+            toggleReferenceAb();
+            return true;
+
+        case 'f':
+        case 'F':
+            freezeButton.triggerClick();
+            return true;
+
+        default:
+            break;
+    }
+
+    return false;
 }
 
 void LudensScopeEditor::mouseMove (const juce::MouseEvent& e)

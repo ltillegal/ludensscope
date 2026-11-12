@@ -94,6 +94,7 @@ public:
         int timingPreset = 1;
         float tiltDbPerOctave = 0.0f;
         int windowType = 0;
+        int smoothingPreset = 0;
     };
 
     FftSettings getFftSettings() const noexcept { return fftSettingsValue; }

@@ -79,6 +79,12 @@ public:
         repaint();
     }
 
+    void setDifferenceShading (bool shouldShow) noexcept
+    {
+        showDifference = shouldShow;
+        repaint();
+    }
+
     void setTransport (bool enabled, bool playing, bool looping, bool audible,
                        double positionSeconds, double lengthSeconds,
                        double loopStartSeconds, double loopEndSeconds) noexcept
@@ -544,6 +550,41 @@ public:
             }
         }
 
+        // Difference shading: selected snapshot against the next filled slot,
+        // or against the live curve when only one slot is stored.
+        if (showDifference && snapshotPresent[(size_t) selectedSnapshot])
+        {
+            int compareSlot = -1;
+
+            for (int slot = 0; slot < snapshotCount; ++slot)
+            {
+                if (slot != selectedSnapshot && snapshotPresent[(size_t) slot])
+                {
+                    compareSlot = slot;
+                    break;
+                }
+            }
+
+            const int shadingSteps = juce::jmax (2, (int) std::ceil (plot.getWidth()));
+
+            for (int s = 0; s < shadingSteps; ++s)
+            {
+                const float fraction = (float) s / (float) (shadingSteps - 1);
+                const float x = xFor (fraction);
+                const float dbA = levelAt (snapshots[(size_t) selectedSnapshot], fraction);
+                const float dbB = compareSlot >= 0
+                    ? levelAt (snapshots[(size_t) compareSlot], fraction)
+                    : levelAt (levels, fraction);
+
+                const float yA = yFor (dbA);
+                const float yB = yFor (dbB);
+
+                g.setColour ((dbA >= dbB ? theme::accent : theme::hot).withAlpha (0.10f));
+                g.fillRect (juce::Rectangle<float> (x, juce::jmin (yA, yB), 1.0f,
+                                                    std::abs (yA - yB)));
+            }
+        }
+
         // Automatic markers on the strongest spectral peaks.
         if (showPeakMarkers)
         {
@@ -962,6 +1003,7 @@ private:
     double transportLoopStart = 0.0;
     double transportLoopEnd = 0.0;
     bool showPeakMarkers = true;
+    bool showDifference = false;
 
     juce::Rectangle<float> loopBar;
 
