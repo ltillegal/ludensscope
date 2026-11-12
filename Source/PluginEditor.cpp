@@ -142,6 +142,9 @@ LudensScopeEditor::LudensScopeEditor (LudensScopeProcessor& p)
 
     spectrumView.onGuideSolo = [this] (int index) { toggleGuideSolo (index); };
 
+    meterPanel.onTargetChange = [this] (float) { saveViewSettings(); };
+    oscilloscopeView.onSettingsChanged = [this] { saveViewSettings(); };
+
     spectrogramView.setPushDivider (waterfallHistory);
 
     referenceButton.setColour (juce::TextButton::buttonColourId, theme::panel);
@@ -208,6 +211,7 @@ LudensScopeEditor::LudensScopeEditor (LudensScopeProcessor& p)
     oscilloscopeView.setSampleRate (preparedSampleRate);
 
     applyFftSettings (processor.getFftSettings());
+    applyViewSettings (processor.getViewSettings());
 
     setSize (1060, 700);
     startTimerHz (30);
@@ -673,16 +677,19 @@ void LudensScopeEditor::applyFftMenu (int result)
     {
         showPeakMarkers = ! showPeakMarkers;
         spectrumView.setPeakMarkers (showPeakMarkers);
+        saveViewSettings();
     }
     else if (result == 601)
     {
         showDifference = ! showDifference;
         spectrumView.setDifferenceShading (showDifference);
+        saveViewSettings();
     }
     else if (result == 602)
     {
         showSide = ! showSide;
         spectrumView.setShowSide (showSide);
+        saveViewSettings();
     }
     else if (result == 603)
     {
@@ -704,6 +711,7 @@ void LudensScopeEditor::applyFftMenu (int result)
     {
         waterfallHistory = result == 700 ? 1 : (result == 701 ? 2 : 4);
         spectrogramView.setPushDivider (waterfallHistory);
+        saveViewSettings();
     }
     else if (result >= 800 && result < 804)
     {
@@ -908,6 +916,61 @@ void LudensScopeEditor::toggleReferenceAb()
     processor.setReferenceAudible (toReference);
 }
 
+void LudensScopeEditor::applyViewSettings (const LudensScopeProcessor::ViewSettings& settings)
+{
+    applyingSettings = true;
+
+    const auto& presets = guidePresets();
+    guidePreset = juce::jlimit (0, (int) presets.size() - 1, settings.guidePreset);
+    spectrumView.setGuideZones (presets[(size_t) guidePreset].zones);
+    setGuidesEnabled (settings.guidesEnabled != 0);
+
+    showSide = settings.sideCurve != 0;
+    spectrumView.setShowSide (showSide);
+
+    showPeakMarkers = settings.peakMarkers != 0;
+    spectrumView.setPeakMarkers (showPeakMarkers);
+
+    showDifference = settings.difference != 0;
+    spectrumView.setDifferenceShading (showDifference);
+
+    spanIndex = juce::jlimit (0, 5, settings.spanIndex);
+    applyRange (juce::jlimit (20.0f, 20000.0f, settings.rangeLow),
+                juce::jlimit (20.0f, 20000.0f, settings.rangeHigh));
+
+    waterfallHistory = settings.waterfallHistory;
+    spectrogramView.setPushDivider (waterfallHistory);
+
+    meterPanel.setTarget (settings.targetLufs);
+
+    oscilloscopeView.setWindowSamples (settings.oscWindow);
+    oscilloscopeView.setVerticalGain (settings.oscGain);
+
+    applyingSettings = false;
+}
+
+void LudensScopeEditor::saveViewSettings()
+{
+    if (applyingSettings)
+        return;
+
+    LudensScopeProcessor::ViewSettings settings;
+    settings.guidesEnabled = guidesEnabled ? 1 : 0;
+    settings.guidePreset = guidePreset;
+    settings.sideCurve = showSide ? 1 : 0;
+    settings.peakMarkers = showPeakMarkers ? 1 : 0;
+    settings.difference = showDifference ? 1 : 0;
+    settings.spanIndex = spanIndex;
+    settings.rangeLow = rangeLow;
+    settings.rangeHigh = rangeHigh;
+    settings.targetLufs = meterPanel.getTarget();
+    settings.waterfallHistory = waterfallHistory;
+    settings.oscWindow = oscilloscopeView.getWindowSamples();
+    settings.oscGain = oscilloscopeView.getVerticalGain();
+
+    processor.setViewSettings (settings);
+}
+
 void LudensScopeEditor::setGuidesEnabled (bool enabled)
 {
     guidesEnabled = enabled;
@@ -972,6 +1035,7 @@ void LudensScopeEditor::showGuidesMenu()
                             if (result == 1)
                             {
                                 safe->setGuidesEnabled (false);
+                                safe->saveViewSettings();
                                 return;
                             }
 
@@ -985,6 +1049,7 @@ void LudensScopeEditor::showGuidesMenu()
                             safe->clearGuideSolo();
                             safe->spectrumView.setGuideZones (list[(size_t) index].zones);
                             safe->setGuidesEnabled (true);
+                            safe->saveViewSettings();
                         });
 }
 
@@ -1011,6 +1076,7 @@ void LudensScopeEditor::syncSnapshots()
     snapshotGeneration = processor.snapshotGeneration();
 
     applyFftSettings (processor.getFftSettings());
+    applyViewSettings (processor.getViewSettings());
 
     spectrumView.setSnapshots (snapshots, snapshotFilled, snapshotSlot);
 }
@@ -1101,6 +1167,8 @@ void LudensScopeEditor::applyRange (float lowHz, float highHz)
     const int octaves = juce::jlimit (1, 10,
                                       (int) std::lround (std::log2 (highHz / lowHz)));
     spanButton.setButtonText ("SPAN " + juce::String (octaves));
+
+    saveViewSettings();
 }
 
 bool LudensScopeEditor::keyPressed (const juce::KeyPress& key)

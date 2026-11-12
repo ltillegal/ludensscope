@@ -230,12 +230,28 @@ int main (int argc, char** argv)
     testSettings.noteGrid = 1;
     processor.setFftSettings (testSettings);
 
+    LudensScopeProcessor::ViewSettings testView;
+    testView.guidesEnabled = 1;
+    testView.guidePreset = 2;
+    testView.sideCurve = 1;
+    testView.peakMarkers = 0;
+    testView.difference = 1;
+    testView.spanIndex = 2;
+    testView.rangeLow = 50.0f;
+    testView.rangeHigh = 5000.0f;
+    testView.targetLufs = -16.0f;
+    testView.waterfallHistory = 4;
+    testView.oscWindow = 4096;
+    testView.oscGain = 2.0f;
+    processor.setViewSettings (testView);
+
     juce::MemoryBlock projectState;
     processor.getStateInformation (projectState);
     processor.clearSnapshots();
     processor.setStateInformation (projectState.getData(), (int) projectState.getSize());
 
     const auto restoredSettings = processor.getFftSettings();
+    const auto restoredView = processor.getViewSettings();
     const bool settingsPersisted = restoredSettings.fftSize == 8192
         && restoredSettings.timingPreset == 2
         && restoredSettings.windowType == 2
@@ -244,10 +260,24 @@ int main (int argc, char** argv)
         && restoredSettings.noteGrid == 1
         && std::abs (restoredSettings.tiltDbPerOctave - 4.5f) < 1.0e-4f;
 
+    const bool viewPersisted = restoredView.guidesEnabled == 1
+        && restoredView.guidePreset == 2
+        && restoredView.sideCurve == 1
+        && restoredView.peakMarkers == 0
+        && restoredView.difference == 1
+        && restoredView.spanIndex == 2
+        && std::abs (restoredView.rangeLow - 50.0f) < 1.0f
+        && std::abs (restoredView.rangeHigh - 5000.0f) < 1.0f
+        && std::abs (restoredView.targetLufs + 16.0f) < 0.1f
+        && restoredView.waterfallHistory == 4
+        && restoredView.oscWindow == 4096
+        && std::abs (restoredView.oscGain - 2.0f) < 0.01f;
+
     const bool snapshotPersisted = processor.isSnapshotFilled (1)
         && std::abs (processor.snapshotLevels (1)[100] - testLevels[100]) < 1.0e-4f
-        && settingsPersisted;
-    std::printf ("snapshot state round-trip: %s\n", snapshotPersisted ? "ok" : "FAIL");
+        && settingsPersisted && viewPersisted;
+    std::printf ("snapshot state round-trip: %s\n",
+                 snapshotPersisted && settingsPersisted && viewPersisted ? "ok" : "FAIL");
 
     // The transport envelope should have been built from the reference.
     const auto& waveform = processor.referenceWaveform();
@@ -318,5 +348,6 @@ int main (int argc, char** argv)
     processor.setBandSolo (false, 0.0f, 0.0f);
 
     editor.reset();
-    return clipped == 2 && referenceOk && snapshotPersisted && soloOk && loopOk && waveformOk ? 0 : 1;
+    return clipped == 2 && referenceOk && snapshotPersisted && settingsPersisted
+           && viewPersisted && soloOk && loopOk && waveformOk ? 0 : 1;
 }
