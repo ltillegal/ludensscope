@@ -62,6 +62,7 @@ private:
     void clearGuideSolo();
     void applyViewSettings (const LudensScopeProcessor::ViewSettings& settings);
     void saveViewSettings();
+    void applyReferenceSettings();
     void undoReset();
     void exportViewPng();
     void applySmoothing();
@@ -117,8 +118,15 @@ private:
     double undoLoopEnd = 0.0;
     double undoPosition = 0.0;
     bool undoReferenceValid = false;
+    juce::String undoReferencePath;
     int undoTruePeakOvers = 0;
     float undoTruePeakHold = -100.0f;
+
+    juce::String referencePath;
+    double pendingReferenceLoopStart = -1.0;
+    double pendingReferenceLoopEnd = -1.0;
+    double pendingReferencePosition = 0.0;
+    int lastReferenceGeneration = 0;
 
     std::unique_ptr<juce::FileChooser> referenceChooser;
     std::unique_ptr<ReferenceLoader> referenceLoader;

@@ -275,6 +275,9 @@ int main (int argc, char** argv)
     testView.oscGain = 2.0f;
     processor.setViewSettings (testView);
 
+    processor.setReferenceCurveInfo (referenceFile.getFullPathName(),
+                                     referenceAnalysis.levels.data(), true);
+
     juce::MemoryBlock projectState;
     processor.getStateInformation (projectState);
     processor.clearSnapshots();
@@ -282,6 +285,7 @@ int main (int argc, char** argv)
 
     const auto restoredSettings = processor.getFftSettings();
     const auto restoredView = processor.getViewSettings();
+    const auto restoredReference = processor.getReferenceSettings();
     const bool settingsPersisted = restoredSettings.fftSize == 8192
         && restoredSettings.timingPreset == 2
         && restoredSettings.windowType == 2
@@ -303,9 +307,14 @@ int main (int argc, char** argv)
         && restoredView.oscWindow == 4096
         && std::abs (restoredView.oscGain - 2.0f) < 0.01f;
 
+    const bool referencePersisted = restoredReference.valid
+        && restoredReference.path == referenceFile.getFullPathName()
+        && std::abs (restoredReference.curve[289] - referenceAnalysis.levels[289]) < 1.0e-4f
+        && std::abs (restoredReference.lufs - referenceAnalysis.lufs) < 0.1f;
+
     const bool snapshotPersisted = processor.isSnapshotFilled (1)
         && std::abs (processor.snapshotLevels (1)[100] - testLevels[100]) < 1.0e-4f
-        && settingsPersisted && viewPersisted;
+        && settingsPersisted && viewPersisted && referencePersisted;
     std::printf ("snapshot state round-trip: %s\n",
                  snapshotPersisted && settingsPersisted && viewPersisted ? "ok" : "FAIL");
 
@@ -379,5 +388,6 @@ int main (int argc, char** argv)
 
     editor.reset();
     return clipped == 2 && undoOk && referenceOk && snapshotPersisted && settingsPersisted
+           && referencePersisted
            && viewPersisted && soloOk && loopOk && waveformOk ? 0 : 1;
 }

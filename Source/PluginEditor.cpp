@@ -220,6 +220,7 @@ LudensScopeEditor::LudensScopeEditor (LudensScopeProcessor& p)
 
     applyFftSettings (processor.getFftSettings());
     applyViewSettings (processor.getViewSettings());
+    applyReferenceSettings();
 
     setSize (1060, 700);
     startTimerHz (30);
@@ -524,7 +525,10 @@ void LudensScopeEditor::chooseReferenceFile()
                                        const auto file = chooser.getResult();
 
                                        if (file.existsAsFile())
+                                       {
+                                           pendingReferenceLoopStart = -1.0;
                                            loadReferenceFile (file);
+                                       }
                                    });
 }
 
@@ -540,7 +544,7 @@ void LudensScopeEditor::loadReferenceFile (const juce::File& file)
 
     referenceLoader = std::make_unique<ReferenceLoader> (
         file, targetRate,
-        [safe = juce::Component::SafePointer<LudensScopeEditor> (this)]
+        [safe = juce::Component::SafePointer<LudensScopeEditor> (this), file]
         (ReferenceAnalysis& analysis)
         {
             if (safe == nullptr)
@@ -558,7 +562,17 @@ void LudensScopeEditor::loadReferenceFile (const juce::File& file)
 
             safe->processor.setReferenceAudio (std::move (analysis.audio), analysis.lufs);
             safe->processor.clearUndo();
+            safe->referencePath = file.getFullPathName();
+            safe->processor.setReferenceCurveInfo (safe->referencePath, analysis.levels.data(), true);
             safe->spectrumView.setReferenceWaveform (safe->processor.referenceWaveform());
+
+            if (safe->pendingReferenceLoopStart >= 0.0)
+            {
+                safe->processor.setReferenceLoopRange (safe->pendingReferenceLoopStart,
+                                                       safe->pendingReferenceLoopEnd);
+                safe->processor.setReferencePositionSeconds (safe->pendingReferencePosition);
+                safe->pendingReferenceLoopStart = -1.0;
+            }
         });
 
     referenceLoader->startThread();
@@ -1096,6 +1110,52 @@ void LudensScopeEditor::syncSnapshots()
     spectrumView.setSnapshots (snapshots, snapshotFilled, snapshotSlot);
 }
 
+void LudensScopeEditor::applyReferenceSettings()
+{
+    const auto reference = processor.getReferenceSettings();
+    lastReferenceGeneration = processor.referenceGeneration();
+
+    if (! reference.valid)
+    {
+        hasReference = false;
+        referencePath.clear();
+        spectrumView.setReference (nullptr, false);
+        spectrumView.setReferenceWaveform ({});
+        return;
+    }
+
+    referenceDb = reference.curve;
+    hasReference = true;
+    spectrumView.setReference (referenceDb.data(), true);
+
+    if (processor.hasReferenceAudio() && processor.getReferencePath() == reference.path)
+    {
+        referencePath = reference.path;
+        processor.setReferenceLoopRange (reference.loopStart, reference.loopEnd);
+        processor.setReferencePositionSeconds (reference.position);
+        spectrumView.setReferenceWaveform (processor.referenceWaveform());
+        return;
+    }
+
+    referencePath = reference.path;
+    const juce::File file (reference.path);
+
+    if (file.existsAsFile())
+    {
+        pendingReferenceLoopStart = reference.loopStart;
+        pendingReferenceLoopEnd = reference.loopEnd;
+        pendingReferencePosition = reference.position;
+        loadReferenceFile (file);
+    }
+    else
+    {
+        if (processor.hasReferenceAudio())
+            processor.unloadReferenceAudio();
+
+        spectrumView.setReferenceWaveform ({});
+    }
+}
+
 void LudensScopeEditor::undoReset()
 {
     if (! processor.hasUndo())
@@ -1113,6 +1173,8 @@ void LudensScopeEditor::undoReset()
     {
         processor.restoreReferenceAudio (undoReferenceAudio, undoReferenceLufs,
                                          undoLoopStart, undoLoopEnd, undoPosition);
+        processor.setReferenceCurveInfo (undoReferencePath, undoReferenceDb.data(), true);
+        referencePath = undoReferencePath;
         hasReference = true;
         referenceDb = undoReferenceDb;
         spectrumView.setReference (referenceDb.data(), true);
@@ -1158,6 +1220,7 @@ void LudensScopeEditor::resetDisplay()
         const double rate = preparedSampleRate > 0.0 ? preparedSampleRate : 48000.0;
         undoPosition = (double) processor.referencePositionSamples() / rate;
         undoReferenceDb = referenceDb;
+        undoReferencePath = referencePath;
     }
 
     undoTruePeakOvers = truePeakOvers;
@@ -1173,6 +1236,7 @@ void LudensScopeEditor::resetDisplay()
     truePeakRight.reset();
 
     hasReference = false;
+    referencePath.clear();
     spectrumView.setReference (nullptr, false);
     spectrogramView.clear();
 
