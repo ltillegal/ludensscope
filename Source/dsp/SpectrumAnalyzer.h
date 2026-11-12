@@ -42,6 +42,17 @@ public:
         overlapFactor = juce::jlimit (1, 8, factor);
     }
 
+    void restoreAverage (const float* levelsDb) noexcept
+    {
+        std::copy (levelsDb, levelsDb + numBins, averageDb.begin());
+        averageInitialized = true;
+    }
+
+    void restorePeaks (const float* levelsDb) noexcept
+    {
+        std::copy (levelsDb, levelsDb + numBins, peakDb.begin());
+    }
+
     int getFftSize() const noexcept { return fftSize; }
     Window getWindow() const noexcept { return windowType; }
     float getTilt() const noexcept { return tiltDbPerOctave; }
