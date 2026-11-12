@@ -7,26 +7,37 @@
 class ReferenceLoader final : public juce::Thread
 {
 public:
-    ReferenceLoader (juce::File f,
-                     std::function<void (const ReferenceAnalysis&)> finished)
+    ReferenceLoader (juce::File f, double targetRate,
+                     std::function<void (ReferenceAnalysis&)> finished)
         : juce::Thread ("LudensScope reference analysis"),
-          file (std::move (f)), onFinished (std::move (finished))
+          file (std::move (f)), targetSampleRate (targetRate),
+          onFinished (std::move (finished))
     {
     }
 
     void run() override
     {
-        const auto result = analyzeReferenceFile (file, [this] { return threadShouldExit(); });
+        auto analysis = analyzeReferenceFile (file, [this] { return threadShouldExit(); });
 
-        juce::MessageManager::callAsync ([done = onFinished, result]
+        if (analysis.ok && analysis.audio != nullptr && targetSampleRate > 0.0)
         {
-            done (result);
+            analysis.audio = resampleReference (*analysis.audio,
+                                                analysis.sampleRate, targetSampleRate);
+            analysis.sampleRate = targetSampleRate;
+        }
+
+        auto shared = std::make_shared<ReferenceAnalysis> (std::move (analysis));
+
+        juce::MessageManager::callAsync ([done = onFinished, shared]
+        {
+            done (*shared);
         });
     }
 
 private:
     juce::File file;
-    std::function<void (const ReferenceAnalysis&)> onFinished;
+    double targetSampleRate;
+    std::function<void (ReferenceAnalysis&)> onFinished;
 };
 
 class ScopeLookAndFeel final : public juce::LookAndFeel_V4
@@ -141,6 +152,10 @@ LudensScopeEditor::LudensScopeEditor (LudensScopeProcessor& p)
         spanIndex = 0;
         applyRange (20.0f, 20000.0f);
     };
+
+    spectrumView.onPlayToggle = [this] { toggleReferencePlay(); };
+    spectrumView.onLoopToggle = [this] { toggleReferenceLoop(); };
+    spectrumView.onAbToggle = [this] { toggleReferenceAb(); };
 
     readLeft.resize (readChunk);
     readRight.resize (readChunk);
@@ -362,6 +377,15 @@ void LudensScopeEditor::timerCallback()
                           correlation, truePeakHoldDb, processor.lraLu(), plr,
                           processor.clippedSampleCount(), truePeakOvers);
 
+    const double referenceRate = preparedSampleRate > 0.0 ? preparedSampleRate : 48000.0;
+
+    spectrumView.setTransport (processor.hasReferenceAudio(),
+                               processor.isReferencePlaying(),
+                               processor.isReferenceLooping(),
+                               processor.isReferenceAudible(),
+                               (double) processor.referencePositionSamples() / referenceRate,
+                               (double) processor.referenceLengthSamples() / referenceRate);
+
     vectorScopeView.setData (scopeLeft.data() + (scopeSize - 1024),
                              scopeRight.data() + (scopeSize - 1024), 1024);
     oscilloscopeView.setData (scopeLeft.data(), scopeRight.data(), scopeSize, false);
@@ -414,10 +438,12 @@ void LudensScopeEditor::loadReferenceFile (const juce::File& file)
     referenceButton.setButtonText ("LOADING...");
     referenceButton.setEnabled (false);
 
+    const double targetRate = processor.getSampleRate() > 0.0 ? processor.getSampleRate() : 48000.0;
+
     referenceLoader = std::make_unique<ReferenceLoader> (
-        file,
+        file, targetRate,
         [safe = juce::Component::SafePointer<LudensScopeEditor> (this)]
-        (const ReferenceAnalysis& analysis)
+        (ReferenceAnalysis& analysis)
         {
             if (safe == nullptr)
                 return;
@@ -431,9 +457,63 @@ void LudensScopeEditor::loadReferenceFile (const juce::File& file)
             safe->referenceDb = analysis.levels;
             safe->hasReference = true;
             safe->spectrumView.setReference (safe->referenceDb.data(), true);
+
+            safe->processor.setReferenceAudio (std::move (analysis.audio), analysis.lufs);
         });
 
     referenceLoader->startThread();
+}
+
+void LudensScopeEditor::updateReferenceGain()
+{
+    const float mixLufs = processor.integratedLufs();
+    const float referenceLufs = processor.referenceLufs();
+
+    float gainDb = 0.0f;
+
+    if (mixLufs > -70.0f && referenceLufs > -70.0f)
+        gainDb = juce::jlimit (-24.0f, 24.0f, mixLufs - referenceLufs);
+
+    processor.setReferenceGainDb (gainDb);
+}
+
+void LudensScopeEditor::toggleReferencePlay()
+{
+    if (! processor.hasReferenceAudio())
+        return;
+
+    const bool shouldPlay = ! processor.isReferencePlaying();
+
+    if (shouldPlay)
+    {
+        updateReferenceGain();
+        processor.setReferenceAudible (true);
+    }
+
+    processor.setReferencePlaying (shouldPlay);
+}
+
+void LudensScopeEditor::toggleReferenceLoop()
+{
+    processor.setReferenceLoop (! processor.isReferenceLooping());
+}
+
+void LudensScopeEditor::toggleReferenceAb()
+{
+    if (! processor.hasReferenceAudio())
+        return;
+
+    const bool toReference = ! processor.isReferenceAudible();
+
+    if (toReference)
+    {
+        updateReferenceGain();
+
+        if (! processor.isReferencePlaying())
+            processor.setReferencePlaying (true);
+    }
+
+    processor.setReferenceAudible (toReference);
 }
 
 void LudensScopeEditor::setGuidesEnabled (bool enabled)
@@ -462,6 +542,9 @@ void LudensScopeEditor::resetDisplay()
     hasReference = false;
     spectrumView.setReference (nullptr, false);
     spectrogramView.clear();
+
+    processor.clearReferenceAudio();
+    spectrumView.setTransport (false, false, true, false, 0.0, 0.0);
 
     truePeakDb = -100.0f;
     truePeakHoldDb = -100.0f;

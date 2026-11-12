@@ -46,6 +46,21 @@ public:
         repaint();
     }
 
+    void setTransport (bool enabled, bool playing, bool looping, bool audible,
+                       double positionSeconds, double lengthSeconds) noexcept
+    {
+        transportEnabled = enabled;
+        transportPlaying = playing;
+        transportLooping = looping;
+        transportAudible = audible;
+        transportPosition = positionSeconds;
+        transportLength = lengthSeconds;
+    }
+
+    std::function<void()> onPlayToggle;
+    std::function<void()> onLoopToggle;
+    std::function<void()> onAbToggle;
+
     // Emitted when the user zooms with the wheel; the editor applies the range
     // to the waterfall as well so both views stay aligned.
     std::function<void (float, float)> onRangeChange;
@@ -103,6 +118,28 @@ public:
     {
         if (plotArea().contains (e.position) && onRangeReset)
             onRangeReset();
+    }
+
+    void mouseDown (const juce::MouseEvent& e) override
+    {
+        if (! transportEnabled)
+            return;
+
+        if (playArea.contains (e.position))
+        {
+            if (onPlayToggle)
+                onPlayToggle();
+        }
+        else if (loopArea.contains (e.position))
+        {
+            if (onLoopToggle)
+                onLoopToggle();
+        }
+        else if (abArea.contains (e.position))
+        {
+            if (onAbToggle)
+                onAbToggle();
+        }
     }
 
     void paint (juce::Graphics& g) override
@@ -357,6 +394,51 @@ public:
             }
         }
 
+        // Reference transport, only when a reference is loaded.
+        if (transportEnabled)
+        {
+            const juce::Rectangle<float> bar (plot.getRight() - 224.0f, plot.getY() + 6.0f,
+                                              216.0f, 18.0f);
+
+            g.setColour (theme::bg.withAlpha (0.66f));
+            g.fillRoundedRectangle (bar, 9.0f);
+            g.setColour (theme::panelLine);
+            g.drawRoundedRectangle (bar, 9.0f, 1.0f);
+
+            playArea = { bar.getX() + 4.0f, bar.getY(), 24.0f, bar.getHeight() };
+            loopArea = { bar.getX() + 34.0f, bar.getY(), 44.0f, bar.getHeight() };
+            abArea = { bar.getX() + 86.0f, bar.getY(), 42.0f, bar.getHeight() };
+
+            g.setColour (transportPlaying ? theme::accent2 : theme::accent);
+
+            if (transportPlaying)
+            {
+                g.fillRect (playArea.getCentreX() - 3.0f, playArea.getCentreY() - 3.0f,
+                            6.0f, 6.0f);
+            }
+            else
+            {
+                juce::Path triangle;
+                triangle.addTriangle (playArea.getCentreX() - 3.0f, playArea.getCentreY() - 4.0f,
+                                      playArea.getCentreX() - 3.0f, playArea.getCentreY() + 4.0f,
+                                      playArea.getCentreX() + 4.0f, playArea.getCentreY());
+                g.fillPath (triangle);
+            }
+
+            g.setFont (theme::labelFont (8.5f));
+            g.setColour (transportLooping ? theme::accent2 : theme::textDim);
+            g.drawText ("LOOP", loopArea, juce::Justification::centred);
+
+            g.setColour (transportAudible ? theme::accent : theme::textDim);
+            g.drawText (transportAudible ? "REF" : "MIX", abArea, juce::Justification::centred);
+
+            g.setFont (theme::monoFont (9.0f));
+            g.setColour (theme::textDim);
+            g.drawText (formatTime (transportPosition) + " / " + formatTime (transportLength),
+                        bar.withTrimmedLeft (134.0f).withTrimmedRight (8.0f),
+                        juce::Justification::centredRight);
+        }
+
         if (cursorActive && plot.contains (cursorPosition))
         {
             const float fraction = juce::jlimit (0.0f, 1.0f,
@@ -480,6 +562,12 @@ private:
         return juce::String ((int) std::lround (hz)) + " Hz";
     }
 
+    static juce::String formatTime (double seconds)
+    {
+        const int total = juce::jmax (0, (int) seconds);
+        return juce::String (total / 60) + ":" + juce::String (total % 60).paddedLeft ('0', 2);
+    }
+
     juce::String rangeText() const
     {
         const float octaves = std::log2 (rangeHigh / rangeLow);
@@ -503,6 +591,16 @@ private:
     bool hasReference = false;
     bool cursorActive = false;
     bool showGuides = false;
+
+    bool transportEnabled = false;
+    bool transportPlaying = false;
+    bool transportLooping = true;
+    bool transportAudible = false;
+    double transportPosition = 0.0;
+    double transportLength = 0.0;
+
+    juce::Rectangle<float> playArea, loopArea, abArea;
+
     juce::Point<float> cursorPosition;
 
     float rangeLow = minFrequency;
