@@ -6,7 +6,8 @@ if(CMAKE_HOST_SYSTEM_NAME STREQUAL "Darwin")
   set(CMAKE_OSX_ARCHITECTURES "arm64;x86_64" CACHE STRING "macOS architectures")
 endif()
 
-project(LudensScope VERSION 0.2.0 LANGUAGES C CXX)
+set(LUDENSCOPE_VERSION "0.2.0" CACHE STRING "Plugin version")
+project(LudensScope VERSION ${LUDENSCOPE_VERSION} LANGUAGES C CXX)
 
 enable_testing()
 
@@ -43,6 +44,7 @@ juce_add_plugin(LudensScope
   IS_MIDI_EFFECT FALSE
   EDITOR_WANTS_KEYBOARD_FOCUS FALSE
   COPY_PLUGIN_AFTER_BUILD TRUE
+  NEEDS_CURL TRUE
   VST3_CATEGORIES "Fx Analyzer")
 
 target_sources(LudensScope PRIVATE
@@ -55,7 +57,7 @@ target_include_directories(LudensScope PRIVATE Source)
 
 target_compile_definitions(LudensScope PUBLIC
   JUCE_WEB_BROWSER=0
-  JUCE_USE_CURL=0
+  JUCE_MODAL_LOOPS_PERMITTED=1
   JUCE_VST3_CAN_REPLACE_VST2=0
   JUCE_DISPLAY_SPLASH_SCREEN=0
   JUCE_REPORT_APP_USAGE=0)
@@ -63,6 +65,7 @@ target_compile_definitions(LudensScope PUBLIC
 target_link_libraries(LudensScope PRIVATE
   juce::juce_audio_utils
   juce::juce_dsp
+  juce::juce_cryptography
   PUBLIC
   juce::juce_recommended_config_flags
   juce::juce_recommended_warning_flags)
@@ -85,7 +88,7 @@ if(LUDENSCOPE_BUILD_TESTS)
   target_include_directories(LudensScopeLoudnessCalibration PRIVATE Source)
   target_compile_features(LudensScopeLoudnessCalibration PRIVATE cxx_std_17)
 
-  juce_add_console_app(LudensScopeUiSnapshot PRODUCT_NAME "LudensScopeUiSnapshot")
+  juce_add_console_app(LudensScopeUiSnapshot PRODUCT_NAME "LudensScopeUiSnapshot" NEEDS_CURL TRUE)
   target_sources(LudensScopeUiSnapshot PRIVATE
     Tests/UiSnapshot.cpp
     Source/PluginProcessor.cpp
@@ -95,11 +98,12 @@ if(LUDENSCOPE_BUILD_TESTS)
   target_include_directories(LudensScopeUiSnapshot PRIVATE Source)
   target_compile_definitions(LudensScopeUiSnapshot PRIVATE
     JUCE_STANDALONE_APPLICATION=1
-    JUCE_WEB_BROWSER=0
-    JUCE_USE_CURL=0)
+    JUCE_MODAL_LOOPS_PERMITTED=1
+    JUCE_WEB_BROWSER=0)
   target_link_libraries(LudensScopeUiSnapshot PRIVATE
     juce::juce_audio_utils
     juce::juce_dsp
+    juce::juce_cryptography
     juce::juce_recommended_config_flags)
 
   add_test(NAME loudness COMMAND LudensScopeLoudnessCalibration)
