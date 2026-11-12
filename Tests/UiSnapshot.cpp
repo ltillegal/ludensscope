@@ -350,6 +350,18 @@ int main (int argc, char** argv)
     const bool loopOk = loopPosition >= 0.49 && loopPosition < 1.01;
     std::printf ("reference loop position %.3f s (%s)\n", loopPosition, loopOk ? "ok" : "FAIL");
 
+    // Two reference slots: B starts empty, A keeps its saved metadata.
+    processor.switchReferenceSlot (1);
+    const bool slotBEmpty = processor.getActiveReferenceSlot() == 1
+        && ! processor.hasReferenceAudio()
+        && ! processor.getReferenceSettings().valid;
+    processor.switchReferenceSlot (0);
+    const bool slotABack = processor.getActiveReferenceSlot() == 0
+        && processor.getReferenceSettings().valid
+        && processor.getReferenceSettings().path == referenceFile.getFullPathName();
+    const bool slotsOk = slotBEmpty && slotABack;
+    std::printf ("reference slots: %s\n", slotsOk ? "ok" : "FAIL");
+
     // Band solo: the 1 kHz tone should pass a 500-2000 Hz solo, 100 Hz cut.
     processor.setReferencePlaying (false);
     processor.setReferenceAudible (false);
@@ -391,5 +403,5 @@ int main (int argc, char** argv)
     editor.reset();
     return clipped == 2 && undoOk && referenceOk && snapshotPersisted && settingsPersisted
            && referencePersisted
-           && viewPersisted && soloOk && loopOk && waveformOk ? 0 : 1;
+           && viewPersisted && slotsOk && soloOk && loopOk && waveformOk ? 0 : 1;
 }
