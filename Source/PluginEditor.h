@@ -85,6 +85,10 @@ private:
     std::array<float, SpectrumAnalyzer::numBins> referenceDb {};
     bool hasReference = false;
 
+    std::array<std::array<float, SpectrumAnalyzer::numBins>, SpectrumView::snapshotCount> snapshots {};
+    std::array<bool, SpectrumView::snapshotCount> snapshotFilled {};
+    int snapshotSlot = 0;
+
     juce::Rectangle<int> leftColumnBounds;
     juce::Rectangle<int> waterfallDivider;
     float waterfallRatio = 0.32f;
