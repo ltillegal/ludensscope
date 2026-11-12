@@ -52,6 +52,8 @@ private:
     void toggleReferenceLoop();
     void toggleReferenceAb();
     void updateReferenceGain();
+    void showFftMenu();
+    void applyFftMenu (int result);
 
     static constexpr int scopeSize = 131072;
     static constexpr int readChunk = 8192;
@@ -73,6 +75,9 @@ private:
     juce::TextButton spanButton { "SPAN 10" };
     juce::TextButton guidesButton { "GUIDES" };
     juce::TextButton referenceButton { "REF FILE" };
+    juce::TextButton fftButton { "FFT 4096" };
+
+    int timingPreset = 1;
 
     std::unique_ptr<juce::FileChooser> referenceChooser;
     std::unique_ptr<ReferenceLoader> referenceLoader;
