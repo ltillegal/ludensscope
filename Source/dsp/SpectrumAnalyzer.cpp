@@ -38,6 +38,15 @@ void SpectrumAnalyzer::setFftSize (int newSize)
     prepare (sampleRate);
 }
 
+void SpectrumAnalyzer::setWindow (Window newWindow)
+{
+    if (newWindow == windowType)
+        return;
+
+    windowType = newWindow;
+    prepare (sampleRate);
+}
+
 void SpectrumAnalyzer::setTiming (float attack, float release, float peakDecay) noexcept
 {
     attackCoefficient = juce::jlimit (0.01f, 0.99f, attack);
@@ -53,8 +62,33 @@ void SpectrumAnalyzer::prepare (double newSampleRate)
 
     for (int i = 0; i < fftSize; ++i)
     {
-        window[(size_t) i] = (float) (0.5 - 0.5 * std::cos (2.0 * kPi * (double) i / (double) fftSize));
-        windowSum += (double) window[(size_t) i];
+        const double phase = 2.0 * kPi * (double) i / (double) fftSize;
+        double value = 0.0;
+
+        switch (windowType)
+        {
+            case Window::hann:
+                value = 0.5 - 0.5 * std::cos (phase);
+                break;
+
+            case Window::blackmanHarris:
+                value = 0.35875
+                        - 0.48829 * std::cos (phase)
+                        + 0.14128 * std::cos (2.0 * phase)
+                        - 0.01168 * std::cos (3.0 * phase);
+                break;
+
+            case Window::flatTop:
+                value = 0.21557895
+                        - 0.41663158 * std::cos (phase)
+                        + 0.277263158 * std::cos (2.0 * phase)
+                        - 0.083578947 * std::cos (3.0 * phase)
+                        + 0.006947368 * std::cos (4.0 * phase);
+                break;
+        }
+
+        window[(size_t) i] = (float) value;
+        windowSum += value;
     }
 
     // JUCE's forward FFT is unnormalised, so a sine of amplitude A produces a

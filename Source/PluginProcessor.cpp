@@ -7,7 +7,7 @@
 namespace
 {
     constexpr int snapshotMagic = 0x4c444e53; // 'LDNS'
-    constexpr int snapshotVersion = 1;
+    constexpr int snapshotVersion = 2;
 }
 
 LudensScopeProcessor::LudensScopeProcessor()
@@ -316,6 +316,11 @@ void LudensScopeProcessor::getStateInformation (juce::MemoryBlock& destData)
             stream.write (snapshots[(size_t) slot].data(),
                           sizeof (float) * (size_t) snapshotBins);
     }
+
+    stream.writeInt (fftSettingsValue.fftSize);
+    stream.writeInt (fftSettingsValue.timingPreset);
+    stream.writeInt (fftSettingsValue.windowType);
+    stream.writeFloat (fftSettingsValue.tiltDbPerOctave);
 }
 
 void LudensScopeProcessor::setStateInformation (const void* data, int sizeInBytes)
@@ -333,7 +338,7 @@ void LudensScopeProcessor::setStateInformation (const void* data, int sizeInByte
     const int bins = stream.readInt();
     const int selected = stream.readInt();
 
-    if (magic != snapshotMagic || version != snapshotVersion
+    if (magic != snapshotMagic || (version != 1 && version != 2)
         || slots != snapshotSlots || bins != snapshotBins)
         return;
 
@@ -348,6 +353,24 @@ void LudensScopeProcessor::setStateInformation (const void* data, int sizeInByte
     }
 
     selectedSnapshotValue.store (juce::jlimit (0, snapshotSlots - 1, selected));
+
+    if (version >= 2)
+    {
+        FftSettings settings;
+        settings.fftSize = stream.readInt();
+        settings.timingPreset = juce::jlimit (0, 2, stream.readInt());
+        settings.windowType = juce::jlimit (0, 2, stream.readInt());
+        settings.tiltDbPerOctave = juce::jlimit (0.0f, 6.0f, stream.readFloat());
+
+        if (settings.fftSize != 2048 && settings.fftSize != 4096
+            && settings.fftSize != 8192 && settings.fftSize != 16384)
+        {
+            settings.fftSize = 4096;
+        }
+
+        fftSettingsValue = settings;
+    }
+
     snapshotGenerationValue.fetch_add (1);
 }
 

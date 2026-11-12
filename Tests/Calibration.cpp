@@ -77,5 +77,23 @@ int main()
 
     std::printf ("analyser peak = %.2f dBFS at bin %d (expected about -6.0)\n", best, bestBin);
 
-    return 0;
+    // A flat-top window should keep the same amplitude calibration.
+    SpectrumAnalyzer flatAnalyzer;
+    flatAnalyzer.setWindow (SpectrumAnalyzer::Window::flatTop);
+    flatAnalyzer.prepare (sampleRate);
+    flatAnalyzer.push (left.data(), right.data(), (int) left.size());
+
+    for (int i = 0; i < 30; ++i)
+        flatAnalyzer.update();
+
+    float flatBest = -1000.0f;
+
+    for (int i = 0; i < SpectrumAnalyzer::numBins; ++i)
+        flatBest = std::max (flatBest, flatAnalyzer.levels()[(size_t) i]);
+
+    const bool flatOk = std::abs (flatBest + 6.0f) <= 0.6f;
+    std::printf ("flat-top window peak = %.2f dBFS (expected about -6.0) %s\n",
+                 flatBest, flatOk ? "ok" : "FAIL");
+
+    return flatOk ? 0 : 1;
 }
