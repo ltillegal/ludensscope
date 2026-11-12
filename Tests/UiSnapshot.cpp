@@ -244,6 +244,17 @@ int main (int argc, char** argv)
         && settingsPersisted;
     std::printf ("snapshot state round-trip: %s\n", snapshotPersisted ? "ok" : "FAIL");
 
+    // The transport envelope should have been built from the reference.
+    const auto& waveform = processor.referenceWaveform();
+    float waveformEnergy = 0.0f;
+
+    for (const float value : waveform)
+        waveformEnergy += std::abs (value);
+
+    const bool waveformOk = waveform.size() == 512 && waveformEnergy > 0.01f;
+    std::printf ("reference waveform columns %d, energy %.2f (%s)\n",
+                 (int) waveform.size() / 2, waveformEnergy, waveformOk ? "ok" : "FAIL");
+
     // Loop range: playback must stay inside [0.5, 1.0] s.
     processor.setReferenceLoopRange (0.5, 1.0);
     processor.setReferencePositionSeconds (0.9);
@@ -302,5 +313,5 @@ int main (int argc, char** argv)
     processor.setBandSolo (false, 0.0f, 0.0f);
 
     editor.reset();
-    return clipped == 2 && referenceOk && snapshotPersisted && soloOk && loopOk ? 0 : 1;
+    return clipped == 2 && referenceOk && snapshotPersisted && soloOk && loopOk && waveformOk ? 0 : 1;
 }

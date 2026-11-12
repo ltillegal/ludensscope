@@ -85,6 +85,25 @@ public:
         repaint();
     }
 
+    void setSideData (const float* levelsDb, const float* peaksDb) noexcept
+    {
+        std::copy (levelsDb, levelsDb + numBins, sideLevels.begin());
+        std::copy (peaksDb, peaksDb + numBins, sidePeaks.begin());
+        hasSide = true;
+    }
+
+    void setShowSide (bool shouldShow) noexcept
+    {
+        showSide = shouldShow;
+        repaint();
+    }
+
+    void setReferenceWaveform (const std::vector<float>& waveform)
+    {
+        referenceWaveform = waveform;
+        repaint();
+    }
+
     void setTransport (bool enabled, bool playing, bool looping, bool audible,
                        double positionSeconds, double lengthSeconds,
                        double loopStartSeconds, double loopEndSeconds) noexcept
@@ -495,6 +514,24 @@ public:
         g.setColour (theme::accent2.withAlpha (0.55f));
         g.strokePath (peakPath, juce::PathStrokeType (1.0f));
 
+        if (showSide && hasSide)
+        {
+            juce::Path sidePath;
+
+            for (int s = 0; s < steps; ++s)
+            {
+                const float fraction = (float) s / (float) (steps - 1);
+                const float x = xFor (fraction);
+                const float y = yFor (levelAt (sideLevels, fraction));
+
+                if (s == 0) sidePath.startNewSubPath (x, y);
+                else        sidePath.lineTo (x, y);
+            }
+
+            g.setColour (theme::cold.withAlpha (0.75f));
+            g.strokePath (sidePath, juce::PathStrokeType (1.1f));
+        }
+
         if (hasReference)
         {
             juce::Path referencePath;
@@ -753,10 +790,10 @@ public:
                         bar.withTrimmedLeft (134.0f).withTrimmedRight (8.0f),
                         juce::Justification::centredRight);
 
-            loopBar = { bar.getX(), bar.getBottom() + 4.0f, bar.getWidth(), 7.0f };
+            loopBar = { bar.getX(), bar.getBottom() + 4.0f, bar.getWidth(), 20.0f };
 
             g.setColour (theme::panelLine);
-            g.fillRoundedRectangle (loopBar, 3.5f);
+            g.fillRoundedRectangle (loopBar, 4.0f);
 
             const bool selectingLoop = loopDrag == LoopDrag::selecting;
             const double regionStart = selectingLoop ? loopPreviewStart : transportLoopStart;
@@ -774,8 +811,28 @@ public:
                                                loopBar.getWidth() * (endF - startF),
                                                loopBar.getHeight());
 
-                g.setColour (theme::accent.withAlpha (0.35f));
+                g.setColour (theme::accent.withAlpha (0.30f));
                 g.fillRect (region);
+
+                if (! referenceWaveform.empty())
+                {
+                    const int columns = (int) referenceWaveform.size() / 2;
+
+                    g.setColour (theme::textDim.withAlpha (0.55f));
+
+                    for (int c = 0; c < columns; ++c)
+                    {
+                        const float x = loopBar.getX()
+                                        + loopBar.getWidth() * (float) c / (float) (columns - 1);
+                        const float low = referenceWaveform[(size_t) (c * 2)];
+                        const float high = referenceWaveform[(size_t) (c * 2 + 1)];
+                        const float y1 = loopBar.getCentreY() - high * loopBar.getHeight() * 0.46f;
+                        const float y2 = loopBar.getCentreY() - low * loopBar.getHeight() * 0.46f;
+
+                        g.drawVerticalLine ((int) std::round (x),
+                                            juce::jmin (y1, y2), juce::jmax (y1, y2));
+                    }
+                }
 
                 g.setColour (theme::accent);
                 g.fillRect (region.getX() - 1.0f, loopBar.getY() - 1.0f,
@@ -982,6 +1039,11 @@ private:
     std::array<float, numBins> levels {};
     std::array<float, numBins> peaks {};
     std::array<float, numBins> reference {};
+    std::array<float, numBins> sideLevels {};
+    std::array<float, numBins> sidePeaks {};
+    std::vector<float> referenceWaveform;
+    bool hasSide = false;
+    bool showSide = false;
 
     std::array<std::array<float, numBins>, snapshotCount> snapshots {};
     std::array<bool, snapshotCount> snapshotPresent {};

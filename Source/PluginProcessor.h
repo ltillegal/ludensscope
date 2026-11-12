@@ -6,6 +6,7 @@
 #include <atomic>
 #include <cstdint>
 #include <memory>
+#include <vector>
 
 #include "dsp/LoudnessMeter.h"
 #include "dsp/SpectrumAnalyzer.h"
@@ -69,6 +70,9 @@ public:
     std::int64_t referencePositionSamples() const noexcept { return referencePosition.load(); }
     std::int64_t referenceLengthSamples() const noexcept { return referenceLength.load(); }
     float referenceLufs() const noexcept { return referenceLufsValue.load(); }
+
+    // min/max envelope for the reference transport, 256 columns.
+    const std::vector<float>& referenceWaveform() const noexcept { return referenceWaveformData; }
 
     // Band solo: high-pass + low-pass pair on the output (monitoring aid).
     void setBandSolo (bool active, float lowHz, float highHz);
@@ -157,6 +161,9 @@ private:
 
     float referenceMix = 0.0f;
     float referenceCurrentGain = 1.0f;
+
+    static constexpr int referenceWaveformColumns = 256;
+    std::vector<float> referenceWaveformData;
 
     std::array<std::array<float, snapshotBins>, snapshotSlots> snapshots {};
     std::array<bool, snapshotSlots> snapshotFilled {};

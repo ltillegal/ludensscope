@@ -140,6 +140,22 @@ void SpectrumAnalyzer::push (const float* left, const float* right, int numSampl
         history[(size_t) (keep + i)] = 0.5f * (left[i] + right[i]);
 }
 
+void SpectrumAnalyzer::pushMono (const float* samples, int numSamples) noexcept
+{
+    const int historySize = (int) history.size();
+    const int n = std::min (numSamples, historySize);
+
+    if (n <= 0)
+        return;
+
+    const int keep = historySize - n;
+
+    if (keep > 0)
+        std::memmove (history.data(), history.data() + n, sizeof (float) * (size_t) keep);
+
+    std::memcpy (history.data() + keep, samples + (numSamples - n), sizeof (float) * (size_t) n);
+}
+
 void SpectrumAnalyzer::update()
 {
     std::fill (fftData.begin(), fftData.begin() + 2 * fftSize, 0.0f);

@@ -21,6 +21,7 @@ public:
 
     void prepare (double newSampleRate);
     void push (const float* left, const float* right, int numSamples) noexcept;
+    void pushMono (const float* samples, int numSamples) noexcept;
     void update();
     void resetPeaks() noexcept;
     void resetAverage() noexcept;
