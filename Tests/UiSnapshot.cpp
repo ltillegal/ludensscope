@@ -84,7 +84,10 @@ int main (int argc, char** argv)
 
     // Exercise the reference curve so the snapshot also covers that path.
     if (auto* ludens = dynamic_cast<LudensScopeEditor*> (editor.get()))
+    {
         ludens->captureReference();
+        ludens->setGuidesEnabled (true);
+    }
 
     // Exercise the spectrum inspector so the snapshot also covers that path.
     // The editor is never shown on screen, so mark it visible for hit-testing.

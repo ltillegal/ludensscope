@@ -7,6 +7,7 @@
 #include <vector>
 
 #include "Theme.h"
+#include "dsp/LoudnessMeter.h"
 
 class OscilloscopeView : public juce::Component
 {
@@ -198,7 +199,24 @@ public:
             const float peakDb = 20.0f * std::log10 (juce::jmax (peak, 1.0e-5f));
             const float rmsDb = 20.0f * std::log10 (juce::jmax (rms, 1.0e-5f));
 
-            const juce::Rectangle<float> stats (plot.getX() + 8.0f, plot.getY() + 6.0f, 286.0f, 18.0f);
+            if (preparedLufsRate != sampleRate)
+            {
+                loudnessMeter.prepare (sampleRate);
+                preparedLufsRate = sampleRate;
+            }
+
+            loudnessMeter.reset();
+
+            for (int off = 0; off < drawCount; off += 512)
+            {
+                const int n = juce::jmin (512, drawCount - off);
+                loudnessMeter.process (left.data() + start + off,
+                                       right.data() + start + off, n);
+            }
+
+            const float lufs = loudnessMeter.momentaryLufs();
+
+            const juce::Rectangle<float> stats (plot.getX() + 8.0f, plot.getY() + 6.0f, 360.0f, 18.0f);
 
             g.setColour (theme::bg.withAlpha (0.66f));
             g.fillRoundedRectangle (stats, 9.0f);
@@ -225,6 +243,17 @@ public:
             g.drawText (juce::String (peakDb - rmsDb, 1) + " dB",
                         stats.withTrimmedLeft (194.0f).withWidth (86.0f),
                         juce::Justification::centredLeft);
+
+            g.setFont (theme::labelFont (8.5f));
+            g.setColour (theme::textDim);
+            g.drawText ("LUFS", stats.withTrimmedLeft (250.0f).withWidth (30.0f),
+                        juce::Justification::centredLeft);
+
+            g.setFont (theme::monoFont (9.5f));
+            g.setColour (theme::text);
+            g.drawText (lufs > -70.0f ? juce::String (lufs, 1) : juce::String ("--"),
+                        stats.withTrimmedLeft (282.0f).withWidth (64.0f),
+                        juce::Justification::centredLeft);
         }
     }
 
@@ -234,6 +263,9 @@ private:
     int windowSamples = 0;
     float verticalGain = 1.0f;
     double sampleRate = 48000.0;
+    double preparedLufsRate = 0.0;
+
+    LoudnessMeter loudnessMeter;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (OscilloscopeView)
 };
