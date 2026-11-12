@@ -104,5 +104,10 @@ if(LUDENSCOPE_BUILD_TESTS)
 
   add_test(NAME loudness COMMAND LudensScopeLoudnessCalibration)
   add_test(NAME spectrum COMMAND LudensScopeCalibration)
-  add_test(NAME ui_snapshot COMMAND LudensScopeUiSnapshot)
+
+  # The UI snapshot needs a display (Xvfb on Linux); hosted macOS/Windows
+  # runners do not provide a GUI session for this.
+  if(UNIX AND NOT APPLE)
+    add_test(NAME ui_snapshot COMMAND LudensScopeUiSnapshot)
+  endif()
 endif()

@@ -43,11 +43,11 @@ inline ReferenceAnalysis analyzeReferenceFile (const juce::File& file,
     result.audio = std::make_unique<juce::AudioBuffer<float>> (2, juce::jmax (1, totalSamples));
     result.sampleRate = rate;
 
-    SpectrumAnalyzer analyzer;
-    analyzer.prepare (rate);
+    auto analyzer = std::make_unique<SpectrumAnalyzer>();
+    analyzer->prepare (rate);
 
-    LoudnessMeter loudness;
-    loudness.prepare (rate);
+    auto loudness = std::make_unique<LoudnessMeter>();
+    loudness->prepare (rate);
 
     constexpr int blockSize = 8192;
     juce::AudioBuffer<float> buffer (2, blockSize);
@@ -72,17 +72,17 @@ inline ReferenceAnalysis analyzeReferenceFile (const juce::File& file,
         const float* left = buffer.getReadPointer (0);
         const float* right = buffer.getReadPointer (sourceChannels > 1 ? 1 : 0);
 
-        loudness.process (left, right, n);
+        loudness->process (left, right, n);
 
         for (int i = 0; i < n; ++i)
             mono[(size_t) i] = 0.5f * (left[i] + right[i]);
 
-        analyzer.push (mono.data(), mono.data(), n);
-        analyzer.update();
+        analyzer->push (mono.data(), mono.data(), n);
+        analyzer->update();
     }
 
-    result.levels = analyzer.averageLevels();
-    result.lufs = loudness.integratedLufs();
+    result.levels = analyzer->averageLevels();
+    result.lufs = loudness->integratedLufs();
     result.ok = true;
     return result;
 }
