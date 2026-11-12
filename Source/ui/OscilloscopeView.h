@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <functional>
 #include <vector>
 
 #include "Theme.h"
@@ -26,6 +27,23 @@ public:
     {
         sampleRate = newSampleRate > 0.0 ? newSampleRate : 48000.0;
     }
+
+    int getWindowSamples() const noexcept { return windowSamples; }
+    float getVerticalGain() const noexcept { return verticalGain; }
+
+    void setWindowSamples (int samples) noexcept
+    {
+        windowSamples = juce::jlimit (0, 1 << 20, samples);
+        repaint();
+    }
+
+    void setVerticalGain (float gain) noexcept
+    {
+        verticalGain = juce::jlimit (0.25f, 8.0f, gain);
+        repaint();
+    }
+
+    std::function<void()> onSettingsChanged;
 
     void mouseWheelMove (const juce::MouseEvent& e,
                          const juce::MouseWheelDetails& wheel) override
@@ -52,6 +70,9 @@ public:
         }
 
         repaint();
+
+        if (onSettingsChanged)
+            onSettingsChanged();
     }
 
     void mouseDoubleClick (const juce::MouseEvent&) override
@@ -59,6 +80,9 @@ public:
         windowSamples = 0;
         verticalGain = 1.0f;
         repaint();
+
+        if (onSettingsChanged)
+            onSettingsChanged();
     }
 
     void paint (juce::Graphics& g) override

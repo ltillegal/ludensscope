@@ -47,6 +47,8 @@ public:
         targetLufs = targetEnabled ? lufs : -14.0f;
     }
 
+    float getTarget() const noexcept { return targetEnabled ? targetLufs : -100.0f; }
+
     std::function<void (float)> onTargetChange;
 
     void paint (juce::Graphics& g) override

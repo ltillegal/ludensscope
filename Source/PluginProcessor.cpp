@@ -7,7 +7,7 @@
 namespace
 {
     constexpr int snapshotMagic = 0x4c444e53; // 'LDNS'
-    constexpr int snapshotVersion = 4;
+    constexpr int snapshotVersion = 5;
 }
 
 LudensScopeProcessor::LudensScopeProcessor()
@@ -469,6 +469,19 @@ void LudensScopeProcessor::getStateInformation (juce::MemoryBlock& destData)
     stream.writeInt (fftSettingsValue.smoothingPreset);
     stream.writeInt (fftSettingsValue.overlapPreset);
     stream.writeInt (fftSettingsValue.noteGrid);
+
+    stream.writeInt (viewSettingsValue.guidesEnabled);
+    stream.writeInt (viewSettingsValue.guidePreset);
+    stream.writeInt (viewSettingsValue.sideCurve);
+    stream.writeInt (viewSettingsValue.peakMarkers);
+    stream.writeInt (viewSettingsValue.difference);
+    stream.writeInt (viewSettingsValue.spanIndex);
+    stream.writeFloat (viewSettingsValue.rangeLow);
+    stream.writeFloat (viewSettingsValue.rangeHigh);
+    stream.writeFloat (viewSettingsValue.targetLufs);
+    stream.writeInt (viewSettingsValue.waterfallHistory);
+    stream.writeInt (viewSettingsValue.oscWindow);
+    stream.writeFloat (viewSettingsValue.oscGain);
 }
 
 void LudensScopeProcessor::setStateInformation (const void* data, int sizeInBytes)
@@ -487,7 +500,7 @@ void LudensScopeProcessor::setStateInformation (const void* data, int sizeInByte
     const int selected = stream.readInt();
 
     if (magic != snapshotMagic
-        || (version != 1 && version != 2 && version != 3 && version != 4)
+        || (version != 1 && version != 2 && version != 3 && version != 4 && version != 5)
         || slots != snapshotSlots || bins != snapshotBins)
         return;
 
@@ -527,6 +540,33 @@ void LudensScopeProcessor::setStateInformation (const void* data, int sizeInByte
         }
 
         fftSettingsValue = settings;
+    }
+
+    if (version >= 5)
+    {
+        ViewSettings view;
+        view.guidesEnabled = stream.readInt() != 0 ? 1 : 0;
+        view.guidePreset = juce::jlimit (0, 4, stream.readInt());
+        view.sideCurve = stream.readInt() != 0 ? 1 : 0;
+        view.peakMarkers = stream.readInt() != 0 ? 1 : 0;
+        view.difference = stream.readInt() != 0 ? 1 : 0;
+        view.spanIndex = juce::jlimit (0, 5, stream.readInt());
+        view.rangeLow = juce::jlimit (20.0f, 20000.0f, stream.readFloat());
+        view.rangeHigh = juce::jlimit (view.rangeLow * 1.01f, 20000.0f, stream.readFloat());
+        const float target = stream.readFloat();
+        view.targetLufs = target < -90.0f ? -100.0f
+                                          : juce::jlimit (-30.0f, -5.0f, target);
+        view.waterfallHistory = stream.readInt();
+        view.oscWindow = juce::jmax (0, stream.readInt());
+        view.oscGain = juce::jlimit (0.25f, 8.0f, stream.readFloat());
+
+        if (view.waterfallHistory != 1 && view.waterfallHistory != 2
+            && view.waterfallHistory != 4)
+        {
+            view.waterfallHistory = 2;
+        }
+
+        viewSettingsValue = view;
     }
 
     snapshotGenerationValue.fetch_add (1);

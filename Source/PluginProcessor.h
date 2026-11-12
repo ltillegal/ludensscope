@@ -106,6 +106,26 @@ public:
     FftSettings getFftSettings() const noexcept { return fftSettingsValue; }
     void setFftSettings (const FftSettings& settings) noexcept { fftSettingsValue = settings; }
 
+    // View state (UI-only, persisted in the project).
+    struct ViewSettings
+    {
+        int guidesEnabled = 0;
+        int guidePreset = 0;
+        int sideCurve = 0;
+        int peakMarkers = 1;
+        int difference = 0;
+        int spanIndex = 0;
+        float rangeLow = 20.0f;
+        float rangeHigh = 20000.0f;
+        float targetLufs = -14.0f;
+        int waterfallHistory = 2;
+        int oscWindow = 0;
+        float oscGain = 1.0f;
+    };
+
+    ViewSettings getViewSettings() const noexcept { return viewSettingsValue; }
+    void setViewSettings (const ViewSettings& settings) noexcept { viewSettingsValue = settings; }
+
     std::uint64_t clippedSampleCount() const noexcept
     {
         return clippedSamples.load (std::memory_order_relaxed);
@@ -173,6 +193,7 @@ private:
     std::atomic<int> snapshotGenerationValue { 0 };
 
     FftSettings fftSettingsValue;
+    ViewSettings viewSettingsValue;
 
     std::atomic<bool> bandSoloActive { false };
     std::atomic<bool> soloResetRequested { false };

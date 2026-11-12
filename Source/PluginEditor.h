@@ -60,6 +60,8 @@ private:
     void showGuidesMenu();
     void toggleGuideSolo (int index);
     void clearGuideSolo();
+    void applyViewSettings (const LudensScopeProcessor::ViewSettings& settings);
+    void saveViewSettings();
     void exportViewPng();
     void applySmoothing();
 
@@ -98,6 +100,7 @@ private:
     int overlapPreset = 0;
     int waterfallHistory = 2;
     int soloZone = -1;
+    bool applyingSettings = false;
 
     std::unique_ptr<juce::FileChooser> referenceChooser;
     std::unique_ptr<ReferenceLoader> referenceLoader;
