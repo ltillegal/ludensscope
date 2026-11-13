@@ -913,7 +913,7 @@ public:
             g.setColour (transportAudible ? theme::accent : theme::textDim);
             g.drawText (transportAudible ? "REF" : "MIX", abArea, juce::Justification::centred);
 
-            g.setFont (theme::labelFont (8.0f));
+            g.setFont (theme::labelFont (8.5f));
             g.setColour (referenceLevelMatch ? theme::accent2 : theme::textDim);
             g.drawText ("MATCH", matchArea, juce::Justification::centred);
 
