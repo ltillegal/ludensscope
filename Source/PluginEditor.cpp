@@ -1,4 +1,5 @@
 #include "PluginEditor.h"
+#include "BinaryData.h"
 
 #include <cmath>
 
@@ -162,6 +163,8 @@ LudensScopeEditor::LudensScopeEditor (LudensScopeProcessor& p)
 
     setOpaque (true);
     setWantsKeyboardFocus (true);
+    logoImage = juce::ImageCache::getFromMemory (BinaryData::ludens_logo_png,
+                                                 BinaryData::ludens_logo_pngSize);
     tooltipWindow = std::make_unique<juce::TooltipWindow> (this, 700);
     setResizable (true, true);
     setResizeLimits (1060, 660, 2400, 1500);
@@ -343,32 +346,18 @@ void LudensScopeEditor::paint (juce::Graphics& g)
 
     auto header = getLocalBounds().reduced (14).removeFromTop (72);
 
-    auto brand = header.removeFromLeft (168);
+    auto brand = header.removeFromLeft (196);
 
-    auto mark = brand.removeFromLeft (16).withSizeKeepingCentre (13, 13).toFloat();
+    auto logoArea = brand.removeFromLeft (36).withSizeKeepingCentre (32, 32);
 
-    g.setColour (theme::accent.withAlpha (0.85f));
-    g.drawRoundedRectangle (mark, 3.5f, 1.2f);
+    if (logoImage.isValid())
+        g.drawImage (logoImage, logoArea.toFloat(), juce::RectanglePlacement::centred, false);
 
-    juce::Path markWave;
-
-    for (int i = 0; i <= 12; ++i)
-    {
-        const float t = (float) i / 12.0f;
-        const float x = mark.getX() + 2.0f + t * (mark.getWidth() - 4.0f);
-        const float y = mark.getCentreY() - std::sin (t * 2.0f * juce::MathConstants<float>::pi) * 2.6f;
-
-        if (i == 0) markWave.startNewSubPath (x, y);
-        else        markWave.lineTo (x, y);
-    }
-
-    g.strokePath (markWave, juce::PathStrokeType (1.1f));
-
-    brand.removeFromLeft (10);
+    brand.removeFromLeft (8);
 
     g.setFont (theme::boldFont (19.0f));
     g.setColour (theme::text);
-    g.drawText ("LUDENSCOPE", brand, juce::Justification::centredLeft);
+    g.drawText ("LudensScope", brand, juce::Justification::centredLeft);
 
     if (getWidth() >= 1100)
     {
