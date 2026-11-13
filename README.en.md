@@ -136,6 +136,11 @@ cmake --build --preset dev -j$(nproc)
 Hotkeys: `Space` — reference play/stop, `A` — REF/MIX, `F` — freeze,
 `Esc` — clear the band solo.
 
+The `THEME` button in the top-right switches seven interface palettes:
+**Blue** (current), **Dark**, **Light**, **Magenta**, **Green**, **Red**,
+**Orange**. The choice is stored in the project; the light theme re-tints the
+logo and curves automatically, and the waterfall follows the palette.
+
 ## Updates
 
 `FFT` → `Check for updates...` queries the latest GitHub release. If a newer

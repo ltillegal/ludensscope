@@ -186,6 +186,7 @@ public:
         juce::String targetCurveName;
         int levelMatch = 1;
         int mirror = 0;
+        int theme = 0;
     };
 
     ViewSettings getViewSettings() const noexcept { return viewSettingsValue; }

@@ -48,11 +48,12 @@ class ScopeLookAndFeel final : public juce::LookAndFeel_V4
 {
 public:
     void drawButtonBackground (juce::Graphics& g, juce::Button& button,
-                               const juce::Colour& backgroundColour,
-                               bool isHighlighted, bool isDown) override
+                               const juce::Colour&, bool isHighlighted, bool isDown) override
     {
-        auto bounds = button.getLocalBounds().toFloat().reduced (0.5f);
-        auto fill = backgroundColour;
+        const auto bounds = button.getLocalBounds().toFloat().reduced (0.5f);
+        const bool on = button.getToggleState();
+
+        auto fill = on ? theme::accent : theme::panel;
 
         if (isDown)             fill = fill.brighter (0.08f);
         else if (isHighlighted) fill = fill.brighter (0.04f);
@@ -62,8 +63,7 @@ public:
         g.setColour (fill);
         g.fillRoundedRectangle (bounds, corner);
 
-        g.setColour (button.getToggleState() ? theme::accent.withAlpha (0.85f)
-                                             : theme::panelLine.brighter (0.10f));
+        g.setColour (on ? theme::accent : theme::panelLine.brighter (0.10f));
         g.drawRoundedRectangle (bounds, corner, 1.0f);
     }
 
@@ -72,13 +72,32 @@ public:
     {
         g.setFont (theme::labelFont (10.5f));
 
-        g.setColour (button.findColour (button.getToggleState()
-                                            ? juce::TextButton::textColourOnId
-                                            : juce::TextButton::textColourOffId));
+        g.setColour (button.getToggleState() ? theme::panelTop : theme::text);
         g.drawFittedText (button.getButtonText(), button.getLocalBounds(),
                           juce::Justification::centred, 1, 0.9f);
     }
 };
+
+static juce::Image tintLogo (const juce::Image& source, juce::Colour colour)
+{
+    if (! source.isValid())
+        return {};
+
+    juce::Image result (juce::Image::ARGB, source.getWidth(), source.getHeight(), true);
+    juce::Image::BitmapData src (source, juce::Image::BitmapData::readOnly);
+    juce::Image::BitmapData dst (result, juce::Image::BitmapData::writeOnly);
+
+    for (int y = 0; y < source.getHeight(); ++y)
+    {
+        for (int x = 0; x < source.getWidth(); ++x)
+        {
+            const auto pixel = src.getPixelColour (x, y);
+            dst.setPixelColour (x, y, colour.withAlpha (pixel.getAlpha()));
+        }
+    }
+
+    return result;
+}
 
 void ReferenceSlotSwitch::setState (int activeSlot, bool slotAFilled, bool slotBFilled,
                                     bool slotCFilled, bool slotDFilled)
@@ -178,8 +197,9 @@ LudensScopeEditor::LudensScopeEditor (LudensScopeProcessor& p)
 
     setOpaque (true);
     setWantsKeyboardFocus (true);
-    logoImage = juce::ImageCache::getFromMemory (BinaryData::ludens_logo_png,
-                                                 BinaryData::ludens_logo_pngSize);
+    logoSource = juce::ImageCache::getFromMemory (BinaryData::ludens_logo_png,
+                                                  BinaryData::ludens_logo_pngSize);
+    logoImage = tintLogo (logoSource, theme::text);
     tooltipWindow = std::make_unique<juce::TooltipWindow> (this, 700);
     setResizable (true, true);
     setResizeLimits (1060, 660, 2400, 1500);
@@ -219,6 +239,10 @@ LudensScopeEditor::LudensScopeEditor (LudensScopeProcessor& p)
     slotSwitch.setTooltip ("Reference slots A-D");
     slotSwitch.onSelect = [this] (int slot) { selectReferenceSlot (slot); };
     addAndMakeVisible (slotSwitch);
+
+    themeButton.setTooltip ("Interface colour theme");
+    themeButton.onClick = [this] { showThemeMenu(); };
+    addAndMakeVisible (themeButton);
 
     donateButton.setTooltip ("Donate via PayPal (0eskimo0@gmail.com)");
     donateButton.onClick = []
@@ -396,7 +420,7 @@ void LudensScopeEditor::paint (juce::Graphics& g)
     g.setColour (theme::textDim);
     g.drawText ("STEREO ANALYZER", header, juce::Justification::centredLeft);
 
-    g.setColour (juce::Colour (0x12ffffff));
+    g.setColour (theme::panelLine.withAlpha (0.6f));
     g.fillRect (14, 53, getWidth() - 28, 1);
 
     if (fileDragActive)
@@ -413,7 +437,8 @@ void LudensScopeEditor::paint (juce::Graphics& g)
 void LudensScopeEditor::resized()
 {
     auto r = getLocalBounds().reduced (14);
-    r.removeFromTop (36);
+    auto header = r.removeFromTop (36);
+    themeButton.setBounds (header.removeFromRight (90).withSizeKeepingCentre (90, 26));
     r.removeFromTop (8);
 
     railBounds = r.removeFromRight (88);
@@ -1194,6 +1219,12 @@ void LudensScopeEditor::applyViewSettings (const LudensScopeProcessor::ViewSetti
     processor.setReferenceMirror (mirror);
     spectrumView.setReferenceModes (levelMatch, mirror);
 
+    if (theme::getTheme() != settings.theme)
+    {
+        theme::setTheme (settings.theme);
+        applyTheme();
+    }
+
     spanIndex = juce::jlimit (0, 5, settings.spanIndex);
     applyRange (juce::jlimit (20.0f, 20000.0f, settings.rangeLow),
                 juce::jlimit (20.0f, 20000.0f, settings.rangeHigh));
@@ -1224,6 +1255,7 @@ void LudensScopeEditor::saveViewSettings()
     settings.targetCurveName = targetCurveActive ? targetCurveName : juce::String();
     settings.levelMatch = levelMatch ? 1 : 0;
     settings.mirror = mirror ? 1 : 0;
+    settings.theme = theme::getTheme();
     settings.spanIndex = spanIndex;
     settings.rangeLow = rangeLow;
     settings.rangeHigh = rangeHigh;
@@ -1442,6 +1474,34 @@ void LudensScopeEditor::downloadUpdate (const UpdateInfo& info)
             if (result == 1)
                 juce::File (message).revealToUser();
         });
+}
+
+void LudensScopeEditor::showThemeMenu()
+{
+    juce::PopupMenu menu;
+
+    for (int i = 0; i < 7; ++i)
+        menu.addItem (3000 + i, theme::themeName (i), true, theme::getTheme() == i);
+
+    menu.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (themeButton),
+                        [this] (int result)
+                        {
+                            if (result >= 3000)
+                            {
+                                theme::setTheme (result - 3000);
+                                applyTheme();
+                                saveViewSettings();
+                            }
+                        });
+}
+
+void LudensScopeEditor::applyTheme()
+{
+    logoImage = tintLogo (logoSource, theme::text);
+    repaint();
+
+    for (auto* child : getChildren())
+        child->repaint();
 }
 
 void LudensScopeEditor::toggleLevelMatch()

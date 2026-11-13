@@ -345,6 +345,7 @@ int main (int argc, char** argv)
     testView.targetCurveName = "Test target";
     testView.levelMatch = 0;
     testView.mirror = 1;
+    testView.theme = 2;
     testView.spanIndex = 2;
     testView.rangeLow = 50.0f;
     testView.rangeHigh = 5000.0f;
@@ -382,6 +383,7 @@ int main (int argc, char** argv)
         && restoredView.targetCurveName == "Test target"
         && restoredView.levelMatch == 0
         && restoredView.mirror == 1
+        && restoredView.theme == 2
         && restoredView.spanIndex == 2
         && std::abs (restoredView.rangeLow - 50.0f) < 1.0f
         && std::abs (restoredView.rangeHigh - 5000.0f) < 1.0f

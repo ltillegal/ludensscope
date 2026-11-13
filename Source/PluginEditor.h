@@ -57,6 +57,12 @@ public:
 
     bool isReferenceCurveVisible() const { return spectrumView.hasReferenceCurve(); }
 
+    void setInterfaceTheme (int index)
+    {
+        theme::setTheme (index);
+        applyTheme();
+    }
+
     void mouseMove (const juce::MouseEvent&) override;
     void mouseDown (const juce::MouseEvent&) override;
     void mouseDrag (const juce::MouseEvent&) override;
@@ -94,6 +100,8 @@ private:
     void selectReferenceSlot (int slot);
     void toggleLevelMatch();
     void toggleMirror();
+    void showThemeMenu();
+    void applyTheme();
     void checkForUpdates();
     void handleUpdateResult (const UpdateInfo& info);
     void downloadUpdate (const UpdateInfo& info);
@@ -130,8 +138,10 @@ private:
     juce::TextButton resetButton  { "RESET" };
     juce::TextButton undoButton   { "UNDO" };
     DonateButton donateButton;
+    juce::TextButton themeButton { "THEME" };
     ReferenceSlotSwitch slotSwitch;
     juce::Image logoImage;
+    juce::Image logoSource;
     juce::Rectangle<int> railBounds;
     juce::TextButton captureButton { "CAPTURE" };
     juce::TextButton monoButton { "MONO" };
