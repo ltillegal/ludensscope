@@ -110,8 +110,8 @@ cmake --build --preset dev -j$(nproc)
    window). The averaged curve is drawn in grey; a transport appears on the
    spectrum (play/stop, `LOOP`, `REF/MIX`, time) with a seek bar: click to seek,
    drag to select a loop range, drag its edges separately; the file waveform is
-   drawn on the bar. There are two reference slots — the `A/B` block on the
-   right of the header; switching is instant (audio is cached in memory), and
+   drawn on the bar. There are two reference slots — the `A/B` block at the
+   bottom of the right rail; switching is instant (audio is cached in memory), and
    the path, curve, LUFS and loop are stored in the project. The reference gain
    is matched to the current integrated loudness of the mix. On project open the
    file is reloaded; if it is missing, the curve remains for comparison. Files
