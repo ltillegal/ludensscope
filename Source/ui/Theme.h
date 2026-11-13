@@ -29,8 +29,8 @@ namespace theme
               c(0xff161b21), c(0xff2a313a), c(0xffc3ccd6), c(0xff6e7884), c(0xff5ee1cf),
               c(0xfff0b45e), c(0xfff2705f), c(0xff6ea8ff) },
             // 2: Light
-            { c(0xffdfe6ea), c(0xffeef3f6), c(0xfff7f9fb), c(0xffffffff), c(0xffc3d2da),
-              c(0xffdbe4e9), c(0xffb4c6d0), c(0xff17262e), c(0xff5a707c), c(0xff0b7f96),
+            { c(0xffdfe6ea), c(0xffeef3f6), c(0xfff7f9fb), c(0xffffffff), c(0xff8ea2ac),
+              c(0xff9aabb4), c(0xff7d909a), c(0xff17262e), c(0xff5a707c), c(0xff0b7f96),
               c(0xffa86600), c(0xffc0392b), c(0xff2f62c9) },
             // 3: Magenta
             { c(0xff1a0a15), c(0xff240d1c), c(0xff33132a), c(0xff421a36), c(0xff5a2448),

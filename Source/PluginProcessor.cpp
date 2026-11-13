@@ -811,7 +811,7 @@ void LudensScopeProcessor::setStateInformation (const void* data, int sizeInByte
         view.peakMarkers = stream.readInt() != 0 ? 1 : 0;
         view.difference = stream.readInt() != 0 ? 1 : 0;
         view.spanIndex = juce::jlimit (0, 5, stream.readInt());
-        view.rangeLow = juce::jlimit (20.0f, 20000.0f, stream.readFloat());
+        view.rangeLow = juce::jlimit (20.0f, 19801.0f, stream.readFloat());
         view.rangeHigh = juce::jlimit (view.rangeLow * 1.01f, 20000.0f, stream.readFloat());
         const float target = stream.readFloat();
         view.targetLufs = target < -90.0f ? -100.0f

@@ -38,7 +38,7 @@ public:
 
     void setRange (float lowHz, float highHz) noexcept
     {
-        rangeLow  = std::clamp (lowHz, minFrequency, maxFrequency);
+        rangeLow  = std::clamp (lowHz, minFrequency, maxFrequency / 1.01f);
         rangeHigh = std::clamp (highHz, rangeLow * 1.01f, maxFrequency);
         repaint();
     }
@@ -318,8 +318,33 @@ public:
             return;
         }
 
+        auto triggerGuide = [this] (juce::Point<float> pos)
+        {
+            if (! showGuides || ! plotArea().contains (pos))
+                return;
+
+            const auto plot = plotArea();
+            const float fraction = juce::jlimit (0.0f, 1.0f,
+                                                 (pos.x - plot.getX()) / plot.getWidth());
+            const float hz = frequencyForFraction (fraction);
+
+            for (size_t i = 0; i < guideZones.size(); ++i)
+            {
+                if (hz >= guideZones[i].low && hz <= guideZones[i].high)
+                {
+                    if (onGuideSolo)
+                        onGuideSolo ((int) i);
+
+                    return;
+                }
+            }
+        };
+
         if (! transportEnabled)
+        {
+            triggerGuide (e.position);
             return;
+        }
 
         if (playArea.contains (e.position))
         {
@@ -348,21 +373,7 @@ public:
         }
         else if (showGuides && plotArea().contains (e.position))
         {
-            const auto plot = plotArea();
-            const float fraction = juce::jlimit (0.0f, 1.0f,
-                                                 (e.position.x - plot.getX()) / plot.getWidth());
-            const float hz = frequencyForFraction (fraction);
-
-            for (size_t i = 0; i < guideZones.size(); ++i)
-            {
-                if (hz >= guideZones[i].low && hz <= guideZones[i].high)
-                {
-                    if (onGuideSolo)
-                        onGuideSolo ((int) i);
-
-                    return;
-                }
-            }
+            triggerGuide (e.position);
         }
     }
 
@@ -406,14 +417,6 @@ public:
                                                      : theme::textDim.withAlpha (0.45f));
             g.drawText (juce::String::charToString ((juce::juce_wchar) ('A' + i)),
                         letter, juce::Justification::centred);
-        }
-
-        if (hasReference)
-        {
-            g.setColour (theme::cold);
-            g.drawText ("REF", titleRow.withTrimmedRight (44.0f),
-                        juce::Justification::centredRight);
-            g.setColour (theme::textDim);
         }
 
         g.drawText ("dBFS", titleRow, juce::Justification::centredRight);

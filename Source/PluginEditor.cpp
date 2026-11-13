@@ -371,7 +371,28 @@ LudensScopeEditor::~LudensScopeEditor()
         referenceLoader->stopThread (2000);
     }
 
+    // Never leave the host's mix filtered or replaced once the window closes.
+    processor.setBandSolo (false, 0.0f, 0.0f);
+    processor.setReferencePlaying (false);
+    processor.setReferenceAudible (false);
+
     setLookAndFeel (nullptr);
+}
+
+void LudensScopeEditor::visibilityChanged()
+{
+    if (isVisible())
+        return;
+
+    processor.setBandSolo (false, 0.0f, 0.0f);
+    processor.setReferencePlaying (false);
+    processor.setReferenceAudible (false);
+
+    if (soloZone >= 0)
+    {
+        soloZone = -1;
+        spectrumView.setSoloZone (-1);
+    }
 }
 
 void LudensScopeEditor::paint (juce::Graphics& g)
@@ -589,6 +610,29 @@ void LudensScopeEditor::timerCallback()
         }
     }
 
+    const double referenceRate = preparedSampleRate > 0.0 ? preparedSampleRate : 48000.0;
+
+    undoButton.setEnabled (processor.hasUndo());
+    slotSwitch.setState (processor.getActiveReferenceSlot(),
+                         processor.isReferenceSlotFilled (0),
+                         processor.isReferenceSlotFilled (1),
+                         processor.isReferenceSlotFilled (2),
+                         processor.isReferenceSlotFilled (3));
+    spectrumView.setReferenceModes (levelMatch, mirror);
+
+    if (levelMatch && processor.hasReferenceAudio())
+        updateReferenceGain();
+
+    spectrumView.setTransport (processor.hasReferenceAudio(),
+                               processor.isReferencePlaying(),
+                               processor.isReferenceLooping(),
+                               processor.isReferenceAudible(),
+                               (double) processor.referencePositionSamples() / referenceRate,
+                               (double) processor.referenceLengthSamples() / referenceRate,
+                               processor.referenceLoopStartSeconds(),
+                               processor.referenceLoopEndSeconds());
+    spectrumView.repaint();
+
     if (frozen)
         return;
 
@@ -649,27 +693,9 @@ void LudensScopeEditor::timerCallback()
                           correlation, truePeakHoldDb, processor.lraLu(), plr,
                           processor.clippedSampleCount(), truePeakOvers);
 
-    const double referenceRate = preparedSampleRate > 0.0 ? preparedSampleRate : 48000.0;
 
-    undoButton.setEnabled (processor.hasUndo());
-    slotSwitch.setState (processor.getActiveReferenceSlot(),
-                         processor.isReferenceSlotFilled (0),
-                         processor.isReferenceSlotFilled (1),
-                         processor.isReferenceSlotFilled (2),
-                         processor.isReferenceSlotFilled (3));
-    spectrumView.setReferenceModes (levelMatch, mirror);
-
-    if (levelMatch && processor.hasReferenceAudio())
-        updateReferenceGain();
-
-    spectrumView.setTransport (processor.hasReferenceAudio(),
-                               processor.isReferencePlaying(),
-                               processor.isReferenceLooping(),
-                               processor.isReferenceAudible(),
-                               (double) processor.referencePositionSamples() / referenceRate,
-                               (double) processor.referenceLengthSamples() / referenceRate,
-                               processor.referenceLoopStartSeconds(),
-                               processor.referenceLoopEndSeconds());
+    if (processor.referenceGeneration() != lastReferenceGeneration)
+        applyReferenceSettings();
 
     if (processor.snapshotGeneration() != snapshotGeneration)
         syncSnapshots();
@@ -745,7 +771,15 @@ void LudensScopeEditor::loadReferenceFile (const juce::File& file)
             safe->referenceButton.setEnabled (true);
 
             if (! analysis.ok)
+            {
+                safe->spectrumView.setReferencePlaceholder ("COULD NOT READ REFERENCE FILE");
+                juce::AlertWindow::showMessageBoxAsync (
+                    juce::MessageBoxIconType::WarningIcon,
+                    "Reference file",
+                    "Could not read " + file.getFileName()
+                        + ".\nSupported formats: WAV, AIFF, FLAC.");
                 return;
+            }
 
             if (safe->processor.getActiveReferenceSlot() != targetSlot)
             {
@@ -1579,7 +1613,8 @@ void LudensScopeEditor::applyReferenceSettings()
         spectrumView.setReference (nullptr, false);
         spectrumView.setReferenceWaveform ({});
         spectrumView.setReferencePlaceholder ("REF "
-                                              + juce::String (processor.getActiveReferenceSlot() == 0 ? "A" : "B")
+                                              + juce::String::charToString (
+                                                    (juce::juce_wchar) ('A' + processor.getActiveReferenceSlot()))
                                               + " EMPTY — USE REF FILE");
         return;
     }
@@ -1836,7 +1871,7 @@ void LudensScopeEditor::cycleSpan()
 
 void LudensScopeEditor::applyRange (float lowHz, float highHz)
 {
-    lowHz = juce::jlimit (20.0f, 20000.0f, lowHz);
+    lowHz = juce::jlimit (20.0f, 19801.0f, lowHz);
     highHz = juce::jlimit (lowHz * 1.01f, 20000.0f, highHz);
 
     if (std::abs (lowHz - rangeLow) < 0.5f && std::abs (highHz - rangeHigh) < 0.5f)
@@ -1861,12 +1896,6 @@ bool LudensScopeEditor::keyPressed (const juce::KeyPress& key)
         || key.getModifiers().isAltDown())
     {
         return false;
-    }
-
-    if (key.getKeyCode() == juce::KeyPress::spaceKey)
-    {
-        toggleReferencePlay();
-        return true;
     }
 
     if (key.getKeyCode() == juce::KeyPress::escapeKey)

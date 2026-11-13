@@ -54,6 +54,7 @@ public:
 
     void paint (juce::Graphics&) override;
     void resized() override;
+    void visibilityChanged() override;
 
     bool isReferenceCurveVisible() const { return spectrumView.hasReferenceCurve(); }
 
