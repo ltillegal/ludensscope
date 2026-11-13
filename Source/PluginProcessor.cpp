@@ -7,7 +7,7 @@
 namespace
 {
     constexpr int snapshotMagic = 0x4c444e53; // 'LDNS'
-    constexpr int snapshotVersion = 12;
+    constexpr int snapshotVersion = 13;
 }
 
 LudensScopeProcessor::LudensScopeProcessor()
@@ -449,7 +449,10 @@ void LudensScopeProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce:
     if (blockClips > 0)
         clippedSamples.fetch_add (blockClips, std::memory_order_relaxed);
 
-    loudness.process (left, right, numSamples);
+    if (stereo)
+        loudness.process (left, right, numSamples);
+    else
+        loudness.processMono (left, numSamples);
 
     int start1 = 0, size1 = 0, start2 = 0, size2 = 0;
     fifo.prepareToWrite (numSamples, start1, size1, start2, size2);
@@ -739,7 +742,6 @@ void LudensScopeProcessor::getStateInformation (juce::MemoryBlock& destData)
     stream.writeString (viewSettingsValue.targetCurveName);
     stream.writeInt (viewSettingsValue.levelMatch);
     stream.writeInt (viewSettingsValue.mirror);
-    stream.writeInt (viewSettingsValue.theme);
     stream.writeFloat (viewSettingsValue.waterfallRatio);
 
     syncActiveReferenceSlot();
@@ -777,7 +779,7 @@ void LudensScopeProcessor::setStateInformation (const void* data, int sizeInByte
     const int selected = stream.readInt();
 
     if (magic != snapshotMagic
-        || (version < 1 || version > 12)
+        || (version < 1 || version > 13)
         || slots != snapshotSlots || bins != snapshotBins)
         return;
 
@@ -849,8 +851,8 @@ void LudensScopeProcessor::setStateInformation (const void* data, int sizeInByte
             view.mirror = stream.readInt() != 0 ? 1 : 0;
         }
 
-        if (version >= 11)
-            view.theme = juce::jlimit (0, 6, stream.readInt());
+        if (version >= 11 && version <= 12)
+            (void) stream.readInt(); // legacy per-project theme
 
         if (version >= 12)
             view.waterfallRatio = juce::jlimit (0.18f, 0.60f, stream.readFloat());

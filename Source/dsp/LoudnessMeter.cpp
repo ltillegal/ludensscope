@@ -93,6 +93,19 @@ void LoudnessMeter::process (const float* left, const float* right, int numSampl
     }
 }
 
+void LoudnessMeter::processMono (const float* left, int numSamples) noexcept
+{
+    for (int i = 0; i < numSamples; ++i)
+    {
+        const float yl = rlbL.process (preL.process (left[i]));
+
+        sumL += (double) yl * (double) yl;
+
+        if (++subBlockCounter >= samplesPerSubBlock)
+            flushSubBlock();
+    }
+}
+
 void LoudnessMeter::flushSubBlock() noexcept
 {
     const float msL = (float) (sumL / (double) std::max (1, subBlockCounter));

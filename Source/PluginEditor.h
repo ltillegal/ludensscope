@@ -196,7 +196,7 @@ private:
     std::unique_ptr<juce::FileChooser> snapshotChooser;
     std::unique_ptr<juce::FileChooser> pngChooser;
     std::unique_ptr<juce::TooltipWindow> tooltipWindow;
-    std::unique_ptr<UpdateCheckThread> updateCheck;
+    bool updateCheckRunning = false;
     void handleDownloadFinished (bool succeeded, const juce::String& message);
 
     CurvePresetStore curvePresets;

@@ -17,6 +17,7 @@ public:
     void prepare (double newSampleRate) noexcept;
     void reset() noexcept;
     void process (const float* left, const float* right, int numSamples) noexcept;
+    void processMono (const float* left, int numSamples) noexcept;
 
     float momentaryLufs()  const noexcept { return momentaryValue.load (std::memory_order_relaxed); }
     float shortTermLufs()  const noexcept { return shortTermValue.load (std::memory_order_relaxed); }

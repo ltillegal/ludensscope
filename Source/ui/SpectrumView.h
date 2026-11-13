@@ -318,9 +318,11 @@ public:
             return;
         }
 
-        auto triggerGuide = [this] (juce::Point<float> pos)
+        const bool guideModifier = e.mods.isShiftDown() || e.mods.isAltDown();
+
+        auto triggerGuide = [this, guideModifier] (juce::Point<float> pos)
         {
-            if (! showGuides || ! plotArea().contains (pos))
+            if (! guideModifier || ! showGuides || ! plotArea().contains (pos))
                 return;
 
             const auto plot = plotArea();
