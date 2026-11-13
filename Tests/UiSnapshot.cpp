@@ -115,10 +115,12 @@ int main (int argc, char** argv)
         }
     }
 
-    juce::Timer::callAfterDelay (7000, [&processor, &referenceAnalysis]
+    juce::Timer::callAfterDelay (7000, [&processor, &referenceAnalysis, &referenceFile]
     {
         const float lufs = referenceAnalysis.lufs;
         processor.setReferenceAudio (std::move (referenceAnalysis.audio), lufs);
+        processor.setReferenceCurveInfo (referenceFile.getFullPathName(),
+                                         referenceAnalysis.levels.data(), true);
         processor.setReferenceGainDb (0.0f);
         processor.setReferencePlaying (true);
         processor.setReferenceAudible (true);
@@ -139,6 +141,17 @@ int main (int argc, char** argv)
     std::unique_ptr<juce::AudioProcessorEditor> editor (processor.createEditor());
     editor->setSize (1060, 700);
 
+    juce::Timer::callAfterDelay (7200, [&processor, &referenceFile, &editor]
+    {
+        processor.switchReferenceSlot (1);
+
+        if (auto* ludens = dynamic_cast<LudensScopeEditor*> (editor.get()))
+        {
+            auto* drop = static_cast<juce::FileDragAndDropTarget*> (ludens);
+            drop->filesDropped ({ referenceFile.getFullPathName() }, 0, 0);
+        }
+    });
+
     Feeder feeder (processor, buffer, midi);
     feeder.startTimerHz (120);
 
@@ -149,6 +162,30 @@ int main (int argc, char** argv)
 
     juce::MessageManager::getInstance()->runDispatchLoop();
     feeder.stopTimer();
+
+    auto* scopeEditor = dynamic_cast<LudensScopeEditor*> (editor.get());
+    const bool slotBLoaded = scopeEditor != nullptr
+        && processor.getActiveReferenceSlot() == 1
+        && processor.getReferenceSettings().valid
+        && processor.hasReferenceAudio()
+        && scopeEditor->isReferenceCurveVisible();
+    std::printf ("reference slot B load: %s\n", slotBLoaded ? "ok" : "FAIL");
+
+    processor.switchReferenceSlot (0);
+
+    // Both reference slots hold the same test file now and switch back.
+    processor.switchReferenceSlot (1);
+    const bool slotB = processor.getActiveReferenceSlot() == 1
+        && processor.hasReferenceAudio()
+        && processor.getReferenceSettings().valid
+        && processor.getReferenceSettings().path == referenceFile.getFullPathName();
+    processor.switchReferenceSlot (0);
+    const bool slotABack = processor.getActiveReferenceSlot() == 0
+        && processor.hasReferenceAudio()
+        && processor.getReferenceSettings().valid
+        && processor.getReferenceSettings().path == referenceFile.getFullPathName();
+    const bool slotsOk = slotB && slotABack;
+    std::printf ("reference slots: %s\n", slotsOk ? "ok" : "FAIL");
 
     // Exercise the reference curve so the snapshot also covers that path.
     if (auto* ludens = dynamic_cast<LudensScopeEditor*> (editor.get()))
@@ -232,10 +269,17 @@ int main (int argc, char** argv)
                  undoOk ? "ok" : "FAIL");
 
     // The reference player should output the loaded file instead of silence.
+    processor.setReferencePlaying (true);
+    processor.setReferenceAudible (true);
+
     juce::AudioBuffer<float> refOut (2, 512);
-    refOut.clear();
     juce::MidiBuffer refMidi;
-    processor.processBlock (refOut, refMidi);
+
+    for (int block = 0; block < 4; ++block)
+    {
+        refOut.clear();
+        processor.processBlock (refOut, refMidi);
+    }
 
     const float referencePeak = refOut.getMagnitude (0, 0, 512);
     std::printf ("reference output peak %.3f\n", referencePeak);
@@ -378,17 +422,6 @@ int main (int argc, char** argv)
     const bool loopOk = loopPosition >= 0.49 && loopPosition < 1.01;
     std::printf ("reference loop position %.3f s (%s)\n", loopPosition, loopOk ? "ok" : "FAIL");
 
-    // Two reference slots: B starts empty, A keeps its saved metadata.
-    processor.switchReferenceSlot (1);
-    const bool slotBEmpty = processor.getActiveReferenceSlot() == 1
-        && ! processor.hasReferenceAudio()
-        && ! processor.getReferenceSettings().valid;
-    processor.switchReferenceSlot (0);
-    const bool slotABack = processor.getActiveReferenceSlot() == 0
-        && processor.getReferenceSettings().valid
-        && processor.getReferenceSettings().path == referenceFile.getFullPathName();
-    const bool slotsOk = slotBEmpty && slotABack;
-    std::printf ("reference slots: %s\n", slotsOk ? "ok" : "FAIL");
 
     // Band solo: the 1 kHz tone should pass a 500-2000 Hz solo, 100 Hz cut.
     processor.setReferencePlaying (false);
@@ -460,5 +493,5 @@ int main (int argc, char** argv)
     return clipped == 2 && undoOk && referenceOk && gainOk && seekOk
            && snapshotPersisted && settingsPersisted
            && referencePersisted
-           && viewPersisted && presetOk && slotsOk && soloOk && loopOk && waveformOk ? 0 : 1;
+           && viewPersisted && presetOk && slotsOk && slotBLoaded && soloOk && loopOk && waveformOk ? 0 : 1;
 }
