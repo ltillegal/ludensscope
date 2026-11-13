@@ -7,7 +7,7 @@
 namespace
 {
     constexpr int snapshotMagic = 0x4c444e53; // 'LDNS'
-    constexpr int snapshotVersion = 9;
+    constexpr int snapshotVersion = 10;
 }
 
 LudensScopeProcessor::LudensScopeProcessor()
@@ -196,7 +196,7 @@ void LudensScopeProcessor::syncActiveReferenceSlot()
 
 void LudensScopeProcessor::switchReferenceSlot (int slot)
 {
-    slot = juce::jlimit (0, 1, slot);
+    slot = juce::jlimit (0, referenceSlotCount - 1, slot);
 
     if (slot == activeReferenceSlot.load())
         return;
@@ -456,6 +456,30 @@ void LudensScopeProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce:
 
     // Reference player / A-B. Analysis above always sees the dry input; only
     // the outgoing audio is replaced while the reference is audible.
+    if (referenceMirror.load (std::memory_order_relaxed))
+    {
+        if (auto* playHead = getPlayHead())
+        {
+            if (const auto position = playHead->getPosition())
+            {
+                if (position->getIsPlaying())
+                {
+                    if (const auto time = position->getTimeInSeconds())
+                    {
+                        const auto length = referenceLength.load (std::memory_order_relaxed);
+
+                        if (length > 0)
+                        {
+                            const auto sample = (std::int64_t) std::llround (*time * getSampleRate());
+                            referencePosition.store (juce::jlimit ((std::int64_t) 0, length, sample),
+                                                     std::memory_order_relaxed);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     std::shared_ptr<juce::AudioBuffer<float>> audio;
 
     {
@@ -507,7 +531,8 @@ void LudensScopeProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce:
 
                     if (++pos >= effectiveEnd)
                     {
-                        if (referenceLoop.load (std::memory_order_relaxed))
+                        if (referenceLoop.load (std::memory_order_relaxed)
+                            && ! referenceMirror.load (std::memory_order_relaxed))
                         {
                             pos = effectiveEnd == loopEnd ? loopStart : 0;
                         }
@@ -696,6 +721,8 @@ void LudensScopeProcessor::getStateInformation (juce::MemoryBlock& destData)
     stream.writeFloat (viewSettingsValue.oscGain);
     stream.writeInt (viewSettingsValue.differenceSource);
     stream.writeString (viewSettingsValue.targetCurveName);
+    stream.writeInt (viewSettingsValue.levelMatch);
+    stream.writeInt (viewSettingsValue.mirror);
 
     syncActiveReferenceSlot();
 
@@ -732,7 +759,7 @@ void LudensScopeProcessor::setStateInformation (const void* data, int sizeInByte
     const int selected = stream.readInt();
 
     if (magic != snapshotMagic
-        || (version < 1 || version > 9)
+        || (version < 1 || version > 10)
         || slots != snapshotSlots || bins != snapshotBins)
         return;
 
@@ -798,6 +825,12 @@ void LudensScopeProcessor::setStateInformation (const void* data, int sizeInByte
         if (version >= 9)
             view.targetCurveName = stream.readString();
 
+        if (version >= 10)
+        {
+            view.levelMatch = stream.readInt() != 0 ? 1 : 0;
+            view.mirror = stream.readInt() != 0 ? 1 : 0;
+        }
+
         if (view.waterfallHistory != 1 && view.waterfallHistory != 2
             && view.waterfallHistory != 4)
         {
@@ -809,11 +842,13 @@ void LudensScopeProcessor::setStateInformation (const void* data, int sizeInByte
 
     if (version >= 8)
     {
-        const int newActive = juce::jlimit (0, 1, stream.readInt());
-        std::array<ReferenceSlotInfo, 2> slots;
+        const int slotCount = version >= 10 ? referenceSlotCount : 2;
+        const int newActive = juce::jlimit (0, slotCount - 1, stream.readInt());
+        std::array<ReferenceSlotInfo, referenceSlotCount> slots;
 
-        for (auto& slot : slots)
+        for (int s = 0; s < slotCount; ++s)
         {
+            auto& slot = slots[(size_t) s];
             slot.path = stream.readString();
             slot.valid = stream.readBool();
 

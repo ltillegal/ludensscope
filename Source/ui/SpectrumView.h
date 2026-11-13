@@ -118,6 +118,12 @@ public:
         repaint();
     }
 
+    void setReferenceModes (bool levelMatch, bool mirrorMode) noexcept
+    {
+        referenceLevelMatch = levelMatch;
+        referenceMirror = mirrorMode;
+    }
+
     void setReferenceWaveform (const std::vector<float>& waveform)
     {
         referenceWaveform = waveform;
@@ -151,6 +157,8 @@ public:
     std::function<void()> onPlayToggle;
     std::function<void()> onLoopToggle;
     std::function<void()> onAbToggle;
+    std::function<void()> onLevelMatchToggle;
+    std::function<void()> onMirrorToggle;
     std::function<void (int)> onSnapshotSelect;
     std::function<void (double)> onReferenceSeek;
     std::function<void (double, double)> onLoopRangeChange;
@@ -322,6 +330,16 @@ public:
         {
             if (onAbToggle)
                 onAbToggle();
+        }
+        else if (matchArea.contains (e.position))
+        {
+            if (onLevelMatchToggle)
+                onLevelMatchToggle();
+        }
+        else if (mirrorArea.contains (e.position))
+        {
+            if (onMirrorToggle)
+                onMirrorToggle();
         }
         else if (showGuides && plotArea().contains (e.position))
         {
@@ -858,8 +876,8 @@ public:
         // Reference transport, only when a reference is loaded.
         if (transportEnabled)
         {
-            const juce::Rectangle<float> bar (plot.getRight() - 250.0f, plot.getY() + 6.0f,
-                                              250.0f, 18.0f);
+            const juce::Rectangle<float> bar (plot.getRight() - 348.0f, plot.getY() + 6.0f,
+                                              348.0f, 18.0f);
 
             g.setColour (theme::bg.withAlpha (0.66f));
             g.fillRoundedRectangle (bar, 9.0f);
@@ -869,6 +887,8 @@ public:
             playArea = { bar.getX() + 4.0f, bar.getY(), 24.0f, bar.getHeight() };
             loopArea = { bar.getX() + 34.0f, bar.getY(), 44.0f, bar.getHeight() };
             abArea = { bar.getX() + 86.0f, bar.getY(), 42.0f, bar.getHeight() };
+            matchArea = { bar.getX() + 132.0f, bar.getY(), 48.0f, bar.getHeight() };
+            mirrorArea = { bar.getX() + 186.0f, bar.getY(), 54.0f, bar.getHeight() };
 
             g.setColour (transportPlaying ? theme::accent2 : theme::accent);
 
@@ -893,10 +913,17 @@ public:
             g.setColour (transportAudible ? theme::accent : theme::textDim);
             g.drawText (transportAudible ? "REF" : "MIX", abArea, juce::Justification::centred);
 
+            g.setFont (theme::labelFont (8.0f));
+            g.setColour (referenceLevelMatch ? theme::accent2 : theme::textDim);
+            g.drawText ("MATCH", matchArea, juce::Justification::centred);
+
+            g.setColour (referenceMirror ? theme::accent : theme::textDim);
+            g.drawText ("MIRROR", mirrorArea, juce::Justification::centred);
+
             g.setFont (theme::monoFont (9.0f));
             g.setColour (theme::textDim);
             g.drawText (formatTime (transportPosition) + " / " + formatTime (transportLength),
-                        bar.withTrimmedLeft (148.0f).withTrimmedRight (8.0f),
+                        bar.withTrimmedLeft (246.0f).withTrimmedRight (8.0f),
                         juce::Justification::centredRight);
 
             loopBar = { bar.getX(), bar.getBottom() + 4.0f, bar.getWidth(), 20.0f };
@@ -1224,6 +1251,8 @@ private:
     bool transportPlaying = false;
     bool transportLooping = true;
     bool transportAudible = false;
+    bool referenceLevelMatch = true;
+    bool referenceMirror = false;
     double transportPosition = 0.0;
     double transportLength = 0.0;
     double transportLoopStart = 0.0;
@@ -1241,7 +1270,7 @@ private:
     double loopPreviewStart = 0.0;
     double loopPreviewEnd = 0.0;
 
-    juce::Rectangle<float> playArea, loopArea, abArea;
+    juce::Rectangle<float> playArea, loopArea, abArea, matchArea, mirrorArea;
 
     juce::Point<float> cursorPosition;
 

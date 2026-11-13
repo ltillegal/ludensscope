@@ -78,10 +78,11 @@ public:
     }
 };
 
-void ReferenceSlotSwitch::setState (int activeSlot, bool slotAFilled, bool slotBFilled)
+void ReferenceSlotSwitch::setState (int activeSlot, bool slotAFilled, bool slotBFilled,
+                                    bool slotCFilled, bool slotDFilled)
 {
-    active = juce::jlimit (0, 1, activeSlot);
-    filled = { slotAFilled, slotBFilled };
+    active = juce::jlimit (0, 3, activeSlot);
+    filled = { slotAFilled, slotBFilled, slotCFilled, slotDFilled };
     repaint();
 }
 
@@ -93,9 +94,10 @@ void ReferenceSlotSwitch::paint (juce::Graphics& g)
     g.fillRoundedRectangle (bounds, 6.0f);
 
     const auto inner = bounds.reduced (2.0f);
-    const float segmentWidth = (inner.getWidth() - 2.0f) * 0.5f;
+    const float segmentWidth = (inner.getWidth() - 6.0f) * 0.25f;
+    const char* letters[] = { "A", "B", "C", "D" };
 
-    for (int i = 0; i < 2; ++i)
+    for (int i = 0; i < 4; ++i)
     {
         auto segment = inner.withWidth (segmentWidth).translated (i * (segmentWidth + 2.0f), 0.0f);
         const bool activeSegment = i == active;
@@ -103,26 +105,26 @@ void ReferenceSlotSwitch::paint (juce::Graphics& g)
         if (activeSegment)
         {
             g.setColour (theme::text);
-            g.fillRoundedRectangle (segment, 5.0f);
+            g.fillRoundedRectangle (segment, 4.0f);
         }
 
         g.setColour (activeSegment ? theme::bg
                                    : (filled[(size_t) i] ? theme::text.withAlpha (0.8f)
                                                          : theme::textDim));
-        g.setFont (theme::monoFont (14.0f));
-        g.drawText (i == 0 ? "A" : "B", segment, juce::Justification::centred);
+        g.setFont (theme::monoFont (10.0f));
+        g.drawText (letters[i], segment, juce::Justification::centred);
 
         if (filled[(size_t) i] && ! activeSegment)
         {
             g.setColour (theme::accent);
-            g.fillEllipse (segment.getRight() - 7.0f, segment.getBottom() - 7.0f, 3.0f, 3.0f);
+            g.fillEllipse (segment.getRight() - 5.0f, segment.getBottom() - 5.0f, 2.5f, 2.5f);
         }
     }
 }
 
 void ReferenceSlotSwitch::mouseDown (const juce::MouseEvent& e)
 {
-    const int slot = e.x >= getWidth() / 2 ? 1 : 0;
+    const int slot = juce::jlimit (0, 3, (e.x * 4) / juce::jmax (1, getWidth()));
 
     if (slot != active && onSelect)
         onSelect (slot);
@@ -210,7 +212,7 @@ LudensScopeEditor::LudensScopeEditor (LudensScopeProcessor& p)
     undoButton.setTooltip ("Restore the meters, snapshot, reference and counters from before the last RESET");
     addAndMakeVisible (undoButton);
 
-    slotSwitch.setTooltip ("Reference slots A/B");
+    slotSwitch.setTooltip ("Reference slots A-D");
     slotSwitch.onSelect = [this] (int slot) { selectReferenceSlot (slot); };
     addAndMakeVisible (slotSwitch);
 
@@ -289,6 +291,8 @@ LudensScopeEditor::LudensScopeEditor (LudensScopeProcessor& p)
     spectrumView.onPlayToggle = [this] { toggleReferencePlay(); };
     spectrumView.onLoopToggle = [this] { toggleReferenceLoop(); };
     spectrumView.onAbToggle = [this] { toggleReferenceAb(); };
+    spectrumView.onLevelMatchToggle = [this] { toggleLevelMatch(); };
+    spectrumView.onMirrorToggle = [this] { toggleMirror(); };
     
     spectrumView.onReferenceSeek = [this] (double seconds)
     {
@@ -360,12 +364,12 @@ void LudensScopeEditor::paint (juce::Graphics& g)
         g.setColour (theme::panelLine.withAlpha (0.6f));
         g.drawRoundedRectangle (railBounds.toFloat().reduced (0.5f), 8.0f, 1.0f);
 
-        const int abTop = railBounds.getBottom() - 8 - 56;
+        const int rowTop = railBounds.getBottom() - 8 - 26;
         g.setColour (theme::panelLine.withAlpha (0.8f));
-        g.fillRect (railBounds.getX() + 12, abTop - 10, railBounds.getWidth() - 24, 1);
+        g.fillRect (railBounds.getX() + 12, rowTop - 10, railBounds.getWidth() - 24, 1);
         g.setFont (theme::labelFont (8.0f));
         g.setColour (theme::textDim);
-        g.drawText ("REF", railBounds.getX(), abTop - 26, railBounds.getWidth(), 12,
+        g.drawText ("REF", railBounds.getX(), rowTop - 24, railBounds.getWidth(), 12,
                     juce::Justification::centred);
     }
 
@@ -417,7 +421,7 @@ void LudensScopeEditor::resized()
     auto rail = railBounds.withTrimmedLeft (2).withTrimmedRight (2).withTrimmedTop (8);
     constexpr int buttonHeight = 26;
 
-    const int refTop = railBounds.getBottom() - 8 - 56 - 34;
+    const int refTop = railBounds.getBottom() - 8 - 26 - 34;
     const int available = juce::jmax (0, refTop - rail.getY());
     const int buttonGap = juce::jlimit (6, 22, (available - buttonHeight * 10) / 9);
 
@@ -434,7 +438,8 @@ void LudensScopeEditor::resized()
         stack.removeFromTop (buttonGap);
     }
 
-    slotSwitch.setBounds (railBounds.getX() + 8, railBounds.getBottom() - 8 - 56, 72, 56);
+    slotSwitch.setBounds (railBounds.getX() + 2, railBounds.getBottom() - 8 - 26,
+                          railBounds.getWidth() - 4, 26);
 
     constexpr int gap = 10;
     const int bottomHeight = juce::jlimit (150, 230, (int) ((float) r.getHeight() * 0.34f));
@@ -599,7 +604,13 @@ void LudensScopeEditor::timerCallback()
     undoButton.setEnabled (processor.hasUndo());
     slotSwitch.setState (processor.getActiveReferenceSlot(),
                          processor.isReferenceSlotFilled (0),
-                         processor.isReferenceSlotFilled (1));
+                         processor.isReferenceSlotFilled (1),
+                         processor.isReferenceSlotFilled (2),
+                         processor.isReferenceSlotFilled (3));
+    spectrumView.setReferenceModes (levelMatch, mirror);
+
+    if (levelMatch && processor.hasReferenceAudio())
+        updateReferenceGain();
 
     spectrumView.setTransport (processor.hasReferenceAudio(),
                                processor.isReferencePlaying(),
@@ -1115,7 +1126,11 @@ void LudensScopeEditor::toggleReferencePlay()
 
     if (shouldPlay)
     {
-        updateReferenceGain();
+        if (levelMatch)
+            updateReferenceGain();
+        else
+            processor.setReferenceGainDb (0.0f);
+
         processor.setReferenceAudible (true);
     }
 
@@ -1136,7 +1151,10 @@ void LudensScopeEditor::toggleReferenceAb()
 
     if (toReference)
     {
-        updateReferenceGain();
+        if (levelMatch)
+            updateReferenceGain();
+        else
+            processor.setReferenceGainDb (0.0f);
 
         if (! processor.isReferencePlaying())
             processor.setReferencePlaying (true);
@@ -1170,6 +1188,11 @@ void LudensScopeEditor::applyViewSettings (const LudensScopeProcessor::ViewSetti
     else
         clearTargetCurve();
 
+    levelMatch = settings.levelMatch != 0;
+    mirror = settings.mirror != 0;
+    processor.setReferenceMirror (mirror);
+    spectrumView.setReferenceModes (levelMatch, mirror);
+
     spanIndex = juce::jlimit (0, 5, settings.spanIndex);
     applyRange (juce::jlimit (20.0f, 20000.0f, settings.rangeLow),
                 juce::jlimit (20.0f, 20000.0f, settings.rangeHigh));
@@ -1198,6 +1221,8 @@ void LudensScopeEditor::saveViewSettings()
     settings.difference = showDifference ? 1 : 0;
     settings.differenceSource = differenceSource;
     settings.targetCurveName = targetCurveActive ? targetCurveName : juce::String();
+    settings.levelMatch = levelMatch ? 1 : 0;
+    settings.mirror = mirror ? 1 : 0;
     settings.spanIndex = spanIndex;
     settings.rangeLow = rangeLow;
     settings.rangeHigh = rangeHigh;
@@ -1416,6 +1441,29 @@ void LudensScopeEditor::downloadUpdate (const UpdateInfo& info)
             if (result == 1)
                 juce::File (message).revealToUser();
         });
+}
+
+void LudensScopeEditor::toggleLevelMatch()
+{
+    levelMatch = ! levelMatch;
+
+    if (! levelMatch)
+        processor.setReferenceGainDb (0.0f);
+    else
+        updateReferenceGain();
+
+    saveViewSettings();
+}
+
+void LudensScopeEditor::toggleMirror()
+{
+    mirror = ! mirror;
+    processor.setReferenceMirror (mirror);
+
+    if (mirror)
+        processor.setReferenceLoop (false);
+
+    saveViewSettings();
 }
 
 void LudensScopeEditor::selectReferenceSlot (int slot)
