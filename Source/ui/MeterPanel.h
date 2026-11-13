@@ -14,6 +14,17 @@ class MeterPanel : public juce::Component
 public:
     MeterPanel() = default;
 
+    void setUiScale (float scale) noexcept
+    {
+        const float newScale = juce::jlimit (0.85f, 1.40f, scale);
+
+        if (std::abs (newScale - uiScale) < 0.001f)
+            return;
+
+        uiScale = newScale;
+        repaint();
+    }
+
     void setValues (float newMomentary, float newShortTerm, float newIntegrated,
                     float newTruePeak, float newSamplePeak, float newCorrelation,
                     float newTruePeakHold, float newLra, float newPlr,
@@ -53,7 +64,11 @@ public:
 
     void paint (juce::Graphics& g) override
     {
-        const auto bounds = getLocalBounds().toFloat();
+        juce::Graphics::ScopedSaveState saved (g);
+        g.addTransform (juce::AffineTransform::scale (uiScale));
+
+        const auto bounds = juce::Rectangle<float> (
+            0.0f, 0.0f, (float) getWidth() / uiScale, (float) getHeight() / uiScale);
 
         theme::drawPanel (g, bounds);
 
@@ -69,7 +84,8 @@ public:
                     juce::Justification::centredLeft);
 
         auto targetRect = header.removeFromRight (86.0f);
-        targetArea = targetRect.toNearestInt();
+        targetArea = targetRect.transformedBy (juce::AffineTransform::scale (uiScale))
+                                 .toNearestInt();
 
         g.setFont (theme::labelFont (10.0f));
         g.setColour (targetEnabled ? theme::accent2 : theme::textDim);
@@ -350,6 +366,7 @@ private:
 
     bool targetEnabled = true;
     float targetLufs = -14.0f;
+    float uiScale = 1.0f;
 
     juce::Rectangle<int> targetArea;
 

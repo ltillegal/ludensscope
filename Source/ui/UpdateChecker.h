@@ -265,6 +265,18 @@ public:
         message = dest.getFullPathName();
     }
 
+    void threadComplete (bool userPressedCancel) override
+    {
+        juce::ignoreUnused (userPressedCancel);
+
+        if (onFinished)
+            onFinished (succeeded, message);
+
+        delete this;
+    }
+
+    std::function<void (bool, juce::String)> onFinished;
+
     bool succeeded = false;
     juce::String message;
 

@@ -164,6 +164,9 @@ int main (int argc, char** argv)
     feeder.stopTimer();
 
     auto* scopeEditor = dynamic_cast<LudensScopeEditor*> (editor.get());
+
+    if (scopeEditor != nullptr)
+        scopeEditor->setInterfaceTheme (0);
     const bool slotBLoaded = scopeEditor != nullptr
         && processor.getActiveReferenceSlot() == 1
         && processor.getReferenceSettings().valid
