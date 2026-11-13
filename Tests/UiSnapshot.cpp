@@ -230,6 +230,46 @@ int main (int argc, char** argv)
                      image.getWidth(), image.getHeight());
     }
 
+    // Mono buses and processing.
+    const bool monoLayoutOk = processor.supportsMonoBuses();
+
+    // Drain the FIFO left over from the tests above.
+    float drainL[4096] = {}, drainR[4096] = {};
+
+    while (processor.readSamples (drainL, drainR, 4096) > 0)
+    {
+    }
+
+    processor.setReferencePlaying (false);
+    processor.setReferenceAudible (false);
+    processor.setBandSolo (false, 0.0f, 0.0f);
+
+    juce::AudioBuffer<float> monoBuffer (1, 512);
+
+    for (int i = 0; i < 512; ++i)
+        monoBuffer.setSample (0, i, 0.25f * std::sin (juce::MathConstants<float>::twoPi
+                                                      * 1000.0f * (float) i / 48000.0f));
+
+    juce::MidiBuffer monoMidi;
+    processor.processBlock (monoBuffer, monoMidi);
+
+    float readL[512] = {}, readR[512] = {};
+    const int monoRead = processor.readSamples (readL, readR, 512);
+
+    float monoPeak = 0.0f;
+    bool monoDual = monoRead > 0;
+
+    for (int i = 0; i < monoRead; ++i)
+    {
+        monoPeak = std::max (monoPeak, std::abs (readL[i]));
+        monoDual = monoDual && std::abs (readL[i] - readR[i]) < 1.0e-6f;
+    }
+
+    const bool monoOk = monoLayoutOk && monoRead > 0 && monoPeak > 0.01f && monoDual;
+    std::printf ("mono support: %s (layout %d, read %d, peak %.3f, dual %d)\n",
+                 monoOk ? "ok" : "FAIL", (int) monoLayoutOk, monoRead,
+                 (double) monoPeak, (int) monoDual);
+
     // Clip counter smoke check: one full-scale sample in each channel.
     juce::AudioBuffer<float> clipBuffer (2, 64);
     clipBuffer.clear();

@@ -19,10 +19,23 @@ LudensScopeProcessor::LudensScopeProcessor()
     undoHistogram = std::make_unique<std::uint32_t[]> (LoudnessMeter::lraHistogramBins);
 }
 
+bool LudensScopeProcessor::supportsMonoBuses() const
+{
+    BusesLayout layout;
+    layout.inputBuses.add (juce::AudioChannelSet::mono());
+    layout.outputBuses.add (juce::AudioChannelSet::mono());
+    return isBusesLayoutSupported (layout);
+}
+
 bool LudensScopeProcessor::isBusesLayoutSupported (const BusesLayout& layouts) const
 {
-    return layouts.getMainInputChannelSet()  == juce::AudioChannelSet::stereo()
-        && layouts.getMainOutputChannelSet() == juce::AudioChannelSet::stereo();
+    const auto input = layouts.getMainInputChannelSet();
+    const auto output = layouts.getMainOutputChannelSet();
+
+    const bool valid = input == juce::AudioChannelSet::mono()
+                    || input == juce::AudioChannelSet::stereo();
+
+    return valid && output == input;
 }
 
 void LudensScopeProcessor::prepareToPlay (double sampleRate, int)
@@ -395,7 +408,7 @@ void LudensScopeProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce:
 
     const int numSamples = buffer.getNumSamples();
 
-    if (buffer.getNumChannels() < 2 || numSamples <= 0)
+    if (buffer.getNumChannels() < 1 || numSamples <= 0)
         return;
 
     if (undoCaptureRequested.exchange (false, std::memory_order_relaxed))
@@ -421,15 +434,16 @@ void LudensScopeProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce:
         clippedSamples.store (0, std::memory_order_relaxed);
     }
 
+    const bool stereo = buffer.getNumChannels() > 1;
     const float* left = buffer.getReadPointer (0);
-    const float* right = buffer.getReadPointer (1);
+    const float* right = stereo ? buffer.getReadPointer (1) : left;
 
     std::uint32_t blockClips = 0;
 
     for (int i = 0; i < numSamples; ++i)
     {
         if (std::abs (left[i]) >= 1.0f)  ++blockClips;
-        if (std::abs (right[i]) >= 1.0f) ++blockClips;
+        if (stereo && std::abs (right[i]) >= 1.0f) ++blockClips;
     }
 
     if (blockClips > 0)
@@ -504,7 +518,7 @@ void LudensScopeProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce:
             const float mixStep = 1.0f / (rate * 0.02f);
 
             auto* outL = buffer.getWritePointer (0);
-            auto* outR = buffer.getNumChannels() > 1 ? buffer.getWritePointer (1) : outL;
+            auto* outR = stereo ? buffer.getWritePointer (1) : outL;
 
             const auto loopStart = referenceLoopStart.load (std::memory_order_relaxed);
             const auto loopEnd = referenceLoopEnd.load (std::memory_order_relaxed);
@@ -548,9 +562,11 @@ void LudensScopeProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce:
                 }
 
                 const float dry = 1.0f - referenceMix;
-                outL[i] = outL[i] * dry + refL * referenceMix * referenceCurrentGain;
+                const float refMono = 0.5f * (refL + refR);
+                outL[i] = outL[i] * dry
+                        + (stereo ? refL : refMono) * referenceMix * referenceCurrentGain;
 
-                if (buffer.getNumChannels() > 1)
+                if (stereo)
                     outR[i] = outR[i] * dry + refR * referenceMix * referenceCurrentGain;
             }
 
@@ -576,14 +592,14 @@ void LudensScopeProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce:
                                            soloLowPass[4].load() };
 
         auto* soloL = buffer.getWritePointer (0);
-        auto* soloR = buffer.getNumChannels() > 1 ? buffer.getWritePointer (1) : soloL;
+        auto* soloR = stereo ? buffer.getWritePointer (1) : soloL;
 
         for (int i = 0; i < numSamples; ++i)
         {
             soloL[i] = processBiquad (lowPass, soloLowPassMemory[0],
                                       processBiquad (highPass, soloHighPassMemory[0], soloL[i]));
 
-            if (buffer.getNumChannels() > 1)
+            if (stereo)
                 soloR[i] = processBiquad (lowPass, soloLowPassMemory[1],
                                           processBiquad (highPass, soloHighPassMemory[1], soloR[i]));
         }

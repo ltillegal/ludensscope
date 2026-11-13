@@ -139,6 +139,8 @@ public:
     void setBandSolo (bool active, float lowHz, float highHz);
     bool isBandSolo() const noexcept { return bandSoloActive.load(); }
 
+    bool supportsMonoBuses() const;
+
     // FFT snapshots (UI state, persisted in the project).
     static constexpr int snapshotBins = SpectrumAnalyzer::numBins;
     static constexpr int snapshotSlots = 4;
