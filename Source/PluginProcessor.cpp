@@ -7,7 +7,7 @@
 namespace
 {
     constexpr int snapshotMagic = 0x4c444e53; // 'LDNS'
-    constexpr int snapshotVersion = 10;
+    constexpr int snapshotVersion = 11;
 }
 
 LudensScopeProcessor::LudensScopeProcessor()
@@ -723,6 +723,7 @@ void LudensScopeProcessor::getStateInformation (juce::MemoryBlock& destData)
     stream.writeString (viewSettingsValue.targetCurveName);
     stream.writeInt (viewSettingsValue.levelMatch);
     stream.writeInt (viewSettingsValue.mirror);
+    stream.writeInt (viewSettingsValue.theme);
 
     syncActiveReferenceSlot();
 
@@ -759,7 +760,7 @@ void LudensScopeProcessor::setStateInformation (const void* data, int sizeInByte
     const int selected = stream.readInt();
 
     if (magic != snapshotMagic
-        || (version < 1 || version > 10)
+        || (version < 1 || version > 11)
         || slots != snapshotSlots || bins != snapshotBins)
         return;
 
@@ -830,6 +831,9 @@ void LudensScopeProcessor::setStateInformation (const void* data, int sizeInByte
             view.levelMatch = stream.readInt() != 0 ? 1 : 0;
             view.mirror = stream.readInt() != 0 ? 1 : 0;
         }
+
+        if (version >= 11)
+            view.theme = juce::jlimit (0, 6, stream.readInt());
 
         if (view.waterfallHistory != 1 && view.waterfallHistory != 2
             && view.waterfallHistory != 4)

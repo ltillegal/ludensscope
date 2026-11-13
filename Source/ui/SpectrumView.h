@@ -1197,7 +1197,7 @@ private:
             case 0:  return theme::cold;
             case 1:  return theme::accent2;
             case 2:  return theme::hot;
-            default: return juce::Colour (0xffb18cff);
+            default: return theme::accent.interpolatedWith (theme::cold, 0.5f);
         }
     }
 

@@ -16,6 +16,8 @@ public:
     {
         for (int i = 0; i < paletteSize; ++i)
             palette[(size_t) i] = heat ((float) i / (float) (paletteSize - 1));
+
+        paletteTheme = theme::getTheme();
     }
 
     void push (const float* levelsDb, int numBins)
@@ -92,6 +94,8 @@ public:
 
     void paint (juce::Graphics& g) override
     {
+                refreshThemePalette();
+
         const auto bounds = getLocalBounds().toFloat();
 
         theme::drawPanel (g, bounds);
@@ -159,14 +163,14 @@ private:
     {
         static constexpr int numStops = 7;
 
-        static const juce::Colour stops[numStops] = {
-            juce::Colour (0xff01202b),
-            juce::Colour (0xff013a4b),
-            juce::Colour (0xff01607c),
-            juce::Colour (0xff5ee1f0),
-            juce::Colour (0xffffc46b),
-            juce::Colour (0xffff7a6b),
-            juce::Colour (0xfff6efe2),
+        const juce::Colour stops[numStops] = {
+            theme::bg,
+            theme::panel,
+            theme::gridStrong,
+            theme::accent,
+            theme::accent2,
+            theme::hot,
+            theme::hot.brighter (0.35f),
         };
 
         static const float positions[numStops] = {
@@ -193,12 +197,25 @@ private:
 
     std::array<juce::Colour, paletteSize> palette {};
 
+    void refreshThemePalette()
+    {
+        if (paletteTheme == theme::getTheme())
+            return;
+
+        for (int i = 0; i < paletteSize; ++i)
+            palette[(size_t) i] = heat ((float) i / (float) (paletteSize - 1));
+
+        paletteTheme = theme::getTheme();
+        clear();
+    }
+
     juce::Image image;
     int width = 0;
     int height = 0;
     int writeRow = 0;
     int pushCounter = 0;
     int pushDivider = 2;
+    int paletteTheme = -1;
 
     float rangeLow = 20.0f;
     float rangeHigh = 20000.0f;
