@@ -187,6 +187,7 @@ public:
         int levelMatch = 1;
         int mirror = 0;
         int theme = 0;
+        float waterfallRatio = 0.32f;
     };
 
     ViewSettings getViewSettings() const noexcept { return viewSettingsValue; }

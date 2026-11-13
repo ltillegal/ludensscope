@@ -47,6 +47,7 @@ public:
        #endif
 
         const auto options = juce::URL::InputStreamOptions (juce::URL::ParameterHandling::inAddress)
+                                 .withConnectionTimeoutMs (5000)
                                  .withExtraHeaders ("User-Agent: LudensScope\r\n"
                                                     "Accept: application/vnd.github+json");
 

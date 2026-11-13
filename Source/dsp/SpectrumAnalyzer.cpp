@@ -137,7 +137,10 @@ void SpectrumAnalyzer::push (const float* left, const float* right, int numSampl
         std::memmove (history.data(), history.data() + n, sizeof (float) * (size_t) keep);
 
     for (int i = 0; i < n; ++i)
-        history[(size_t) (keep + i)] = 0.5f * (left[i] + right[i]);
+    {
+        const int index = numSamples - n + i;
+        history[(size_t) (keep + i)] = 0.5f * (left[index] + right[index]);
+    }
 }
 
 void SpectrumAnalyzer::pushMono (const float* samples, int numSamples) noexcept
