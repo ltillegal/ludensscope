@@ -133,8 +133,8 @@ cmake --build --preset dev -j$(nproc)
    target, SPAN range, waterfall speed, scope window/gain, target curve) and the
    reference metadata.
 
-Hotkeys: `Space` — reference play/stop, `A` — REF/MIX, `F` — freeze,
-`Esc` — clear the band solo.
+Hotkeys: `A` — REF/MIX, `F` — freeze, `Esc` — clear the band solo.
+Space is not intercepted — it belongs to the host transport.
 
 The `THEME` button in the top-right switches seven interface palettes:
 **Blue** (current), **Dark**, **Light**, **Magenta**, **Green**, **Red**,
