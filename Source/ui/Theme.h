@@ -92,6 +92,29 @@ namespace theme
     inline int getTheme() noexcept { return currentTheme; }
     inline bool isLight() noexcept { return currentTheme == 2; }
 
+    inline juce::File settingsFile()
+    {
+        return juce::File::getSpecialLocation (juce::File::userApplicationDataDirectory)
+            .getChildFile ("LudensScope")
+            .getChildFile ("theme.txt");
+    }
+
+    inline int loadSavedTheme()
+    {
+        const auto file = settingsFile();
+
+        return file.existsAsFile()
+                   ? juce::jlimit (0, 6, file.loadFileAsString().trim().getIntValue())
+                   : 0;
+    }
+
+    inline void saveTheme (int index)
+    {
+        const auto file = settingsFile();
+        file.getParentDirectory().createDirectory();
+        file.replaceWithText (juce::String (juce::jlimit (0, 6, index)));
+    }
+
     inline const char* themeName (int index)
     {
         static const char* names[] = { "Blue", "Dark", "Light", "Magenta",

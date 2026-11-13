@@ -140,7 +140,8 @@ and metering.
 
 The `THEME` button in the top-right switches seven interface palettes:
 **Blue** (current), **Dark**, **Light**, **Magenta**, **Green**, **Red**,
-**Orange**. The choice is stored in the project; the light theme re-tints the
+**Orange**. The choice is global: it is stored in LudensScope's settings and
+applied to every open instance; the light theme re-tints the
 logo and curves automatically, and the waterfall follows the palette. The
 right-rail buttons, `THEME`, the A–D slots and the transport scale with the
 window (about 0.9–1.35×).

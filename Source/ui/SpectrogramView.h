@@ -58,7 +58,7 @@ public:
 
         rangeLow = lowHz;
         rangeHigh = highHz;
-        clear();
+        repaint();
     }
 
     void setPushDivider (int divider)

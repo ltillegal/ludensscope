@@ -103,6 +103,7 @@ private:
     void toggleMirror();
     void showThemeMenu();
     void applyTheme();
+    static juce::Array<juce::Component::SafePointer<LudensScopeEditor>>& openEditors();
     void checkForUpdates();
     void handleUpdateResult (const UpdateInfo& info);
     void downloadUpdate (const UpdateInfo& info);
@@ -196,7 +197,7 @@ private:
     std::unique_ptr<juce::FileChooser> pngChooser;
     std::unique_ptr<juce::TooltipWindow> tooltipWindow;
     std::unique_ptr<UpdateCheckThread> updateCheck;
-    std::unique_ptr<UpdateDownloader> updateDownloader;
+    void handleDownloadFinished (bool succeeded, const juce::String& message);
 
     CurvePresetStore curvePresets;
     std::array<float, SpectrumAnalyzer::numBins> targetCurve {};

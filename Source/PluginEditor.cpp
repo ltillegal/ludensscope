@@ -371,6 +371,12 @@ LudensScopeEditor::LudensScopeEditor (LudensScopeProcessor& p)
 
 LudensScopeEditor::~LudensScopeEditor()
 {
+    auto& editors = openEditors();
+
+    for (int i = editors.size(); --i >= 0;)
+        if (editors[i] == nullptr || editors[i].getComponent() == this)
+            editors.remove (i);
+
     if (referenceLoader != nullptr)
     {
         referenceLoader->signalThreadShouldExit();
@@ -405,6 +411,13 @@ void LudensScopeEditor::visibilityChanged()
         soloZone = -1;
         spectrumView.setSoloZone (-1);
     }
+}
+
+juce::Array<juce::Component::SafePointer<LudensScopeEditor>>&
+LudensScopeEditor::openEditors()
+{
+    static juce::Array<juce::Component::SafePointer<LudensScopeEditor>> editors;
+    return editors;
 }
 
 void LudensScopeEditor::paint (juce::Graphics& g)
@@ -480,6 +493,7 @@ void LudensScopeEditor::resized()
     const float scaleH = (float) getHeight() / 700.0f;
     uiScale = juce::jlimit (0.9f, 1.35f, juce::jmin (scaleW, scaleH));
     spectrumView.setUiScale (uiScale);
+    meterPanel.setUiScale (uiScale);
 
     auto header = r.removeFromTop (36);
     const int themeWidth = juce::roundToInt (90.0f * uiScale);
@@ -506,7 +520,9 @@ void LudensScopeEditor::resized()
     const int buttonGap = juce::jlimit (minGap, juce::jmax (minGap, maxGap),
                                         (available - buttonHeight * 10) / 9);
 
-    auto stack = rail.removeFromTop (buttonHeight * 10 + buttonGap * 9);
+    const int stackHeight = buttonHeight * 10 + buttonGap * 9;
+    auto stack = rail.withHeight (juce::jmin (available, stackHeight))
+                      .translated (0, juce::jmax (0, (available - stackHeight) / 2));
 
     juce::Component* const buttons[] = {
         &fftButton, &referenceButton, &guidesButton, &spanButton, &monoButton,
@@ -1304,12 +1320,6 @@ void LudensScopeEditor::applyViewSettings (const LudensScopeProcessor::ViewSetti
     processor.setReferenceMirror (mirror);
     spectrumView.setReferenceModes (levelMatch, mirror);
 
-    if (theme::getTheme() != settings.theme)
-    {
-        theme::setTheme (settings.theme);
-        applyTheme();
-    }
-
     spanIndex = juce::jlimit (0, 5, settings.spanIndex);
     applyRange (juce::jlimit (20.0f, 20000.0f, settings.rangeLow),
                 juce::jlimit (20.0f, 20000.0f, settings.rangeHigh));
@@ -1541,13 +1551,20 @@ void LudensScopeEditor::downloadUpdate (const UpdateInfo& info)
                             .getChildFile (info.assetName);
     target.getParentDirectory().createDirectory();
 
-    updateDownloader = std::make_unique<UpdateDownloader> (info, target);
-    updateDownloader->runThread();
+    auto* downloader = new UpdateDownloader (info, target);
 
-    const bool succeeded = updateDownloader->succeeded;
-    const auto message = updateDownloader->message;
-    updateDownloader.reset();
+    downloader->onFinished = [safe = juce::Component::SafePointer<LudensScopeEditor> (this)]
+                              (bool succeeded, juce::String message)
+    {
+        if (safe != nullptr)
+            safe->handleDownloadFinished (succeeded, message);
+    };
 
+    downloader->launchThread();
+}
+
+void LudensScopeEditor::handleDownloadFinished (bool succeeded, const juce::String& message)
+{
     if (! succeeded)
     {
         juce::AlertWindow::showMessageBoxAsync (juce::MessageBoxIconType::WarningIcon,
@@ -1586,7 +1603,12 @@ void LudensScopeEditor::showThemeMenu()
                             if (result >= 3000)
                             {
                                 theme::setTheme (result - 3000);
-                                safe->applyTheme();
+                                theme::saveTheme (theme::getTheme());
+
+                                for (auto& other : openEditors())
+                                    if (other != nullptr)
+                                        other->applyTheme();
+
                                 safe->saveViewSettings();
                             }
                         });
