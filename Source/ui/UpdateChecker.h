@@ -22,127 +22,100 @@ struct UpdateInfo
     juce::String error;
 };
 
-class UpdateCheckThread : public juce::Thread
+inline bool isNewerVersion (const juce::String& candidate, const juce::String& current)
 {
-public:
-    explicit UpdateCheckThread (std::function<void (UpdateInfo)> callback)
-        : juce::Thread ("LudensScope update check"),
-          onResult (std::move (callback))
+    const auto parse = [] (juce::String text)
     {
+        text = text.trimCharactersAtStart ("vV");
+        juce::StringArray parts;
+        parts.addTokens (text, ".", "");
+        return parts;
+    };
+
+    const auto a = parse (candidate);
+    const auto b = parse (current);
+
+    for (int i = 0; i < juce::jmax (a.size(), b.size()); ++i)
+    {
+        const int av = i < a.size() ? a[i].getIntValue() : 0;
+        const int bv = i < b.size() ? b[i].getIntValue() : 0;
+
+        if (av != bv)
+            return av > bv;
     }
 
-    ~UpdateCheckThread() override
+    return false;
+}
+
+inline UpdateInfo performUpdateCheck()
+{
+    UpdateInfo info;
+    info.checked = true;
+   #if defined (JucePlugin_VersionString)
+    info.currentVersion = juce::String (JucePlugin_VersionString);
+   #else
+    info.currentVersion = "0.2.9";
+   #endif
+
+    const auto options = juce::URL::InputStreamOptions (juce::URL::ParameterHandling::inAddress)
+                             .withConnectionTimeoutMs (5000)
+                             .withExtraHeaders ("User-Agent: LudensScope\r\n"
+                                                "Accept: application/vnd.github+json");
+
+    auto stream = juce::URL ("https://api.github.com/repos/ltillegal/ludensscope/releases/latest")
+                      .createInputStream (options);
+
+    if (stream == nullptr)
     {
-        stopThread (5000);
+        info.error = "Could not reach GitHub. Check your internet connection.";
+        return info;
     }
 
-    void run() override
+    const auto json = juce::JSON::parse (stream->readEntireStreamAsString());
+
+    if (! json.isObject() || json["tag_name"].toString().isEmpty())
     {
-        UpdateInfo info;
-        info.checked = true;
-       #if defined (JucePlugin_VersionString)
-        info.currentVersion = juce::String (JucePlugin_VersionString);
-       #else
-        info.currentVersion = "0.2.0";
-       #endif
+        info.error = "No releases published yet.";
+        return info;
+    }
 
-        const auto options = juce::URL::InputStreamOptions (juce::URL::ParameterHandling::inAddress)
-                                 .withConnectionTimeoutMs (5000)
-                                 .withExtraHeaders ("User-Agent: LudensScope\r\n"
-                                                    "Accept: application/vnd.github+json");
+    info.latestVersion = json["tag_name"].toString().trimCharactersAtStart ("vV");
+    info.notes = json["body"].toString();
+    info.releasePage = json["html_url"].toString();
 
-        auto stream = juce::URL ("https://api.github.com/repos/ltillegal/ludensscope/releases/latest")
-                          .createInputStream (options);
+   #if JUCE_MAC
+    const juce::String platform = "macos";
+   #elif JUCE_WINDOWS
+    const juce::String platform = "windows";
+   #else
+    const juce::String platform = "linux";
+   #endif
 
-        if (stream == nullptr)
+    if (auto* assets = json["assets"].getArray())
+    {
+        for (const auto& asset : *assets)
         {
-            info.error = "Could not reach GitHub. Check your internet connection.";
-        }
-        else
-        {
-            const auto json = juce::JSON::parse (stream->readEntireStreamAsString());
+            const auto name = asset["name"].toString();
 
-            if (! json.isObject() || json["tag_name"].toString().isEmpty())
+            if (name == "SHA256SUMS.txt")
             {
-                info.error = "No releases published yet.";
+                info.checksumUrl = asset["browser_download_url"].toString();
             }
-            else
+            else if (name.containsIgnoreCase (platform) && name.endsWithIgnoreCase (".zip"))
             {
-                info.latestVersion = json["tag_name"].toString().trimCharactersAtStart ("vV");
-                info.notes = json["body"].toString();
-                info.releasePage = json["html_url"].toString();
-
-               #if JUCE_MAC
-                const juce::String platform = "macos";
-               #elif JUCE_WINDOWS
-                const juce::String platform = "windows";
-               #else
-                const juce::String platform = "linux";
-               #endif
-
-                if (auto* assets = json["assets"].getArray())
-                {
-                    for (const auto& asset : *assets)
-                    {
-                        const auto name = asset["name"].toString();
-
-                        if (name == "SHA256SUMS.txt")
-                        {
-                            info.checksumUrl = asset["browser_download_url"].toString();
-                        }
-                        else if (name.containsIgnoreCase (platform)
-                                 && name.endsWithIgnoreCase (".zip"))
-                        {
-                            info.assetName = name;
-                            info.downloadUrl = asset["browser_download_url"].toString();
-                        }
-                    }
-                }
-
-                info.available = isNewer (info.latestVersion, info.currentVersion);
-
-                if (info.available && (info.downloadUrl.isEmpty() || info.assetName.isEmpty()))
-                    info.error = "No update package for this platform in the latest release.";
+                info.assetName = name;
+                info.downloadUrl = asset["browser_download_url"].toString();
             }
         }
-
-        if (onResult)
-        {
-            juce::MessageManager::callAsync ([callback = onResult, info]
-            {
-                callback (info);
-            });
-        }
     }
 
-private:
-    static bool isNewer (const juce::String& candidate, const juce::String& current)
-    {
-        const auto parse = [] (juce::String text)
-        {
-            text = text.trimCharactersAtStart ("vV");
-            juce::StringArray parts;
-            parts.addTokens (text, ".", "");
-            return parts;
-        };
+    info.available = isNewerVersion (info.latestVersion, info.currentVersion);
 
-        const auto a = parse (candidate);
-        const auto b = parse (current);
+    if (info.available && (info.downloadUrl.isEmpty() || info.assetName.isEmpty()))
+        info.error = "No update package for this platform in the latest release.";
 
-        for (int i = 0; i < juce::jmax (a.size(), b.size()); ++i)
-        {
-            const int av = i < a.size() ? a[i].getIntValue() : 0;
-            const int bv = i < b.size() ? b[i].getIntValue() : 0;
-
-            if (av != bv)
-                return av > bv;
-        }
-
-        return false;
-    }
-
-    std::function<void (UpdateInfo)> onResult;
-};
+    return info;
+}
 
 class UpdateDownloader : public juce::ThreadWithProgressWindow
 {

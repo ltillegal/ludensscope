@@ -202,6 +202,9 @@ void DonateButton::paintButton (juce::Graphics& g, bool isMouseOver, bool isMous
 LudensScopeEditor::LudensScopeEditor (LudensScopeProcessor& p)
     : juce::AudioProcessorEditor (&p), processor (p)
 {
+    theme::setTheme (theme::loadSavedTheme());
+    openEditors().add (this);
+
     lookAndFeel = std::make_unique<ScopeLookAndFeel>();
     setLookAndFeel (lookAndFeel.get());
 
@@ -387,12 +390,6 @@ LudensScopeEditor::~LudensScopeEditor()
     processor.setBandSolo (false, 0.0f, 0.0f);
     processor.setReferencePlaying (false);
     processor.setReferenceAudible (false);
-
-    if (updateCheck != nullptr)
-    {
-        updateCheck->signalThreadShouldExit();
-        updateCheck->stopThread (1000);
-    }
 
     setLookAndFeel (nullptr);
 }
@@ -659,10 +656,12 @@ void LudensScopeEditor::timerCallback()
                                (double) processor.referenceLengthSamples() / referenceRate,
                                processor.referenceLoopStartSeconds(),
                                processor.referenceLoopEndSeconds());
-    spectrumView.repaint();
 
     if (frozen)
+    {
+        spectrumView.repaint();
         return;
+    }
 
     if (blockTruePeak > 1.0f)
         ++truePeakOvers;
@@ -1359,7 +1358,6 @@ void LudensScopeEditor::saveViewSettings()
     settings.targetCurveName = targetCurveActive ? targetCurveName : juce::String();
     settings.levelMatch = levelMatch ? 1 : 0;
     settings.mirror = mirror ? 1 : 0;
-    settings.theme = theme::getTheme();
     settings.spanIndex = spanIndex;
     settings.rangeLow = rangeLow;
     settings.rangeHigh = rangeHigh;
@@ -1486,20 +1484,25 @@ void LudensScopeEditor::syncSnapshots()
 
 void LudensScopeEditor::checkForUpdates()
 {
-    if (updateCheck != nullptr)
+    if (updateCheckRunning)
         return;
 
-    updateCheck = std::make_unique<UpdateCheckThread> (
-        [safe = juce::Component::SafePointer<LudensScopeEditor> (this)] (UpdateInfo info)
+    updateCheckRunning = true;
+    juce::Component::SafePointer<LudensScopeEditor> safe (this);
+
+    juce::Thread::launch ([safe]
+    {
+        const auto info = performUpdateCheck();
+
+        juce::MessageManager::callAsync ([safe, info]
         {
             if (safe == nullptr)
                 return;
 
-            safe->updateCheck.reset();
+            safe->updateCheckRunning = false;
             safe->handleUpdateResult (info);
         });
-
-    updateCheck->startThread();
+    });
 }
 
 void LudensScopeEditor::handleUpdateResult (const UpdateInfo& info)
@@ -1606,8 +1609,10 @@ void LudensScopeEditor::showThemeMenu()
                                 theme::setTheme (result - 3000);
                                 theme::saveTheme (theme::getTheme());
 
+                                safe->applyTheme();
+
                                 for (auto& other : openEditors())
-                                    if (other != nullptr)
+                                    if (other != nullptr && other != safe.getComponent())
                                         other->applyTheme();
 
                                 safe->saveViewSettings();

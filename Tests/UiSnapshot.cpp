@@ -5,6 +5,7 @@
 
 #include <cmath>
 #include <cstdio>
+#include <vector>
 
 namespace
 {
@@ -138,7 +139,21 @@ int main (int argc, char** argv)
     std::printf ("momentary %.2f LUFS, integrated %.2f LUFS\n",
                  processor.momentaryLufs(), processor.integratedLufs());
 
+    // The editor must load the globally saved theme in its constructor.
+    const auto themeFile = theme::settingsFile();
+    const bool hadThemeFile = themeFile.existsAsFile();
+    const auto oldThemeText = hadThemeFile ? themeFile.loadFileAsString() : juce::String();
+    theme::saveTheme (4);
+
     std::unique_ptr<juce::AudioProcessorEditor> editor (processor.createEditor());
+    const bool themeLoaded = theme::getTheme() == 4;
+
+    if (hadThemeFile)
+        themeFile.replaceWithText (oldThemeText);
+    else
+        themeFile.deleteFile();
+
+    std::printf ("theme load from settings: %s\n", themeLoaded ? "ok" : "FAIL");
     editor->setSize (1060, 700);
 
     juce::Timer::callAfterDelay (7200, [&processor, &referenceFile, &editor]
@@ -273,6 +288,29 @@ int main (int argc, char** argv)
                  monoOk ? "ok" : "FAIL", (int) monoLayoutOk, monoRead,
                  (double) monoPeak, (int) monoDual);
 
+    // BS.1770: a single channel must not be counted twice. Compare the
+    // mono meter with a dual-mono stereo feed of the same sine.
+    LoudnessMeter monoMeter, stereoMeter;
+    monoMeter.prepare (48000.0);
+    stereoMeter.prepare (48000.0);
+
+    std::vector<float> probe ((size_t) 96000);
+
+    for (int i = 0; i < (int) probe.size(); ++i)
+        probe[(size_t) i] = 0.25f * std::sin (juce::MathConstants<float>::twoPi
+                                             * 1000.0f * (float) i / 48000.0f);
+
+    monoMeter.processMono (probe.data(), (int) probe.size());
+    stereoMeter.process (probe.data(), probe.data(), (int) probe.size());
+
+    const float monoLufs = monoMeter.integratedLufs();
+    const float stereoLufs = stereoMeter.integratedLufs();
+    const bool monoLufsOk = std::abs ((stereoLufs - monoLufs) - 3.01f) < 0.2f;
+
+    std::printf ("mono LUFS: %.2f / dual %.2f (delta %.2f) %s\n",
+                 (double) monoLufs, (double) stereoLufs,
+                 (double) (stereoLufs - monoLufs), monoLufsOk ? "ok" : "FAIL");
+
     // Clip counter smoke check: one full-scale sample in each channel.
     juce::AudioBuffer<float> clipBuffer (2, 64);
     clipBuffer.clear();
@@ -388,7 +426,6 @@ int main (int argc, char** argv)
     testView.targetCurveName = "Test target";
     testView.levelMatch = 0;
     testView.mirror = 1;
-    testView.theme = 2;
     testView.waterfallRatio = 0.45f;
     testView.spanIndex = 2;
     testView.rangeLow = 50.0f;
@@ -427,7 +464,6 @@ int main (int argc, char** argv)
         && restoredView.targetCurveName == "Test target"
         && restoredView.levelMatch == 0
         && restoredView.mirror == 1
-        && restoredView.theme == 2
         && std::abs (restoredView.waterfallRatio - 0.45f) < 0.01f
         && restoredView.spanIndex == 2
         && std::abs (restoredView.rangeLow - 50.0f) < 1.0f
