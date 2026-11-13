@@ -733,6 +733,7 @@ void LudensScopeEditor::timerCallback()
 
     vectorScopeView.setData (scopeLeft.data() + (scopeSize - 1024),
                              scopeRight.data() + (scopeSize - 1024), 1024);
+    oscilloscopeView.setMomentaryLufs (processor.momentaryLufs());
     oscilloscopeView.setData (scopeLeft.data(), scopeRight.data(), scopeSize, false);
 
     spectrumView.repaint();

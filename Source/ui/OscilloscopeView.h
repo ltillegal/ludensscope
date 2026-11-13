@@ -23,6 +23,8 @@ public:
         isFrozen = frozen;
     }
 
+    void setMomentaryLufs (float lufs) noexcept { momentaryLufs = lufs; }
+
     void setSampleRate (double newSampleRate) noexcept
     {
         sampleRate = newSampleRate > 0.0 ? newSampleRate : 48000.0;
@@ -157,7 +159,10 @@ public:
         // the waveform shape instead of a sparse, aliased polyline.
         const auto drawChannel = [&] (const std::vector<float>& data, juce::Colour colour)
         {
-            std::vector<float> tops ((size_t) columns), bottoms ((size_t) columns);
+            auto& tops = envelopeTops;
+            auto& bottoms = envelopeBottoms;
+            tops.resize ((size_t) columns);
+            bottoms.resize ((size_t) columns);
 
             for (int c = 0; c < columns; ++c)
             {
@@ -225,22 +230,7 @@ public:
             const float peakDb = 20.0f * std::log10 (juce::jmax (peak, 1.0e-5f));
             const float rmsDb = 20.0f * std::log10 (juce::jmax (rms, 1.0e-5f));
 
-            if (preparedLufsRate != sampleRate)
-            {
-                loudnessMeter.prepare (sampleRate);
-                preparedLufsRate = sampleRate;
-            }
-
-            loudnessMeter.reset();
-
-            for (int off = 0; off < drawCount; off += 512)
-            {
-                const int n = juce::jmin (512, drawCount - off);
-                loudnessMeter.process (left.data() + start + off,
-                                       right.data() + start + off, n);
-            }
-
-            const float lufs = loudnessMeter.momentaryLufs();
+            const float lufs = momentaryLufs;
 
             const juce::Rectangle<float> stats (plot.getX() + 8.0f, plot.getY() + 6.0f, 360.0f, 18.0f);
 
@@ -289,9 +279,9 @@ private:
     int windowSamples = 0;
     float verticalGain = 1.0f;
     double sampleRate = 48000.0;
-    double preparedLufsRate = 0.0;
 
-    LoudnessMeter loudnessMeter;
+    std::vector<float> envelopeTops, envelopeBottoms;
+    float momentaryLufs = -100.0f;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (OscilloscopeView)
 };
