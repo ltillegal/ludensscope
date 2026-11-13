@@ -143,6 +143,7 @@ private:
     juce::Image logoImage;
     juce::Image logoSource;
     juce::Rectangle<int> railBounds;
+    float uiScale = 1.0f;
     juce::TextButton captureButton { "CAPTURE" };
     juce::TextButton monoButton { "MONO" };
     juce::TextButton spanButton { "SPAN 10" };

@@ -58,7 +58,7 @@ public:
         if (isDown)             fill = fill.brighter (0.08f);
         else if (isHighlighted) fill = fill.brighter (0.04f);
 
-        const float corner = juce::jmin (6.0f, bounds.getHeight() * 0.5f);
+        const float corner = juce::jmin (bounds.getHeight() * 0.23f, 8.0f);
 
         g.setColour (fill);
         g.fillRoundedRectangle (bounds, corner);
@@ -70,7 +70,7 @@ public:
     void drawButtonText (juce::Graphics& g, juce::TextButton& button,
                          bool, bool) override
     {
-        g.setFont (theme::labelFont (10.5f));
+        g.setFont (theme::labelFont (juce::jlimit (9.0f, 14.0f, button.getHeight() * 0.40f)));
 
         g.setColour (button.getToggleState() ? theme::panelTop : theme::text);
         g.drawFittedText (button.getButtonText(), button.getLocalBounds(),
@@ -115,12 +115,13 @@ void ReferenceSlotSwitch::paint (juce::Graphics& g)
     g.fillRoundedRectangle (bounds, 6.0f);
 
     const auto inner = bounds.reduced (2.0f);
-    const float segmentWidth = (inner.getWidth() - 6.0f) * 0.25f;
+    const float segmentGap = juce::jmax (1.0f, bounds.getHeight() * 0.08f);
+    const float segmentWidth = (inner.getWidth() - segmentGap * 3.0f) * 0.25f;
     const char* letters[] = { "A", "B", "C", "D" };
 
     for (int i = 0; i < 4; ++i)
     {
-        auto segment = inner.withWidth (segmentWidth).translated (i * (segmentWidth + 2.0f), 0.0f);
+        auto segment = inner.withWidth (segmentWidth).translated (i * (segmentWidth + segmentGap), 0.0f);
         const bool activeSegment = i == active;
 
         if (activeSegment)
@@ -132,13 +133,15 @@ void ReferenceSlotSwitch::paint (juce::Graphics& g)
         g.setColour (activeSegment ? theme::bg
                                    : (filled[(size_t) i] ? theme::text.withAlpha (0.8f)
                                                          : theme::textDim));
-        g.setFont (theme::monoFont (10.0f));
+        g.setFont (theme::monoFont (juce::jlimit (8.0f, 13.0f, getHeight() * 0.38f)));
         g.drawText (letters[i], segment, juce::Justification::centred);
 
         if (filled[(size_t) i] && ! activeSegment)
         {
+            const float dot = juce::jmax (2.0f, getHeight() * 0.10f);
             g.setColour (theme::accent);
-            g.fillEllipse (segment.getRight() - 5.0f, segment.getBottom() - 5.0f, 2.5f, 2.5f);
+            g.fillEllipse (segment.getRight() - dot - 1.0f, segment.getBottom() - dot - 1.0f,
+                           dot, dot);
         }
     }
 }
@@ -155,17 +158,18 @@ void DonateButton::paintButton (juce::Graphics& g, bool isMouseOver, bool isMous
 {
     const auto bounds = getLocalBounds().toFloat();
 
-    const float corner = juce::jmin (6.0f, bounds.getHeight() * 0.5f);
+    const float corner = juce::jmin (bounds.getHeight() * 0.23f, 8.0f);
 
     g.setColour (isMouseDown ? theme::panelTop : theme::panel);
     g.fillRoundedRectangle (bounds, corner);
     g.setColour (theme::panelLine);
     g.drawRoundedRectangle (bounds.reduced (0.5f), corner, 1.0f);
 
-    const float cx = bounds.getWidth() > 40.0f ? bounds.getX() + 14.0f
-                                                : bounds.getCentreX();
+    const bool wide = bounds.getWidth() > 40.0f;
+    const float cx = wide ? bounds.getX() + bounds.getHeight() * 0.54f
+                          : bounds.getCentreX();
     const float cy = bounds.getCentreY();
-    const float s = bounds.getWidth() > 40.0f ? 5.5f : 6.5f;
+    const float s = bounds.getHeight() * (wide ? 0.21f : 0.25f);
 
     juce::Path heart;
     heart.startNewSubPath (cx, cy + s * 0.85f);
@@ -180,11 +184,11 @@ void DonateButton::paintButton (juce::Graphics& g, bool isMouseOver, bool isMous
     g.setColour (isMouseOver ? theme::hot.brighter (0.15f) : theme::hot);
     g.fillPath (heart);
 
-    if (bounds.getWidth() > 40.0f)
+    if (wide)
     {
         g.setColour (isMouseOver ? theme::text : theme::text.withAlpha (0.85f));
-        g.setFont (theme::labelFont (9.0f));
-        g.drawText ("DONATE", bounds.withTrimmedLeft (24.0f),
+        g.setFont (theme::labelFont (juce::jlimit (8.0f, 12.0f, bounds.getHeight() * 0.35f)));
+        g.drawText ("DONATE", bounds.withTrimmedLeft (bounds.getHeight() * 0.92f),
                     juce::Justification::centredLeft);
     }
 }
@@ -392,10 +396,11 @@ void LudensScopeEditor::paint (juce::Graphics& g)
         g.setColour (theme::panelLine.withAlpha (0.6f));
         g.drawRoundedRectangle (railBounds.toFloat().reduced (0.5f), 8.0f, 1.0f);
 
-        const int rowTop = railBounds.getBottom() - 8 - 26;
+        const int rowTop = railBounds.getBottom() - juce::roundToInt (8.0f * uiScale)
+                           - juce::roundToInt (26.0f * uiScale);
         g.setColour (theme::panelLine.withAlpha (0.8f));
         g.fillRect (railBounds.getX() + 12, rowTop - 10, railBounds.getWidth() - 24, 1);
-        g.setFont (theme::labelFont (8.0f));
+        g.setFont (theme::labelFont (juce::jlimit (7.0f, 10.0f, 8.0f * uiScale)));
         g.setColour (theme::textDim);
         g.drawText ("REF", railBounds.getX(), rowTop - 24, railBounds.getWidth(), 12,
                     juce::Justification::centred);
@@ -437,19 +442,36 @@ void LudensScopeEditor::paint (juce::Graphics& g)
 void LudensScopeEditor::resized()
 {
     auto r = getLocalBounds().reduced (14);
+
+    const float scaleW = (float) getWidth() / 1060.0f;
+    const float scaleH = (float) getHeight() / 700.0f;
+    uiScale = juce::jlimit (0.9f, 1.35f, juce::jmin (scaleW, scaleH));
+    spectrumView.setUiScale (uiScale);
+
     auto header = r.removeFromTop (36);
-    themeButton.setBounds (header.removeFromRight (90).withSizeKeepingCentre (90, 26));
+    const int themeWidth = juce::roundToInt (90.0f * uiScale);
+    const int themeHeight = juce::jmin (34, juce::roundToInt (26.0f * uiScale));
+    themeButton.setBounds (header.removeFromRight (themeWidth)
+                               .withSizeKeepingCentre (themeWidth, themeHeight));
     r.removeFromTop (8);
 
-    railBounds = r.removeFromRight (88);
-    r.removeFromRight (10);
+    const int railWidth = juce::roundToInt (88.0f * uiScale);
+    railBounds = r.removeFromRight (railWidth);
+    r.removeFromRight (juce::roundToInt (10.0f * uiScale));
 
-    auto rail = railBounds.withTrimmedLeft (2).withTrimmedRight (2).withTrimmedTop (8);
-    constexpr int buttonHeight = 26;
+    auto rail = railBounds.withTrimmedLeft (2).withTrimmedRight (2)
+                          .withTrimmedTop (juce::roundToInt (8.0f * uiScale));
+    const int buttonHeight = juce::roundToInt (26.0f * uiScale);
+    const int refRowHeight = buttonHeight;
+    const int refMargin = juce::roundToInt (8.0f * uiScale);
+    const int refCaption = juce::roundToInt (34.0f * uiScale);
 
-    const int refTop = railBounds.getBottom() - 8 - 26 - 34;
+    const int refTop = railBounds.getBottom() - refMargin - refRowHeight - refCaption;
     const int available = juce::jmax (0, refTop - rail.getY());
-    const int buttonGap = juce::jlimit (6, 22, (available - buttonHeight * 10) / 9);
+    const int minGap = juce::roundToInt (6.0f * uiScale);
+    const int maxGap = juce::roundToInt (22.0f * uiScale);
+    const int buttonGap = juce::jlimit (minGap, juce::jmax (minGap, maxGap),
+                                        (available - buttonHeight * 10) / 9);
 
     auto stack = rail.removeFromTop (buttonHeight * 10 + buttonGap * 9);
 
@@ -464,8 +486,10 @@ void LudensScopeEditor::resized()
         stack.removeFromTop (buttonGap);
     }
 
-    slotSwitch.setBounds (railBounds.getX() + 2, railBounds.getBottom() - 8 - 26,
-                          railBounds.getWidth() - 4, 26);
+    slotSwitch.setBounds (railBounds.getX() + juce::roundToInt (2.0f * uiScale),
+                          railBounds.getBottom() - refMargin - refRowHeight,
+                          railBounds.getWidth() - juce::roundToInt (4.0f * uiScale),
+                          refRowHeight);
 
     constexpr int gap = 10;
     const int bottomHeight = juce::jlimit (150, 230, (int) ((float) r.getHeight() * 0.34f));

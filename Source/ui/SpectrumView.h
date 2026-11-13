@@ -124,6 +124,11 @@ public:
         referenceMirror = mirrorMode;
     }
 
+    void setUiScale (float scale) noexcept
+    {
+        uiScale = juce::jlimit (0.85f, 1.4f, scale);
+    }
+
     void setReferenceWaveform (const std::vector<float>& waveform)
     {
         referenceWaveform = waveform;
@@ -876,60 +881,62 @@ public:
         // Reference transport, only when a reference is loaded.
         if (transportEnabled)
         {
-            const juce::Rectangle<float> bar (plot.getRight() - 348.0f, plot.getY() + 6.0f,
-                                              348.0f, 18.0f);
+            const float s = uiScale;
+            const juce::Rectangle<float> bar (plot.getRight() - 348.0f * s,
+                                              plot.getY() + 6.0f * s,
+                                              348.0f * s, 18.0f * s);
 
             g.setColour (theme::bg.withAlpha (0.66f));
-            g.fillRoundedRectangle (bar, 9.0f);
+            g.fillRoundedRectangle (bar, 9.0f * s);
             g.setColour (theme::panelLine);
-            g.drawRoundedRectangle (bar, 9.0f, 1.0f);
+            g.drawRoundedRectangle (bar, 9.0f * s, 1.0f);
 
-            playArea = { bar.getX() + 4.0f, bar.getY(), 24.0f, bar.getHeight() };
-            loopArea = { bar.getX() + 34.0f, bar.getY(), 44.0f, bar.getHeight() };
-            abArea = { bar.getX() + 86.0f, bar.getY(), 42.0f, bar.getHeight() };
-            matchArea = { bar.getX() + 132.0f, bar.getY(), 48.0f, bar.getHeight() };
-            mirrorArea = { bar.getX() + 186.0f, bar.getY(), 54.0f, bar.getHeight() };
+            playArea = { bar.getX() + 4.0f * s, bar.getY(), 24.0f * s, bar.getHeight() };
+            loopArea = { bar.getX() + 34.0f * s, bar.getY(), 44.0f * s, bar.getHeight() };
+            abArea = { bar.getX() + 86.0f * s, bar.getY(), 42.0f * s, bar.getHeight() };
+            matchArea = { bar.getX() + 132.0f * s, bar.getY(), 48.0f * s, bar.getHeight() };
+            mirrorArea = { bar.getX() + 186.0f * s, bar.getY(), 54.0f * s, bar.getHeight() };
 
             g.setColour (transportPlaying ? theme::accent2 : theme::accent);
 
             if (transportPlaying)
             {
-                g.fillRect (playArea.getCentreX() - 3.0f, playArea.getCentreY() - 3.0f,
-                            6.0f, 6.0f);
+                g.fillRect (playArea.getCentreX() - 3.0f * s, playArea.getCentreY() - 3.0f * s,
+                            6.0f * s, 6.0f * s);
             }
             else
             {
                 juce::Path triangle;
-                triangle.addTriangle (playArea.getCentreX() - 3.0f, playArea.getCentreY() - 4.0f,
-                                      playArea.getCentreX() - 3.0f, playArea.getCentreY() + 4.0f,
-                                      playArea.getCentreX() + 4.0f, playArea.getCentreY());
+                triangle.addTriangle (playArea.getCentreX() - 3.0f * s, playArea.getCentreY() - 4.0f * s,
+                                      playArea.getCentreX() - 3.0f * s, playArea.getCentreY() + 4.0f * s,
+                                      playArea.getCentreX() + 4.0f * s, playArea.getCentreY());
                 g.fillPath (triangle);
             }
 
-            g.setFont (theme::labelFont (8.5f));
+            g.setFont (theme::labelFont (8.5f * s));
             g.setColour (transportLooping ? theme::accent2 : theme::textDim);
             g.drawText ("LOOP", loopArea, juce::Justification::centred);
 
             g.setColour (transportAudible ? theme::accent : theme::textDim);
             g.drawText (transportAudible ? "REF" : "MIX", abArea, juce::Justification::centred);
 
-            g.setFont (theme::labelFont (8.5f));
+            g.setFont (theme::labelFont (8.5f * s));
             g.setColour (referenceLevelMatch ? theme::accent2 : theme::textDim);
             g.drawText ("MATCH", matchArea, juce::Justification::centred);
 
             g.setColour (referenceMirror ? theme::accent : theme::textDim);
             g.drawText ("MIRROR", mirrorArea, juce::Justification::centred);
 
-            g.setFont (theme::monoFont (9.0f));
+            g.setFont (theme::monoFont (9.0f * s));
             g.setColour (theme::textDim);
             g.drawText (formatTime (transportPosition) + " / " + formatTime (transportLength),
-                        bar.withTrimmedLeft (246.0f).withTrimmedRight (8.0f),
+                        bar.withTrimmedLeft (246.0f * s).withTrimmedRight (8.0f * s),
                         juce::Justification::centredRight);
 
-            loopBar = { bar.getX(), bar.getBottom() + 4.0f, bar.getWidth(), 20.0f };
+            loopBar = { bar.getX(), bar.getBottom() + 4.0f * s, bar.getWidth(), 20.0f * s };
 
             g.setColour (theme::panelLine);
-            g.fillRoundedRectangle (loopBar, 4.0f);
+            g.fillRoundedRectangle (loopBar, 4.0f * s);
 
             const bool selectingLoop = loopDrag == LoopDrag::selecting;
             const double regionStart = selectingLoop ? loopPreviewStart : transportLoopStart;
@@ -1090,7 +1097,8 @@ public:
             const float rawX = x > plot.getCentreX() ? x - boxWidth - 10.0f : x + 10.0f;
             const float boxX = juce::jlimit (plot.getX() + 4.0f,
                                              plot.getRight() - boxWidth - 4.0f, rawX);
-            const juce::Rectangle<float> box (boxX, plot.getY() + 52.0f, boxWidth, boxHeight);
+            const juce::Rectangle<float> box (boxX, plot.getY() + 48.0f * uiScale + 4.0f,
+                                              boxWidth, boxHeight);
 
             g.setColour (theme::bg.withAlpha (0.95f));
             g.fillRoundedRectangle (box, 7.0f);
@@ -1253,6 +1261,7 @@ private:
     bool transportAudible = false;
     bool referenceLevelMatch = true;
     bool referenceMirror = false;
+    float uiScale = 1.0f;
     double transportPosition = 0.0;
     double transportLength = 0.0;
     double transportLoopStart = 0.0;

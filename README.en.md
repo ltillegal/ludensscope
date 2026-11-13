@@ -139,7 +139,9 @@ Hotkeys: `Space` — reference play/stop, `A` — REF/MIX, `F` — freeze,
 The `THEME` button in the top-right switches seven interface palettes:
 **Blue** (current), **Dark**, **Light**, **Magenta**, **Green**, **Red**,
 **Orange**. The choice is stored in the project; the light theme re-tints the
-logo and curves automatically, and the waterfall follows the palette.
+logo and curves automatically, and the waterfall follows the palette. The
+right-rail buttons, `THEME`, the A–D slots and the transport scale with the
+window (about 0.9–1.35×).
 
 ## Updates
 
