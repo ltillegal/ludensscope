@@ -184,6 +184,8 @@ int main (int argc, char** argv)
         && processor.hasReferenceAudio()
         && processor.getReferenceSettings().valid
         && processor.getReferenceSettings().path == referenceFile.getFullPathName();
+    processor.switchReferenceSlot (1);
+
     const bool slotsOk = slotB && slotABack;
     std::printf ("reference slots: %s\n", slotsOk ? "ok" : "FAIL");
 

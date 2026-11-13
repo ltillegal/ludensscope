@@ -57,12 +57,14 @@ public:
         if (isDown)             fill = fill.brighter (0.08f);
         else if (isHighlighted) fill = fill.brighter (0.04f);
 
+        const float corner = juce::jmin (6.0f, bounds.getHeight() * 0.5f);
+
         g.setColour (fill);
-        g.fillRoundedRectangle (bounds, 13.0f);
+        g.fillRoundedRectangle (bounds, corner);
 
         g.setColour (button.getToggleState() ? theme::accent.withAlpha (0.85f)
                                              : theme::panelLine.brighter (0.10f));
-        g.drawRoundedRectangle (bounds, 13.0f, 1.0f);
+        g.drawRoundedRectangle (bounds, corner, 1.0f);
     }
 
     void drawButtonText (juce::Graphics& g, juce::TextButton& button,
@@ -134,10 +136,12 @@ void DonateButton::paintButton (juce::Graphics& g, bool isMouseOver, bool isMous
 {
     const auto bounds = getLocalBounds().toFloat();
 
+    const float corner = juce::jmin (6.0f, bounds.getHeight() * 0.5f);
+
     g.setColour (isMouseDown ? theme::panelTop : theme::panel);
-    g.fillRoundedRectangle (bounds, bounds.getHeight() * 0.5f);
+    g.fillRoundedRectangle (bounds, corner);
     g.setColour (theme::panelLine);
-    g.drawRoundedRectangle (bounds.reduced (0.5f), bounds.getHeight() * 0.5f, 1.0f);
+    g.drawRoundedRectangle (bounds.reduced (0.5f), corner, 1.0f);
 
     const float cx = bounds.getWidth() > 40.0f ? bounds.getX() + 14.0f
                                                 : bounds.getCentreX();
@@ -178,7 +182,7 @@ LudensScopeEditor::LudensScopeEditor (LudensScopeProcessor& p)
                                                  BinaryData::ludens_logo_pngSize);
     tooltipWindow = std::make_unique<juce::TooltipWindow> (this, 700);
     setResizable (true, true);
-    setResizeLimits (1060, 600, 2400, 1500);
+    setResizeLimits (1060, 660, 2400, 1500);
 
     addAndMakeVisible (spectrumView);
     addAndMakeVisible (spectrogramView);
@@ -388,12 +392,9 @@ void LudensScopeEditor::paint (juce::Graphics& g)
     g.setColour (theme::text);
     g.drawText ("LudensScope", brand, juce::Justification::centredLeft);
 
-    if (getWidth() >= 1100)
-    {
-        g.setFont (theme::labelFont (9.5f));
-        g.setColour (theme::textDim);
-        g.drawText ("STEREO ANALYZER", header, juce::Justification::centredLeft);
-    }
+    g.setFont (theme::labelFont (9.5f));
+    g.setColour (theme::textDim);
+    g.drawText ("STEREO ANALYZER", header, juce::Justification::centredLeft);
 
     g.setColour (juce::Colour (0x12ffffff));
     g.fillRect (14, 53, getWidth() - 28, 1);
@@ -1452,6 +1453,7 @@ void LudensScopeEditor::toggleLevelMatch()
     else
         updateReferenceGain();
 
+    spectrumView.setReferenceModes (levelMatch, mirror);
     saveViewSettings();
 }
 
@@ -1463,6 +1465,7 @@ void LudensScopeEditor::toggleMirror()
     if (mirror)
         processor.setReferenceLoop (false);
 
+    spectrumView.setReferenceModes (levelMatch, mirror);
     saveViewSettings();
 }
 
@@ -1473,6 +1476,11 @@ void LudensScopeEditor::selectReferenceSlot (int slot)
 
     processor.switchReferenceSlot (slot);
     applyReferenceSettings();
+    slotSwitch.setState (processor.getActiveReferenceSlot(),
+                         processor.isReferenceSlotFilled (0),
+                         processor.isReferenceSlotFilled (1),
+                         processor.isReferenceSlotFilled (2),
+                         processor.isReferenceSlotFilled (3));
 }
 
 void LudensScopeEditor::applyReferenceSettings()
