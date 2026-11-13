@@ -30,6 +30,9 @@ FetchContent_Declare(
 
 FetchContent_MakeAvailable(JUCE)
 
+juce_add_binary_data(LudensScopeBinaryData SOURCES
+  Source/assets/ludens_logo.png)
+
 juce_add_plugin(LudensScope
   COMPANY_NAME "LudensScope"
   BUNDLE_ID "local.ludensscope"
@@ -66,6 +69,7 @@ target_link_libraries(LudensScope PRIVATE
   juce::juce_audio_utils
   juce::juce_dsp
   juce::juce_cryptography
+  LudensScopeBinaryData
   PUBLIC
   juce::juce_recommended_config_flags
   juce::juce_recommended_warning_flags)
@@ -104,6 +108,7 @@ if(LUDENSCOPE_BUILD_TESTS)
     juce::juce_audio_utils
     juce::juce_dsp
     juce::juce_cryptography
+    LudensScopeBinaryData
     juce::juce_recommended_config_flags)
 
   add_test(NAME loudness COMMAND LudensScopeLoudnessCalibration)

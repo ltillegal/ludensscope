@@ -126,6 +126,7 @@ private:
     juce::TextButton undoButton   { "UNDO" };
     DonateButton donateButton;
     ReferenceSlotSwitch slotSwitch;
+    juce::Image logoImage;
     juce::TextButton captureButton { "CAPTURE" };
     juce::TextButton monoButton { "MONO" };
     juce::TextButton spanButton { "SPAN 10" };
