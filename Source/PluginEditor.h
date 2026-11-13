@@ -25,14 +25,15 @@ class ReferenceSlotSwitch : public juce::Component,
                              public juce::SettableTooltipClient
 {
 public:
-    void setState (int activeSlot, bool slotAFilled, bool slotBFilled);
+    void setState (int activeSlot, bool slotAFilled, bool slotBFilled,
+                   bool slotCFilled, bool slotDFilled);
     std::function<void (int)> onSelect;
     void paint (juce::Graphics&) override;
     void mouseDown (const juce::MouseEvent&) override;
 
 private:
     int active = 0;
-    std::array<bool, 2> filled { false, false };
+    std::array<bool, 4> filled { false, false, false, false };
 };
 
 class DonateButton : public juce::Button
@@ -91,6 +92,8 @@ private:
     void saveViewSettings();
     void applyReferenceSettings();
     void selectReferenceSlot (int slot);
+    void toggleLevelMatch();
+    void toggleMirror();
     void checkForUpdates();
     void handleUpdateResult (const UpdateInfo& info);
     void downloadUpdate (const UpdateInfo& info);
@@ -187,6 +190,8 @@ private:
     std::array<float, SpectrumAnalyzer::numBins> targetCurve {};
     bool targetCurveActive = false;
     juce::String targetCurveName;
+    bool levelMatch = true;
+    bool mirror = false;
 
     bool monoActive = false;
 

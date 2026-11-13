@@ -115,11 +115,19 @@ public:
         return activeReferenceSlot.load (std::memory_order_relaxed);
     }
 
+    static constexpr int referenceSlotCount = 4;
+
     bool isReferenceSlotFilled (int slot) const noexcept
     {
-        return referenceSlots[(size_t) juce::jlimit (0, 1, slot)].valid;
+        return referenceSlots[(size_t) juce::jlimit (0, referenceSlotCount - 1, slot)].valid;
     }
     void switchReferenceSlot (int slot);
+
+    void setReferenceMirror (bool shouldMirror) noexcept
+    {
+        referenceMirror.store (shouldMirror, std::memory_order_relaxed);
+    }
+    bool isReferenceMirror() const noexcept { return referenceMirror.load(); }
 
     // Drop the audio but keep path/curve so the saved reference still shows.
     void unloadReferenceAudio() noexcept;
@@ -176,6 +184,8 @@ public:
         float oscGain = 1.0f;
         int differenceSource = 0;
         juce::String targetCurveName;
+        int levelMatch = 1;
+        int mirror = 0;
     };
 
     ViewSettings getViewSettings() const noexcept { return viewSettingsValue; }
@@ -261,8 +271,9 @@ private:
         std::shared_ptr<juce::AudioBuffer<float>> audio;
     };
 
-    std::array<ReferenceSlotInfo, 2> referenceSlots;
+    std::array<ReferenceSlotInfo, referenceSlotCount> referenceSlots;
     std::atomic<int> activeReferenceSlot { 0 };
+    std::atomic<bool> referenceMirror { false };
     std::atomic<int> referenceGenerationValue { 0 };
 
     void syncActiveReferenceSlot();

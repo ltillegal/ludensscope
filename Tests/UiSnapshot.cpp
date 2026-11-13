@@ -269,6 +269,9 @@ int main (int argc, char** argv)
                  undoOk ? "ok" : "FAIL");
 
     // The reference player should output the loaded file instead of silence.
+    // The editor's continuous loudness match ran during the message loop; reset
+    // the gain here so the playback checks stay deterministic.
+    processor.setReferenceGainDb (0.0f);
     processor.setReferencePlaying (true);
     processor.setReferenceAudible (true);
 
@@ -338,6 +341,8 @@ int main (int argc, char** argv)
     testView.difference = 1;
     testView.differenceSource = 1;
     testView.targetCurveName = "Test target";
+    testView.levelMatch = 0;
+    testView.mirror = 1;
     testView.spanIndex = 2;
     testView.rangeLow = 50.0f;
     testView.rangeHigh = 5000.0f;
@@ -373,6 +378,8 @@ int main (int argc, char** argv)
         && restoredView.difference == 1
         && restoredView.differenceSource == 1
         && restoredView.targetCurveName == "Test target"
+        && restoredView.levelMatch == 0
+        && restoredView.mirror == 1
         && restoredView.spanIndex == 2
         && std::abs (restoredView.rangeLow - 50.0f) < 1.0f
         && std::abs (restoredView.rangeHigh - 5000.0f) < 1.0f

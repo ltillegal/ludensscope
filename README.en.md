@@ -108,11 +108,16 @@ cmake --build --preset dev -j$(nproc)
 
    Reference: `REF FILE` loads wav/aiff/flac (or drop a file onto the plugin
    window). The averaged curve is drawn in grey; a transport appears on the
-   spectrum (play/stop, `LOOP`, `REF/MIX`, time) with a seek bar: click to seek,
-   drag to select a loop range, drag its edges separately; the file waveform is
-   drawn on the bar. There are two reference slots — the `A/B` block at the
-   bottom of the right rail; switching is instant (audio is cached in memory), and
-   the path, curve, LUFS and loop are stored in the project. The reference gain
+   spectrum (play/stop, `LOOP`, `REF/MIX`, `MATCH`, `MIRROR`, time) with a seek
+   bar: click to seek, drag to select a loop range, drag its edges separately;
+   the file waveform is drawn on the bar. There are **four reference slots A–D**
+   — the `REF` row at the bottom of the right rail (not to be confused with
+   `SNAP A–D`, which are spectrum snapshots); switching is instant (audio is
+   cached in memory), and the path, curve, LUFS and loop are stored in the
+   project. `MATCH` continuously level-matches the reference to the mix's
+   integrated LUFS; `MIRROR` makes the reference follow the DAW transport (FREE
+   mode is seek/loop). An empty slot shows `REF X EMPTY — USE REF FILE` on the
+   spectrum. The reference gain
    is matched to the current integrated loudness of the mix. On project open the
    file is reloaded; if it is missing, the curve remains for comparison. Files
    longer than 10 minutes are truncated.
