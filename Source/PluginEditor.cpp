@@ -137,9 +137,10 @@ void DonateButton::paintButton (juce::Graphics& g, bool isMouseOver, bool isMous
     g.setColour (theme::panelLine);
     g.drawRoundedRectangle (bounds.reduced (0.5f), bounds.getHeight() * 0.5f, 1.0f);
 
-    const float cx = bounds.getCentreX();
+    const float cx = bounds.getWidth() > 40.0f ? bounds.getX() + 14.0f
+                                                : bounds.getCentreX();
     const float cy = bounds.getCentreY();
-    const float s = 6.5f;
+    const float s = bounds.getWidth() > 40.0f ? 5.5f : 6.5f;
 
     juce::Path heart;
     heart.startNewSubPath (cx, cy + s * 0.85f);
@@ -151,8 +152,16 @@ void DonateButton::paintButton (juce::Graphics& g, bool isMouseOver, bool isMous
                    cx, cy + s * 0.85f);
     heart.closeSubPath();
 
-    g.setColour (isMouseOver ? theme::accent2.brighter (0.2f) : theme::accent2);
+    g.setColour (isMouseOver ? theme::hot.brighter (0.15f) : theme::hot);
     g.fillPath (heart);
+
+    if (bounds.getWidth() > 40.0f)
+    {
+        g.setColour (isMouseOver ? theme::text : theme::text.withAlpha (0.85f));
+        g.setFont (theme::labelFont (9.0f));
+        g.drawText ("DONATE", bounds.withTrimmedLeft (24.0f),
+                    juce::Justification::centredLeft);
+    }
 }
 
 LudensScopeEditor::LudensScopeEditor (LudensScopeProcessor& p)
@@ -167,7 +176,7 @@ LudensScopeEditor::LudensScopeEditor (LudensScopeProcessor& p)
                                                  BinaryData::ludens_logo_pngSize);
     tooltipWindow = std::make_unique<juce::TooltipWindow> (this, 700);
     setResizable (true, true);
-    setResizeLimits (1060, 660, 2400, 1500);
+    setResizeLimits (1060, 600, 2400, 1500);
 
     addAndMakeVisible (spectrumView);
     addAndMakeVisible (spectrogramView);
@@ -344,7 +353,23 @@ void LudensScopeEditor::paint (juce::Graphics& g)
     g.setGradientFill (glow);
     g.fillAll();
 
-    auto header = getLocalBounds().reduced (14).removeFromTop (72);
+    if (! railBounds.isEmpty())
+    {
+        g.setColour (theme::panel.withAlpha (0.35f));
+        g.fillRoundedRectangle (railBounds.toFloat(), 8.0f);
+        g.setColour (theme::panelLine.withAlpha (0.6f));
+        g.drawRoundedRectangle (railBounds.toFloat().reduced (0.5f), 8.0f, 1.0f);
+
+        const int abTop = railBounds.getBottom() - 8 - 56;
+        g.setColour (theme::panelLine.withAlpha (0.8f));
+        g.fillRect (railBounds.getX() + 12, abTop - 10, railBounds.getWidth() - 24, 1);
+        g.setFont (theme::labelFont (8.0f));
+        g.setColour (theme::textDim);
+        g.drawText ("REF", railBounds.getX(), abTop - 26, railBounds.getWidth(), 12,
+                    juce::Justification::centred);
+    }
+
+    auto header = getLocalBounds().reduced (14).removeFromTop (36);
 
     auto brand = header.removeFromLeft (196);
 
@@ -367,7 +392,7 @@ void LudensScopeEditor::paint (juce::Graphics& g)
     }
 
     g.setColour (juce::Colour (0x12ffffff));
-    g.fillRect (14, 89, getWidth() - 28, 1);
+    g.fillRect (14, 53, getWidth() - 28, 1);
 
     if (fileDragActive)
     {
@@ -383,40 +408,39 @@ void LudensScopeEditor::paint (juce::Graphics& g)
 void LudensScopeEditor::resized()
 {
     auto r = getLocalBounds().reduced (14);
-    auto header = r.removeFromTop (72);
-
-    auto rows = header;
-    rows.removeFromTop (8);
-    rows.removeFromBottom (8);
-
-    slotSwitch.setBounds (rows.removeFromRight (72));
-    rows.removeFromRight (10);
-
-    auto row1 = rows.removeFromTop (26);
-    rows.removeFromTop (4);
-    auto row2 = rows.removeFromTop (26);
-
-    monoButton.setBounds (row1.removeFromRight (74).withSizeKeepingCentre (74, 26));
-    row1.removeFromRight (8);
-    spanButton.setBounds (row1.removeFromRight (92).withSizeKeepingCentre (92, 26));
-    row1.removeFromRight (8);
-    guidesButton.setBounds (row1.removeFromRight (84).withSizeKeepingCentre (84, 26));
-    row1.removeFromRight (8);
-    referenceButton.setBounds (row1.removeFromRight (88).withSizeKeepingCentre (88, 26));
-    row1.removeFromRight (8);
-    fftButton.setBounds (row1.removeFromRight (84).withSizeKeepingCentre (84, 26));
-
-    donateButton.setBounds (row2.removeFromRight (26).withSizeKeepingCentre (26, 26));
-    row2.removeFromRight (6);
-    resetButton.setBounds (row2.removeFromRight (84).withSizeKeepingCentre (84, 26));
-    row2.removeFromRight (8);
-    undoButton.setBounds (row2.removeFromRight (68).withSizeKeepingCentre (68, 26));
-    row2.removeFromRight (8);
-    freezeButton.setBounds (row2.removeFromRight (94).withSizeKeepingCentre (94, 26));
-    row2.removeFromRight (8);
-    captureButton.setBounds (row2.removeFromRight (98).withSizeKeepingCentre (98, 26));
-
+    r.removeFromTop (36);
     r.removeFromTop (8);
+
+    railBounds = r.removeFromRight (88);
+    r.removeFromRight (10);
+
+    auto rail = railBounds.withTrimmedLeft (2).withTrimmedRight (2).withTrimmedTop (8);
+    constexpr int buttonHeight = 26;
+
+    const int refTop = railBounds.getBottom() - 8 - 56 - 34;
+    const int available = juce::jmax (0, refTop - rail.getY());
+    const int buttonGap = juce::jlimit (6, 22, (available - buttonHeight * 10) / 9);
+
+    auto stack = rail.removeFromTop (buttonHeight * 10 + buttonGap * 9);
+
+    const auto placeButton = [&stack, buttonGap] (juce::Component& button)
+    {
+        button.setBounds (stack.removeFromTop (buttonHeight));
+        stack.removeFromTop (buttonGap);
+    };
+
+    placeButton (fftButton);
+    placeButton (referenceButton);
+    placeButton (guidesButton);
+    placeButton (spanButton);
+    placeButton (monoButton);
+    placeButton (captureButton);
+    placeButton (freezeButton);
+    placeButton (undoButton);
+    placeButton (resetButton);
+    placeButton (donateButton);
+
+    slotSwitch.setBounds (railBounds.getX() + 8, railBounds.getBottom() - 8 - 56, 72, 56);
 
     constexpr int gap = 10;
     const int bottomHeight = juce::jlimit (150, 230, (int) ((float) r.getHeight() * 0.34f));

@@ -127,6 +127,7 @@ private:
     DonateButton donateButton;
     ReferenceSlotSwitch slotSwitch;
     juce::Image logoImage;
+    juce::Rectangle<int> railBounds;
     juce::TextButton captureButton { "CAPTURE" };
     juce::TextButton monoButton { "MONO" };
     juce::TextButton spanButton { "SPAN 10" };
