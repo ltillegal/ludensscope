@@ -134,7 +134,9 @@ cmake --build --preset dev -j$(nproc)
    reference metadata.
 
 Hotkeys: `A` — REF/MIX, `F` — freeze, `Esc` — clear the band solo.
-Space is not intercepted — it belongs to the host transport.
+Space is not intercepted — it belongs to the host transport. The plugin also
+works on mono tracks (mono/mono bus): the channel is duplicated for analysis
+and metering.
 
 The `THEME` button in the top-right switches seven interface palettes:
 **Blue** (current), **Dark**, **Light**, **Magenta**, **Green**, **Red**,
