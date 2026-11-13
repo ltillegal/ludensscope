@@ -83,12 +83,29 @@ public:
 
         if (plot.getWidth() != width || plot.getHeight() != height)
         {
+            const auto oldImage = image;
+            const int oldWidth = width;
+            const int oldHeight = height;
+            const int oldWriteRow = writeRow;
+
             width = juce::jmax (1, plot.getWidth());
             height = juce::jmax (1, plot.getHeight());
 
             image = juce::Image (juce::Image::ARGB, width, height, true);
             image.clear (image.getBounds(), theme::bg);
-            writeRow = 0;
+
+            if (oldImage.isValid() && oldWidth > 0 && oldHeight > 0)
+            {
+                juce::Graphics g (image);
+                g.drawImage (oldImage, 0, 0, width, height, 0, 0, oldWidth, oldHeight);
+            }
+
+            writeRow = oldHeight > 0
+                           ? juce::jlimit (0, height - 1,
+                                           (int) std::lround ((double) oldWriteRow
+                                                              * (double) height
+                                                              / (double) oldHeight))
+                           : 0;
         }
     }
 
@@ -206,7 +223,6 @@ private:
             palette[(size_t) i] = heat ((float) i / (float) (paletteSize - 1));
 
         paletteTheme = theme::getTheme();
-        clear();
     }
 
     juce::Image image;

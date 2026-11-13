@@ -102,8 +102,14 @@ static juce::Image tintLogo (const juce::Image& source, juce::Colour colour)
 void ReferenceSlotSwitch::setState (int activeSlot, bool slotAFilled, bool slotBFilled,
                                     bool slotCFilled, bool slotDFilled)
 {
-    active = juce::jlimit (0, 3, activeSlot);
-    filled = { slotAFilled, slotBFilled, slotCFilled, slotDFilled };
+    const int newActive = juce::jlimit (0, 3, activeSlot);
+    const std::array<bool, 4> newFilled { slotAFilled, slotBFilled, slotCFilled, slotDFilled };
+
+    if (newActive == active && newFilled == filled)
+        return;
+
+    active = newActive;
+    filled = newFilled;
     repaint();
 }
 
@@ -375,6 +381,12 @@ LudensScopeEditor::~LudensScopeEditor()
     processor.setBandSolo (false, 0.0f, 0.0f);
     processor.setReferencePlaying (false);
     processor.setReferenceAudible (false);
+
+    if (updateCheck != nullptr)
+    {
+        updateCheck->signalThreadShouldExit();
+        updateCheck->stopThread (1000);
+    }
 
     setLookAndFeel (nullptr);
 }
@@ -657,30 +669,33 @@ void LudensScopeEditor::timerCallback()
     spectrogramView.push (analyzer.levels().data(), SpectrumAnalyzer::numBins);
 
     // Side-channel analyser mirrors the settings and runs only for M/S view.
-    sideAnalyzer.setFftSize (analyzer.getFftSize());
-    sideAnalyzer.setWindow (analyzer.getWindow());
-    sideAnalyzer.setTilt (analyzer.getTilt());
-    sideAnalyzer.setOctaveSmoothing (analyzer.getOctaveSmoothing());
-
-    if (timingPreset == 0)
-        sideAnalyzer.setTiming (0.85f, 0.30f, 0.80f);
-    else if (timingPreset == 1)
-        sideAnalyzer.setTiming (0.55f, 0.12f, 0.35f);
-    else
-        sideAnalyzer.setTiming (0.25f, 0.03f, 0.12f);
-
-    if (numRead > 0)
+    if (showSide)
     {
-        sideBuffer.resize ((size_t) numRead);
+        sideAnalyzer.setFftSize (analyzer.getFftSize());
+        sideAnalyzer.setWindow (analyzer.getWindow());
+        sideAnalyzer.setTilt (analyzer.getTilt());
+        sideAnalyzer.setOctaveSmoothing (analyzer.getOctaveSmoothing());
 
-        for (int i = 0; i < numRead; ++i)
-            sideBuffer[(size_t) i] = 0.5f * (readLeft[(size_t) i] - readRight[(size_t) i]);
+        if (timingPreset == 0)
+            sideAnalyzer.setTiming (0.85f, 0.30f, 0.80f);
+        else if (timingPreset == 1)
+            sideAnalyzer.setTiming (0.55f, 0.12f, 0.35f);
+        else
+            sideAnalyzer.setTiming (0.25f, 0.03f, 0.12f);
 
-        sideAnalyzer.pushMono (sideBuffer.data(), numRead);
+        if (numRead > 0)
+        {
+            sideBuffer.resize ((size_t) numRead);
+
+            for (int i = 0; i < numRead; ++i)
+                sideBuffer[(size_t) i] = 0.5f * (readLeft[(size_t) i] - readRight[(size_t) i]);
+
+            sideAnalyzer.pushMono (sideBuffer.data(), numRead);
+        }
+
+        sideAnalyzer.update();
+        spectrumView.setSideData (sideAnalyzer.levels().data(), sideAnalyzer.peaks().data());
     }
-
-    sideAnalyzer.update();
-    spectrumView.setSideData (sideAnalyzer.levels().data(), sideAnalyzer.peaks().data());
 
     const float integrated = processor.integratedLufs();
     const float plr = (integrated > -70.0f && truePeakHoldDb > -99.0f)
@@ -735,14 +750,18 @@ void LudensScopeEditor::chooseReferenceFile()
 
     referenceChooser->launchAsync (juce::FileBrowserComponent::openMode
                                        | juce::FileBrowserComponent::canSelectFiles,
-                                   [this] (const juce::FileChooser& chooser)
+                                   [safe = juce::Component::SafePointer<LudensScopeEditor> (this)]
+                                   (const juce::FileChooser& chooser)
                                    {
+                                       if (safe == nullptr)
+                                           return;
+
                                        const auto file = chooser.getResult();
 
                                        if (file.existsAsFile())
                                        {
-                                           pendingReferenceLoopStart = -1.0;
-                                           loadReferenceFile (file);
+                                           safe->pendingReferenceLoopStart = -1.0;
+                                           safe->loadReferenceFile (file);
                                        }
                                    });
 }
@@ -1058,8 +1077,12 @@ void LudensScopeEditor::exportViewPng()
     pngChooser->launchAsync (juce::FileBrowserComponent::saveMode
                                  | juce::FileBrowserComponent::canSelectFiles
                                  | juce::FileBrowserComponent::warnAboutOverwriting,
-                             [this] (const juce::FileChooser& chooser)
+                             [safe = juce::Component::SafePointer<LudensScopeEditor> (this)]
+                             (const juce::FileChooser& chooser)
                              {
+                                 if (safe == nullptr)
+                                     return;
+
                                  const auto file = chooser.getResult();
 
                                  if (file == juce::File())
@@ -1073,7 +1096,7 @@ void LudensScopeEditor::exportViewPng()
                                  if (stream == nullptr)
                                      return;
 
-                                 const auto image = createComponentSnapshot (getLocalBounds());
+                                 const auto image = safe->createComponentSnapshot (safe->getLocalBounds());
                                  juce::PNGImageFormat png;
                                  png.writeImageToStream (image, *stream);
                              });
@@ -1140,8 +1163,12 @@ void LudensScopeEditor::exportSnapshots()
     snapshotChooser->launchAsync (juce::FileBrowserComponent::saveMode
                                       | juce::FileBrowserComponent::canSelectFiles
                                       | juce::FileBrowserComponent::warnAboutOverwriting,
-                                  [this] (const juce::FileChooser& chooser)
+                                  [safe = juce::Component::SafePointer<LudensScopeEditor> (this)]
+                                  (const juce::FileChooser& chooser)
                                   {
+                                      if (safe == nullptr)
+                                          return;
+
                                       const auto file = chooser.getResult();
 
                                       if (file == juce::File())
@@ -1169,8 +1196,8 @@ void LudensScopeEditor::exportSnapshots()
                                           {
                                               csv += ",";
 
-                                              if (processor.isSnapshotFilled (slot))
-                                                  csv += juce::String (processor.snapshotLevels (slot)[i], 2);
+                                              if (safe->processor.isSnapshotFilled (slot))
+                                                  csv += juce::String (safe->processor.snapshotLevels (slot)[i], 2);
                                           }
 
                                           csv += "\n";
@@ -1290,6 +1317,14 @@ void LudensScopeEditor::applyViewSettings (const LudensScopeProcessor::ViewSetti
     waterfallHistory = settings.waterfallHistory;
     spectrogramView.setPushDivider (waterfallHistory);
 
+    const float newWaterfallRatio = juce::jlimit (0.18f, 0.60f, settings.waterfallRatio);
+
+    if (std::abs (newWaterfallRatio - waterfallRatio) > 0.001f)
+    {
+        waterfallRatio = newWaterfallRatio;
+        resized();
+    }
+
     meterPanel.setTarget (settings.targetLufs);
 
     oscilloscopeView.setWindowSamples (settings.oscWindow);
@@ -1319,6 +1354,7 @@ void LudensScopeEditor::saveViewSettings()
     settings.rangeHigh = rangeHigh;
     settings.targetLufs = meterPanel.getTarget();
     settings.waterfallHistory = waterfallHistory;
+    settings.waterfallRatio = waterfallRatio;
     settings.oscWindow = oscilloscopeView.getWindowSamples();
     settings.oscGain = oscilloscopeView.getVerticalGain();
 
@@ -1542,13 +1578,16 @@ void LudensScopeEditor::showThemeMenu()
         menu.addItem (3000 + i, theme::themeName (i), true, theme::getTheme() == i);
 
     menu.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (themeButton),
-                        [this] (int result)
+                        [safe = juce::Component::SafePointer<LudensScopeEditor> (this)] (int result)
                         {
+                            if (safe == nullptr)
+                                return;
+
                             if (result >= 3000)
                             {
                                 theme::setTheme (result - 3000);
-                                applyTheme();
-                                saveViewSettings();
+                                safe->applyTheme();
+                                safe->saveViewSettings();
                             }
                         });
 }
@@ -1990,10 +2029,14 @@ void LudensScopeEditor::mouseDrag (const juce::MouseEvent& e)
 
     waterfallRatio = (float) height / (float) juce::jmax (1, leftColumnBounds.getHeight());
     resized();
+    repaint();
 }
 
 void LudensScopeEditor::mouseUp (const juce::MouseEvent&)
 {
+    if (draggingDivider)
+        saveViewSettings();
+
     draggingDivider = false;
 }
 
@@ -2004,4 +2047,5 @@ void LudensScopeEditor::mouseDoubleClick (const juce::MouseEvent& e)
 
     waterfallRatio = 0.32f;
     resized();
+    saveViewSettings();
 }

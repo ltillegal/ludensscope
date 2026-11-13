@@ -346,6 +346,7 @@ int main (int argc, char** argv)
     testView.levelMatch = 0;
     testView.mirror = 1;
     testView.theme = 2;
+    testView.waterfallRatio = 0.45f;
     testView.spanIndex = 2;
     testView.rangeLow = 50.0f;
     testView.rangeHigh = 5000.0f;
@@ -384,6 +385,7 @@ int main (int argc, char** argv)
         && restoredView.levelMatch == 0
         && restoredView.mirror == 1
         && restoredView.theme == 2
+        && std::abs (restoredView.waterfallRatio - 0.45f) < 0.01f
         && restoredView.spanIndex == 2
         && std::abs (restoredView.rangeLow - 50.0f) < 1.0f
         && std::abs (restoredView.rangeHigh - 5000.0f) < 1.0f
