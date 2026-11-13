@@ -54,6 +54,8 @@ public:
     void paint (juce::Graphics&) override;
     void resized() override;
 
+    bool isReferenceCurveVisible() const { return spectrumView.hasReferenceCurve(); }
+
     void mouseMove (const juce::MouseEvent&) override;
     void mouseDown (const juce::MouseEvent&) override;
     void mouseDrag (const juce::MouseEvent&) override;

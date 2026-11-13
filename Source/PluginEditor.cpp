@@ -423,22 +423,16 @@ void LudensScopeEditor::resized()
 
     auto stack = rail.removeFromTop (buttonHeight * 10 + buttonGap * 9);
 
-    const auto placeButton = [&stack, buttonGap] (juce::Component& button)
-    {
-        button.setBounds (stack.removeFromTop (buttonHeight));
-        stack.removeFromTop (buttonGap);
+    juce::Component* const buttons[] = {
+        &fftButton, &referenceButton, &guidesButton, &spanButton, &monoButton,
+        &captureButton, &freezeButton, &undoButton, &resetButton, &donateButton
     };
 
-    placeButton (fftButton);
-    placeButton (referenceButton);
-    placeButton (guidesButton);
-    placeButton (spanButton);
-    placeButton (monoButton);
-    placeButton (captureButton);
-    placeButton (freezeButton);
-    placeButton (undoButton);
-    placeButton (resetButton);
-    placeButton (donateButton);
+    for (auto* button : buttons)
+    {
+        button->setBounds (stack.removeFromTop (buttonHeight));
+        stack.removeFromTop (buttonGap);
+    }
 
     slotSwitch.setBounds (railBounds.getX() + 8, railBounds.getBottom() - 8 - 56, 72, 56);
 
@@ -1444,9 +1438,13 @@ void LudensScopeEditor::applyReferenceSettings()
         referencePath.clear();
         spectrumView.setReference (nullptr, false);
         spectrumView.setReferenceWaveform ({});
+        spectrumView.setReferencePlaceholder ("REF "
+                                              + juce::String (processor.getActiveReferenceSlot() == 0 ? "A" : "B")
+                                              + " EMPTY — USE REF FILE");
         return;
     }
 
+    spectrumView.setReferencePlaceholder ({});
     referenceDb = reference.curve;
     hasReference = true;
     spectrumView.setReference (referenceDb.data(), true);

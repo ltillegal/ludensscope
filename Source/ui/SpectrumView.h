@@ -110,6 +110,14 @@ public:
         repaint();
     }
 
+    bool hasReferenceCurve() const noexcept { return hasReference; }
+
+    void setReferencePlaceholder (const juce::String& text)
+    {
+        referencePlaceholder = text;
+        repaint();
+    }
+
     void setReferenceWaveform (const std::vector<float>& waveform)
     {
         referenceWaveform = waveform;
@@ -592,6 +600,16 @@ public:
 
             g.setColour (theme::text.withAlpha (0.65f));
             g.strokePath (dashed, juce::PathStrokeType (1.0f));
+        }
+        else if (referencePlaceholder.isNotEmpty())
+        {
+            const juce::Rectangle<float> hint (plot.getRight() - 250.0f, plot.getY() + 6.0f,
+                                               250.0f, 18.0f);
+            g.setColour (theme::panel.withAlpha (0.55f));
+            g.fillRoundedRectangle (hint, 5.0f);
+            g.setColour (theme::textDim);
+            g.setFont (theme::labelFont (8.5f));
+            g.drawText (referencePlaceholder, hint, juce::Justification::centred);
         }
 
         if (hasTargetCurve)
@@ -1194,6 +1212,7 @@ private:
     std::array<juce::Rectangle<float>, snapshotCount> snapshotLetterAreas {};
 
     bool hasReference = false;
+    juce::String referencePlaceholder;
     bool hasTargetCurve = false;
     juce::String targetCurveName;
     bool cursorActive = false;
