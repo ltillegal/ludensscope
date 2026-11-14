@@ -6,7 +6,7 @@ if(CMAKE_HOST_SYSTEM_NAME STREQUAL "Darwin")
   set(CMAKE_OSX_ARCHITECTURES "arm64;x86_64" CACHE STRING "macOS architectures")
 endif()
 
-set(LUDENSCOPE_VERSION "0.3.0")
+set(LUDENSCOPE_VERSION "0.3.1")
 project(LudensScope VERSION ${LUDENSCOPE_VERSION} LANGUAGES C CXX)
 
 enable_testing()
