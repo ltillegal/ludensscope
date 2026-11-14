@@ -92,8 +92,22 @@ namespace theme
     inline int getTheme() noexcept { return currentTheme; }
     inline bool isLight() noexcept { return currentTheme == 2; }
 
+    inline juce::File& settingsFileOverride()
+    {
+        static juce::File file;
+        return file;
+    }
+
+    inline void setSettingsFileForTesting (const juce::File& file)
+    {
+        settingsFileOverride() = file;
+    }
+
     inline juce::File settingsFile()
     {
+        if (settingsFileOverride() != juce::File())
+            return settingsFileOverride();
+
         return juce::File::getSpecialLocation (juce::File::userApplicationDataDirectory)
             .getChildFile ("LudensScope")
             .getChildFile ("theme.txt");

@@ -140,18 +140,17 @@ int main (int argc, char** argv)
                  processor.momentaryLufs(), processor.integratedLufs());
 
     // The editor must load the globally saved theme in its constructor.
-    const auto themeFile = theme::settingsFile();
-    const bool hadThemeFile = themeFile.existsAsFile();
-    const auto oldThemeText = hadThemeFile ? themeFile.loadFileAsString() : juce::String();
+    const auto themeFile = juce::File::getSpecialLocation (juce::File::tempDirectory)
+                               .getChildFile ("ludensscope-theme-test.txt");
+    themeFile.deleteFile();
+    theme::setSettingsFileForTesting (themeFile);
     theme::saveTheme (4);
 
     std::unique_ptr<juce::AudioProcessorEditor> editor (processor.createEditor());
     const bool themeLoaded = theme::getTheme() == 4;
 
-    if (hadThemeFile)
-        themeFile.replaceWithText (oldThemeText);
-    else
-        themeFile.deleteFile();
+    theme::setSettingsFileForTesting (juce::File());
+    themeFile.deleteFile();
 
     std::printf ("theme load from settings: %s\n", themeLoaded ? "ok" : "FAIL");
     editor->setSize (1060, 700);

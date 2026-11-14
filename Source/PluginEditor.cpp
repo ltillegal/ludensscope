@@ -203,7 +203,6 @@ LudensScopeEditor::LudensScopeEditor (LudensScopeProcessor& p)
     : juce::AudioProcessorEditor (&p), processor (p)
 {
     theme::setTheme (theme::loadSavedTheme());
-    openEditors().add (this);
 
     lookAndFeel = std::make_unique<ScopeLookAndFeel>();
     setLookAndFeel (lookAndFeel.get());
@@ -311,7 +310,7 @@ LudensScopeEditor::LudensScopeEditor (LudensScopeProcessor& p)
 
     fftButton.setTooltip ("FFT size, window, ballistics, tilt, smoothing");
     referenceButton.setTooltip ("Load a reference track; the transport appears on the spectrum");
-    guidesButton.setTooltip ("Placement guides; click a zone to solo that band");
+    guidesButton.setTooltip ("Placement guides; Shift/Alt-click a zone to solo that band");
     spanButton.setTooltip ("Frequency span in octaves (wheel over the spectrum zooms)");
     monoButton.setTooltip ("Analyse the mono sum to check phase cancellations");
     captureButton.setTooltip ("Store the averaged spectrum in the selected snapshot slot");
@@ -370,6 +369,7 @@ LudensScopeEditor::LudensScopeEditor (LudensScopeProcessor& p)
 
     setSize (1060, 700);
     startTimerHz (30);
+    openEditors().add (this);
 }
 
 LudensScopeEditor::~LudensScopeEditor()
@@ -1490,7 +1490,7 @@ void LudensScopeEditor::checkForUpdates()
     updateCheckRunning = true;
     juce::Component::SafePointer<LudensScopeEditor> safe (this);
 
-    juce::Thread::launch ([safe]
+    const bool started = juce::Thread::launch ([safe]
     {
         const auto info = performUpdateCheck();
 
@@ -1503,6 +1503,9 @@ void LudensScopeEditor::checkForUpdates()
             safe->handleUpdateResult (info);
         });
     });
+
+    if (! started)
+        updateCheckRunning = false;
 }
 
 void LudensScopeEditor::handleUpdateResult (const UpdateInfo& info)

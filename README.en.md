@@ -74,8 +74,8 @@ cmake --build --preset dev -j$(nproc)
    top show the LOW/MID/HIGH energy balance. `GUIDES` opens a menu — Off or a
    genre zone set (General / EDM / Hip-Hop / Rock / Acoustic / Pop / Metal /
    Jazz / Orchestral / Lo-Fi / R&B): a hint of where instruments usually live.
-   Click a zone to solo that band (only the band reaches the output; the
-   analysers still see the full mix); click again to turn it off.
+   Shift/Alt-click a zone to solo that band (only the band reaches the
+   output; the analysers still see the full mix); repeat to turn it off.
 
    The `FFT` button opens the analyser settings: window size 2048–16384, window
    function (Hann / Blackman-Harris / Flat-top), smoothing speed (Fast / Medium /
@@ -137,8 +137,8 @@ Hotkeys: `A` — REF/MIX, `F` — freeze, `Esc` — clear the band solo.
 Guides: `Shift`/`Alt` + click on a zone toggles band solo; a plain click on
 the graph never filters the host output. Space is not intercepted — it belongs
 to the host transport. The plugin also
-works on mono tracks (mono/mono bus): the channel is duplicated for analysis
-and metering.
+works on mono tracks (mono/mono bus): loudness and metering use one channel;
+duplication is only for the spectrum/vector analysis.
 
 The `THEME` button in the top-right switches seven interface palettes:
 **Blue** (current), **Dark**, **Light**, **Magenta**, **Green**, **Red**,

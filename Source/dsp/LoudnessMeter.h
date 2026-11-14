@@ -69,6 +69,7 @@ private:
     int samplesPerSubBlock = 4800;
     int subBlockCounter = 0;
     double sumL = 0.0, sumR = 0.0;
+    bool monoMode = false;
 
     std::array<float, windowSubBlocks> blockMsL {}, blockMsR {};
     int blockWriteIndex = 0;

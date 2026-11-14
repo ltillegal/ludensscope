@@ -55,6 +55,7 @@ void LoudnessMeter::prepare (double newSampleRate) noexcept
 
 void LoudnessMeter::reset() noexcept
 {
+    monoMode = false;
     preL.reset();
     preR.reset();
     rlbL.reset();
@@ -80,6 +81,15 @@ void LoudnessMeter::reset() noexcept
 
 void LoudnessMeter::process (const float* left, const float* right, int numSamples) noexcept
 {
+    if (monoMode)
+    {
+        monoMode = false;
+        sumR = 0.0;
+        preR.reset();
+        rlbR.reset();
+        blockMsR.fill (0.0f);
+    }
+
     for (int i = 0; i < numSamples; ++i)
     {
         const float yl = rlbL.process (preL.process (left[i]));
@@ -95,6 +105,15 @@ void LoudnessMeter::process (const float* left, const float* right, int numSampl
 
 void LoudnessMeter::processMono (const float* left, int numSamples) noexcept
 {
+    if (! monoMode)
+    {
+        monoMode = true;
+        sumR = 0.0;
+        preR.reset();
+        rlbR.reset();
+        blockMsR.fill (0.0f);
+    }
+
     for (int i = 0; i < numSamples; ++i)
     {
         const float yl = rlbL.process (preL.process (left[i]));
