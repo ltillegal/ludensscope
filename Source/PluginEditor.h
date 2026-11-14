@@ -174,6 +174,7 @@ private:
     std::array<float, SpectrumAnalyzer::numBins> referenceHigh {};
     juce::StringArray matchLines;
     int matchTick = 0;
+    int uiScalePercent = 0;
     bool showNoteGrid = false;
     int smoothingPreset = 0;
     int overlapPreset = 0;

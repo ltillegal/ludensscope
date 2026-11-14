@@ -113,11 +113,11 @@ public:
             ? juce::String (milliseconds / 1000.0, 2) + " s"
             : juce::String (milliseconds, milliseconds < 10.0 ? 2 : 1) + " ms";
 
-        g.setFont (theme::labelFont (10.5f));
+        g.setFont (theme::detailFont (10.5f));
         g.setColour (theme::textDim);
         g.drawText ("OSCILLOSCOPE  " + windowText, header, juce::Justification::centredLeft);
 
-        g.setFont (theme::labelFont (9.5f));
+        g.setFont (theme::detailFont (9.5f));
         g.setColour (theme::textDim);
         g.drawText ("x" + juce::String (verticalGain, 2), header.withTrimmedRight (72.0f),
                     juce::Justification::centredRight);
@@ -175,7 +175,7 @@ public:
                                   : theme::textDim.withAlpha (0.25f));
                 g.drawHorizontalLine ((int) std::round (y), plot.getX(), plot.getRight());
 
-                g.setFont (theme::labelFont (7.0f));
+                g.setFont (theme::detailFont (7.0f));
                 g.setColour (zero ? theme::accent2 : theme::textDim);
                 g.drawText (zero ? "0 VU" : juce::String ((int) level) + " dB",
                             juce::Rectangle<float> (plot.getX() + 4.0f, y - 9.0f,
@@ -268,7 +268,7 @@ public:
             g.setColour (theme::panelLine);
             g.drawRoundedRectangle (stats, 9.0f, 1.0f);
 
-            g.setFont (theme::labelFont (8.5f));
+            g.setFont (theme::detailFont (8.5f));
             g.setColour (theme::textDim);
             g.drawText ("PEAK", stats.withTrimmedLeft (9.0f).withWidth (28.0f),
                         juce::Justification::centredLeft);
@@ -277,7 +277,7 @@ public:
             g.drawText ("CREST", stats.withTrimmedLeft (160.0f).withWidth (34.0f),
                         juce::Justification::centredLeft);
 
-            g.setFont (theme::monoFont (9.5f));
+            g.setFont (theme::detailMonoFont (9.5f));
             g.setColour (theme::accent);
             g.drawText (juce::String (peakDb, 1), stats.withTrimmedLeft (36.0f).withWidth (42.0f),
                         juce::Justification::centredLeft);
@@ -289,12 +289,12 @@ public:
                         stats.withTrimmedLeft (194.0f).withWidth (86.0f),
                         juce::Justification::centredLeft);
 
-            g.setFont (theme::labelFont (8.5f));
+            g.setFont (theme::detailFont (8.5f));
             g.setColour (theme::textDim);
             g.drawText ("LUFS", stats.withTrimmedLeft (250.0f).withWidth (30.0f),
                         juce::Justification::centredLeft);
 
-            g.setFont (theme::monoFont (9.5f));
+            g.setFont (theme::detailMonoFont (9.5f));
             g.setColour (theme::text);
             g.drawText (lufs > -70.0f ? juce::String (lufs, 1) : juce::String ("--"),
                         stats.withTrimmedLeft (282.0f).withWidth (64.0f),

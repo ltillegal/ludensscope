@@ -146,7 +146,8 @@ The `THEME` button in the top-right switches seven interface palettes:
 applied to every open instance; the light theme re-tints the
 logo and curves automatically, and the waterfall follows the palette. The
 right-rail buttons, `THEME`, the A–D slots and the transport scale with the
-window (about 0.9–1.35×).
+window (about 0.9–1.35×). The `THEME` menu also offers **UI scale**:
+Auto / 100% / 125% / 150%, scaling fonts, controls and the window.
 
 True peak uses an approximate detector (12-tap windowed sinc); expect a
 fraction of a dB of difference from the BS.1770-4 Annex 2 reference filter.
