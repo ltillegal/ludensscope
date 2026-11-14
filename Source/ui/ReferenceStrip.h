@@ -75,27 +75,34 @@ private:
 
 inline void ReferenceStrip::resized()
 {
-    auto b = getLocalBounds().toFloat().reduced (10.0f, 6.0f);
-    auto left = b.removeFromLeft (140.0f);
-    auto right = b.removeFromRight (230.0f);
-    auto mid = b.reduced (10.0f, 0.0f);
+    const float s = juce::jlimit (0.8f, 1.4f, (float) getHeight() / 84.0f);
+    auto b = getLocalBounds().toFloat().reduced (10.0f * s, 6.0f * s);
+    auto left = b.removeFromLeft (140.0f * s);
+    auto right = b.removeFromRight (230.0f * s);
+    auto mid = b.reduced (8.0f * s, 0.0f);
 
-    left.removeFromTop (12.0f);
-    refFileArea = left.removeFromTop (22.0f);
-    nameArea = left.removeFromTop (12.0f);
+    left.removeFromTop (12.0f * s);
+    refFileArea = left.removeFromTop (22.0f * s);
+    nameArea = right.removeFromTop (14.0f * s);
 
-    waveArea = mid.withTrimmedTop (2.0f).withTrimmedBottom (12.0f);
+    waveArea = mid.withTrimmedTop (2.0f * s).withTrimmedBottom (12.0f * s);
 
-    auto row = right.removeFromTop (30.0f);
-    playArea = row.removeFromLeft (28.0f);
-    row.removeFromLeft (5.0f);
-    loopArea = row.removeFromLeft (42.0f);
-    row.removeFromLeft (5.0f);
-    abArea = row.removeFromLeft (38.0f);
-    row.removeFromLeft (5.0f);
-    matchArea = row.removeFromLeft (46.0f);
-    row.removeFromLeft (5.0f);
-    mirrorArea = row.removeFromLeft (48.0f);
+    auto row = right.removeFromTop (30.0f * s);
+    const float btnW = 42.0f * s;
+    const float gap = 4.0f * s;
+
+    playArea = row.removeFromLeft (btnW);
+    row.removeFromLeft (gap);
+    loopArea = row.removeFromLeft (btnW);
+    row.removeFromLeft (gap);
+    abArea = row.removeFromLeft (btnW);
+    row.removeFromLeft (gap);
+    matchArea = row.removeFromLeft (btnW);
+    row.removeFromLeft (gap);
+    mirrorArea = row.removeFromLeft (btnW);
+
+    right.removeFromTop (12.0f * s); // time row
+    nameArea = right.removeFromTop (14.0f * s);
 }
 
 inline void ReferenceStrip::paint (juce::Graphics& g)
@@ -118,18 +125,12 @@ inline void ReferenceStrip::paint (juce::Graphics& g)
     g.drawText ("REF FILE", refFileArea, juce::Justification::centred);
 
     left.removeFromTop (22.0f); // ref-file row, drawn from refFileArea above
-    auto nameRow = left.removeFromTop (12.0f);
-    g.setFont (theme::labelFont (8.5f));
-    g.setColour (state.name.isNotEmpty() ? theme::text : theme::textDim);
-    g.drawText (state.name.isEmpty() ? "no reference" : state.name,
-                nameRow, juce::Justification::centredLeft, true);
-
-    g.setFont (theme::labelFont (7.5f));
+    g.setFont (theme::labelFont (8.0f));
     g.setColour (theme::textDim.withAlpha (0.85f));
     g.drawText (state.lufs > -99.0f
                     ? juce::String (state.lufs, 1) + " LUFS"
                     : "-inf LUFS",
-                left.removeFromTop (10.0f), juce::Justification::centredLeft);
+                left.removeFromTop (12.0f), juce::Justification::centredLeft);
 
     // Waveform.
     g.setColour (theme::bg.withAlpha (0.55f));
@@ -193,12 +194,16 @@ inline void ReferenceStrip::paint (juce::Graphics& g)
     }
 
     // Transport: a round play button and rounded pills, evenly spaced.
-    g.setColour (state.playing ? theme::accent2 : theme::bg.withAlpha (0.5f));
-    g.fillEllipse (playArea.reduced (1.0f));
-    g.setColour (state.playing ? theme::accent2 : theme::panelLine);
-    g.drawEllipse (playArea.reduced (1.0f), 1.0f);
+    const auto playPill = [&]
+    {
+        g.setColour (state.playing ? theme::accent.withAlpha (0.16f) : theme::bg.withAlpha (0.5f));
+        g.fillRoundedRectangle (playArea, playArea.getHeight() * 0.5f);
+        g.setColour (state.playing ? theme::accent : theme::panelLine);
+        g.drawRoundedRectangle (playArea.reduced (0.5f), playArea.getHeight() * 0.5f, 1.0f);
+    };
 
-    g.setColour (state.playing ? theme::bg : theme::accent);
+    playPill();
+    g.setColour (state.playing ? theme::accent : theme::accent2);
 
     if (state.playing)
     {
@@ -236,6 +241,11 @@ inline void ReferenceStrip::paint (juce::Graphics& g)
                     ? formatTime (state.position) + " / " + formatTime (state.duration)
                     : "--:--",
                 right.removeFromTop (12.0f), juce::Justification::centredRight);
+
+    g.setFont (theme::labelFont (8.0f));
+    g.setColour (state.name.isNotEmpty() ? theme::text : theme::textDim);
+    g.drawText (state.name.isEmpty() ? "no reference" : state.name,
+                right.removeFromTop (14.0f), juce::Justification::centredRight, true);
 }
 
 inline void ReferenceStrip::mouseDown (const juce::MouseEvent& e)
