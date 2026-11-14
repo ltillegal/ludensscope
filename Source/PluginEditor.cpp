@@ -506,7 +506,7 @@ void LudensScopeEditor::resized()
                           refRowHeight);
 
     const int gap = juce::roundToInt (10.0f * uiScale);
-    const int bottomHeight = juce::jlimit (125, 190, (int) ((float) r.getHeight() * 0.27f));
+    const int bottomHeight = juce::jlimit (115, 160, (int) ((float) r.getHeight() * 0.22f));
     auto bottom = r.removeFromBottom (bottomHeight);
     r.removeFromBottom (gap);
 
@@ -534,7 +534,7 @@ void LudensScopeEditor::resized()
 
     vectorScopeView.setBounds (vectorBounds);
 
-    const int vuWidth = juce::jlimit (260, 420, bottomHeight * 2);
+    const int vuWidth = juce::jlimit (320, 480, juce::roundToInt (400.0f * uiScale));
     auto vuBounds = bottom.removeFromLeft (vuWidth);
     bottom.removeFromLeft (gap);
 
