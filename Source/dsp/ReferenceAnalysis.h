@@ -3,6 +3,7 @@
 #include <juce_audio_formats/juce_audio_formats.h>
 #include <juce_dsp/juce_dsp.h>
 
+#include <algorithm>
 #include <array>
 #include <cmath>
 #include <functional>
@@ -18,6 +19,9 @@ struct ReferenceAnalysis
     bool truncated = false;
     bool cancelled = false;
     std::array<float, SpectrumAnalyzer::numBins> levels {};
+    std::array<float, SpectrumAnalyzer::numBins> levelsLow {};
+    std::array<float, SpectrumAnalyzer::numBins> levelsMid {};
+    std::array<float, SpectrumAnalyzer::numBins> levelsHigh {};
     std::unique_ptr<juce::AudioBuffer<float>> audio;
     double sampleRate = 0.0;
     float lufs = -100.0f;
@@ -77,7 +81,12 @@ inline ReferenceAnalysis analyzeReferenceFile (const juce::File& file,
 
     std::array<double, SpectrumAnalyzer::numBins> powerSum {};
     int levelCount = 0;
-    const auto skipSamples = (juce::int64) analyzer->getFftSize();
+    const auto skipSamples = juce::jmin ((juce::int64) totalSamples / 2,
+                                      juce::jmax ((juce::int64) analyzer->getFftSize(),
+                                                  (juce::int64) rate));
+    std::vector<float> levelHistory;
+    levelHistory.reserve ((size_t) juce::jmax (1, (int) (totalSamples / blockSize + 1))
+                          * (size_t) SpectrumAnalyzer::numBins);
 
     for (juce::int64 pos = 0; pos < totalSamples; pos += blockSize)
     {
@@ -116,7 +125,10 @@ inline ReferenceAnalysis analyzeReferenceFile (const juce::File& file,
             const auto& levels = analyzer->levels();
 
             for (int i = 0; i < SpectrumAnalyzer::numBins; ++i)
+            {
                 powerSum[(size_t) i] += std::pow (10.0, (double) levels[(size_t) i] / 10.0);
+                levelHistory.push_back (levels[(size_t) i]);
+            }
 
             ++levelCount;
         }
@@ -134,6 +146,40 @@ inline ReferenceAnalysis analyzeReferenceFile (const juce::File& file,
     else
     {
         result.levels.fill (-100.0f);
+    }
+
+    if (levelCount > 0)
+    {
+        std::vector<float> column ((size_t) levelCount);
+
+        for (int bin = 0; bin < SpectrumAnalyzer::numBins; ++bin)
+        {
+            for (int block = 0; block < levelCount; ++block)
+                column[(size_t) block] = levelHistory[(size_t) block
+                                                      * (size_t) SpectrumAnalyzer::numBins
+                                                      + (size_t) bin];
+
+            const auto p10 = column.begin() + (std::ptrdiff_t) (0.10 * (levelCount - 1));
+            const auto p90 = column.begin() + (std::ptrdiff_t) (0.90 * (levelCount - 1));
+            std::nth_element (column.begin(), p10, column.end());
+            const float low = *p10;
+            std::nth_element (column.begin(), p90, column.end());
+            const float high = *p90;
+
+            std::nth_element (column.begin(),
+                              column.begin() + (std::ptrdiff_t) (0.50 * (levelCount - 1)),
+                              column.end());
+
+            result.levelsLow[(size_t) bin] = low;
+            result.levelsMid[(size_t) bin] = column[(size_t) (0.50 * (levelCount - 1))];
+            result.levelsHigh[(size_t) bin] = high;
+        }
+    }
+    else
+    {
+        result.levelsLow.fill (-100.0f);
+        result.levelsMid.fill (-100.0f);
+        result.levelsHigh.fill (-100.0f);
     }
 
     result.lufs = loudness->integratedLufs();

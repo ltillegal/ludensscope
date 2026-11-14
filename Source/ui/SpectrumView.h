@@ -27,12 +27,34 @@ public:
         std::copy (peaksDb,  peaksDb  + numBins, peaks.begin());
     }
 
-    void setReference (const float* referenceDb, bool active) noexcept
+    void setReference (const float* referenceDb, bool active,
+                       const float* low = nullptr, const float* high = nullptr) noexcept
     {
         if (referenceDb != nullptr)
             std::copy (referenceDb, referenceDb + numBins, reference.begin());
 
+        hasReferenceBand = active && low != nullptr && high != nullptr;
+
+        if (hasReferenceBand)
+        {
+            std::copy (low, low + numBins, referenceLow.begin());
+            std::copy (high, high + numBins, referenceHigh.begin());
+        }
+
         hasReference = active;
+        repaint();
+    }
+
+    void setMatchSuggestions (const juce::StringArray& lines, bool show)
+    {
+        matchLines = lines;
+        showMatch = show;
+        repaint();
+    }
+
+    void setShowMatch (bool show)
+    {
+        showMatch = show;
         repaint();
     }
 
@@ -620,8 +642,60 @@ public:
             g.strokePath (sidePath, juce::PathStrokeType (1.1f));
         }
 
+        if (showMatch && ! matchLines.isEmpty())
+        {
+            const int count = juce::jmin (4, matchLines.size());
+            const juce::Rectangle<float> box (plot.getX() + 8.0f, plot.getY() + 26.0f,
+                                              230.0f, 14.0f + (float) count * 11.0f);
+            g.setColour (theme::bg.withAlpha (0.62f));
+            g.fillRoundedRectangle (box, 5.0f);
+            g.setColour (theme::panelLine);
+            g.drawRoundedRectangle (box.reduced (0.5f), 5.0f, 1.0f);
+
+            g.setFont (theme::labelFont (8.0f));
+            g.setColour (theme::accent2);
+            g.drawText ("REF MATCH  (mix vs reference)", box.reduced (7.0f, 0.0f).removeFromTop (13.0f),
+                        juce::Justification::centredLeft);
+
+            g.setFont (theme::labelFont (8.0f));
+
+            for (int i = 0; i < count; ++i)
+            {
+                g.setColour (theme::text);
+                g.drawText (matchLines[i],
+                            box.reduced (7.0f, 0.0f).withTrimmedTop (13.0f + (float) i * 11.0f)
+                               .removeFromTop (11.0f),
+                            juce::Justification::centredLeft);
+            }
+        }
+
         if (hasReference)
         {
+            if (hasReferenceBand)
+            {
+                juce::Path band;
+
+                for (int s = 0; s < steps; ++s)
+                {
+                    const float fraction = (float) s / (float) (steps - 1);
+                    const float x = xFor (fraction);
+                    const float y = yFor (levelAt (referenceHigh, fraction));
+
+                    if (s == 0) band.startNewSubPath (x, y);
+                    else        band.lineTo (x, y);
+                }
+
+                for (int s = steps - 1; s >= 0; --s)
+                {
+                    const float fraction = (float) s / (float) (steps - 1);
+                    band.lineTo (xFor (fraction), yFor (levelAt (referenceLow, fraction)));
+                }
+
+                band.closeSubPath();
+                g.setColour (theme::text.withAlpha (0.055f));
+                g.fillPath (band);
+            }
+
             juce::Path referencePath;
 
             for (int s = 0; s < steps; ++s)
@@ -1280,6 +1354,11 @@ private:
     bool referenceMirror = false;
     bool gainStaging = false;
     float vuZeroDbfs = -18.0f;
+    bool hasReferenceBand = false;
+    std::array<float, numBins> referenceLow {};
+    std::array<float, numBins> referenceHigh {};
+    bool showMatch = false;
+    juce::StringArray matchLines;
     float uiScale = 1.0f;
     double transportPosition = 0.0;
     double transportLength = 0.0;

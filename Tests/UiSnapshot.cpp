@@ -104,6 +104,15 @@ int main (int argc, char** argv)
                 if (referenceAnalysis.levels[(size_t) i] > referenceAnalysis.levels[(size_t) bestBin])
                     bestBin = i;
 
+            const bool percentilesOk = referenceAnalysis.levelsLow[289]
+                                        <= referenceAnalysis.levelsMid[289] + 1.0e-3f
+                                     && referenceAnalysis.levelsMid[289]
+                                        <= referenceAnalysis.levelsHigh[289] + 1.0e-3f;
+            std::printf ("reference percentiles p10/p50/p90: %.1f / %.1f / %.1f (%s)\n",
+                         (double) referenceAnalysis.levelsLow[289],
+                         (double) referenceAnalysis.levelsMid[289],
+                         (double) referenceAnalysis.levelsHigh[289],
+                         percentilesOk ? "ok" : "FAIL");
             std::printf ("reference peak bin %d, LUFS %.2f, samples %d\n",
                          bestBin, referenceAnalysis.lufs,
                          referenceAnalysis.audio != nullptr
@@ -463,6 +472,7 @@ int main (int argc, char** argv)
     testView.waterfallRatio = 0.45f;
     testView.gainStaging = 1;
     testView.vuZeroDbfs = -20;
+    testView.showMatch = 1;
     testView.spanIndex = 2;
     testView.rangeLow = 50.0f;
     testView.rangeHigh = 5000.0f;
@@ -503,6 +513,7 @@ int main (int argc, char** argv)
         && std::abs (restoredView.waterfallRatio - 0.45f) < 0.01f
         && restoredView.gainStaging == 1
         && restoredView.vuZeroDbfs == -20
+        && restoredView.showMatch == 1
         && restoredView.spanIndex == 2
         && std::abs (restoredView.rangeLow - 50.0f) < 1.0f
         && std::abs (restoredView.rangeHigh - 5000.0f) < 1.0f

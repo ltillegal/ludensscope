@@ -203,6 +203,7 @@ public:
         float waterfallRatio = 0.32f;
         int gainStaging = 0;
         int vuZeroDbfs = -18;
+        int showMatch = 0;
     };
 
     ViewSettings getViewSettings() const noexcept { return viewSettingsValue; }
