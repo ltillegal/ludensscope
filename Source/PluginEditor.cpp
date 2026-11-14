@@ -220,7 +220,6 @@ LudensScopeEditor::LudensScopeEditor (LudensScopeProcessor& p)
     referenceStrip.onMatch = [this] { toggleLevelMatch(); };
     referenceStrip.onMirror = [this] { toggleMirror(); };
     referenceStrip.onRefFile = [this] { chooseReferenceFile(); };
-    referenceStrip.onSelectSlot = [this] (int slot) { selectReferenceSlot (slot); };
     referenceStrip.onSeek = [this] (double seconds)
     {
         processor.setReferencePositionSeconds (seconds);
@@ -229,6 +228,10 @@ LudensScopeEditor::LudensScopeEditor (LudensScopeProcessor& p)
     {
         processor.setReferenceLoopRange (start, end);
     };
+
+    addAndMakeVisible (slotSwitch);
+    slotSwitch.setTooltip ("Reference slots A-D");
+    slotSwitch.onSelect = [this] (int slot) { selectReferenceSlot (slot); };
 
     themeButton.setTooltip ("Interface colour theme");
     themeButton.onClick = [this] { showThemeMenu(); };
@@ -401,7 +404,7 @@ void LudensScopeEditor::paint (juce::Graphics& g)
         g.fillRect (railBounds.getX() + 12, rowTop - 10, railBounds.getWidth() - 24, 1);
         g.setFont (theme::labelFont (juce::jlimit (7.0f, 10.0f, 8.0f * uiScale)));
         g.setColour (theme::textDim);
-        g.drawText ("", railBounds.getX(), rowTop - 24, railBounds.getWidth(), 12,
+        g.drawText ("REF", railBounds.getX(), rowTop - 24, railBounds.getWidth(), 12,
                     juce::Justification::centred);
     }
 
@@ -465,7 +468,11 @@ void LudensScopeEditor::resized()
     auto rail = railBounds.withTrimmedLeft (2).withTrimmedRight (2)
                           .withTrimmedTop (juce::roundToInt (8.0f * uiScale));
     const int buttonHeight = juce::roundToInt (26.0f * uiScale);
-    const int available = juce::jmax (0, rail.getHeight());
+    const int refRowHeight = buttonHeight;
+    const int refMargin = juce::roundToInt (8.0f * uiScale);
+    const int refCaption = juce::roundToInt (30.0f * uiScale);
+    const int refTop = railBounds.getBottom() - refMargin - refRowHeight - refCaption;
+    const int available = juce::jmax (0, refTop - rail.getY());
     const int minGap = juce::roundToInt (6.0f * uiScale);
     const int maxGap = juce::roundToInt (22.0f * uiScale);
     const int buttonGap = juce::jlimit (minGap, juce::jmax (minGap, maxGap),
@@ -485,6 +492,11 @@ void LudensScopeEditor::resized()
         button->setBounds (stack.removeFromTop (buttonHeight));
         stack.removeFromTop (buttonGap);
     }
+
+    slotSwitch.setBounds (railBounds.getX() + juce::roundToInt (2.0f * uiScale),
+                          railBounds.getBottom() - refMargin - refRowHeight,
+                          railBounds.getWidth() - juce::roundToInt (4.0f * uiScale),
+                          refRowHeight);
 
     const int gap = juce::roundToInt (10.0f * uiScale);
     const int stripHeight = juce::jlimit (64, 100, juce::roundToInt (84.0f * uiScale));
@@ -620,6 +632,12 @@ void LudensScopeEditor::timerCallback()
                           ? juce::File (referencePath).getFileName() : juce::String();
     stripState.lufs = processor.referenceLufs();
     referenceStrip.setState (std::move (stripState));
+
+    slotSwitch.setState (processor.getActiveReferenceSlot(),
+                         processor.isReferenceSlotFilled (0),
+                         processor.isReferenceSlotFilled (1),
+                         processor.isReferenceSlotFilled (2),
+                         processor.isReferenceSlotFilled (3));
 
     spectrumView.setReferenceModes (levelMatch, mirror);
 
@@ -1874,6 +1892,11 @@ void LudensScopeEditor::selectReferenceSlot (int slot)
 
     processor.switchReferenceSlot (slot);
     applyReferenceSettings();
+    slotSwitch.setState (processor.getActiveReferenceSlot(),
+                         processor.isReferenceSlotFilled (0),
+                         processor.isReferenceSlotFilled (1),
+                         processor.isReferenceSlotFilled (2),
+                         processor.isReferenceSlotFilled (3));
 }
 
 void LudensScopeEditor::applyReferenceSettings()
