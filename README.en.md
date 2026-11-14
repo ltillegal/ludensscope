@@ -4,7 +4,7 @@
 
 [Русский](README.md) · **English** · [❤ Donate](https://www.paypal.com/donate/?business=0eskimo0%40gmail.com&item_name=LudensScope&currency_code=USD)
 
-A minimalist stereo analyser in **VST3 and AU** formats: spectrum, loudness
+A minimalist stereo analyser in **VST3, AU, AAX, CLAP** and standalone formats: spectrum, loudness
 to ITU-R BS.1770-4, true peak, vectorscope, oscilloscope and reference.
 
 Free, no subscriptions, no telemetry. The project state stores FFT snapshots,
@@ -172,11 +172,20 @@ loudness, not peaks - use TRUE PEAK for peaks.
 
 ## Install from a release
 
-- Linux: `sudo apt install ./LudensScope-linux.deb` — installs the VST3 to `/usr/lib/vst3`.
-- macOS: open `LudensScope-macos.pkg` — installs the VST3 and AU to `/Library/Audio/Plug-Ins`.
-- Windows: run `LudensScope-windows.exe` — installs the VST3 to `C:\Program Files\Common Files\VST3`.
+- Linux: `sudo apt install ./LudensScope-linux.deb` — VST3 to `/usr/lib/vst3`,
+  CLAP to `/usr/lib/clap`, standalone app in the menu (`ludensscope`).
+- macOS: `LudensScope-macos.pkg` — VST3/AU/CLAP to `/Library/Audio/Plug-Ins`,
+  AAX to `/Library/Application Support/Avid/Audio/Plug-Ins`, the app to `/Applications`.
+- Windows: `LudensScope-windows.exe` — VST3 to `Common Files\VST3`, CLAP to
+  `Common Files\CLAP`, AAX to `Common Files\Avid\Audio\Plug-Ins`, the standalone
+  app to `Program Files\LudensScope`.
 - [Komi Store](https://komistore.app/) picks the release up from the installable
   assets (`.deb` / `.pkg` / `.exe`) automatically.
+
+AAX is built for macOS and Windows but ships **unsigned by PACE**: Pro Tools
+only loads a signed AAX (Avid Developer/PACE required). CLAP is an open format
+(MIT clap-juce-extensions wrapper); the standalone is a regular app with the
+same interface.
 
 ## Updates
 
