@@ -190,7 +190,7 @@ public:
 
         if (loopDrag == LoopDrag::startHandle)
         {
-            const double start = juce::jlimit (0.0, transportLoopEnd - 0.02, time);
+            const double start = juce::jlimit (0.0, juce::jmax (0.0, transportLoopEnd - 0.02), time);
 
             if (onLoopRangeChange)
                 onLoopRangeChange (start, transportLoopEnd);

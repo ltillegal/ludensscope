@@ -14,11 +14,15 @@
 struct ReferenceAnalysis
 {
     bool ok = false;
+    bool truncated = false;
+    bool cancelled = false;
     std::array<float, SpectrumAnalyzer::numBins> levels {};
     std::unique_ptr<juce::AudioBuffer<float>> audio;
     double sampleRate = 0.0;
     float lufs = -100.0f;
 };
+
+inline constexpr juce::int64 maxReferenceBytes = 256ll << 20; // per slot
 
 // Decodes an audio file on the calling thread, returning its time-averaged
 // spectrum, its BS.1770 integrated loudness and the audio itself (stereo, at
@@ -37,11 +41,26 @@ inline ReferenceAnalysis analyzeReferenceFile (const juce::File& file,
         return result;
 
     const double rate = reader->sampleRate > 0.0 ? reader->sampleRate : 48000.0;
-    const auto maxSamples = (juce::int64) (rate * 60.0 * 10.0);
+    const auto maxSamplesByTime = (juce::int64) (rate * 60.0 * 10.0);
+    const auto maxSamplesByBytes = maxReferenceBytes
+                                 / (juce::int64) (2 * sizeof (float));
+    const auto maxSamples = juce::jmin (maxSamplesByTime, maxSamplesByBytes);
     const int totalSamples = (int) juce::jmin (reader->lengthInSamples, maxSamples);
 
-    result.audio = std::make_unique<juce::AudioBuffer<float>> (2, juce::jmax (1, totalSamples));
+    if (totalSamples <= 0)
+        return result;
+
+    result.truncated = reader->lengthInSamples > (juce::int64) totalSamples;
     result.sampleRate = rate;
+
+    result.audio = std::make_unique<juce::AudioBuffer<float>> (2, totalSamples);
+
+    if (result.audio == nullptr || result.audio->getNumSamples() <= 0
+        || result.audio->getWritePointer (0) == nullptr)
+    {
+        result.audio.reset();
+        return result;
+    }
 
     auto analyzer = std::make_unique<SpectrumAnalyzer>();
     analyzer->prepare (rate);
@@ -61,7 +80,10 @@ inline ReferenceAnalysis analyzeReferenceFile (const juce::File& file,
     for (juce::int64 pos = 0; pos < totalSamples; pos += blockSize)
     {
         if (shouldExit && shouldExit())
+        {
+            result.cancelled = true;
             return result;
+        }
 
         const int n = (int) juce::jmin ((juce::int64) blockSize, totalSamples - pos);
 
@@ -75,7 +97,10 @@ inline ReferenceAnalysis analyzeReferenceFile (const juce::File& file,
         const float* left = buffer.getReadPointer (0);
         const float* right = buffer.getReadPointer (sourceChannels > 1 ? 1 : 0);
 
-        loudness->process (left, right, n);
+        if (sourceChannels == 1)
+            loudness->processMono (left, n);
+        else
+            loudness->process (left, right, n);
 
         for (int i = 0; i < n; ++i)
             mono[(size_t) i] = 0.5f * (left[i] + right[i]);
@@ -109,7 +134,8 @@ inline ReferenceAnalysis analyzeReferenceFile (const juce::File& file,
 
 // Linear resampling of a decoded reference to the plugin's sample rate.
 inline std::unique_ptr<juce::AudioBuffer<float>> resampleReference (
-    const juce::AudioBuffer<float>& source, double sourceRate, double targetRate)
+    const juce::AudioBuffer<float>& source, double sourceRate, double targetRate,
+    std::function<bool()> shouldExit = {}, bool* truncated = nullptr)
 {
     if (sourceRate <= 0.0 || targetRate <= 0.0
         || std::abs (sourceRate - targetRate) < 0.5
@@ -119,12 +145,20 @@ inline std::unique_ptr<juce::AudioBuffer<float>> resampleReference (
     }
 
     const double ratio = sourceRate / targetRate;
-    const int outputSamples = juce::jmax (1, (int) std::lround ((double) source.getNumSamples() / ratio));
+    const int expectedOutput = (int) std::lround ((double) source.getNumSamples() / ratio);
+    const int maxOutputByBytes = (int) (maxReferenceBytes / (juce::int64) (2 * sizeof (float)));
+    const int outputSamples = juce::jmax (1, juce::jmin (expectedOutput, maxOutputByBytes));
+
+    if (truncated != nullptr)
+        *truncated = expectedOutput > maxOutputByBytes;
 
     auto result = std::make_unique<juce::AudioBuffer<float>> (2, outputSamples);
 
     for (int channel = 0; channel < 2; ++channel)
     {
+        if (shouldExit && shouldExit())
+            return nullptr;
+
         const int sourceChannel = juce::jmin (channel, source.getNumChannels() - 1);
 
         juce::LagrangeInterpolator interpolator;

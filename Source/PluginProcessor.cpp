@@ -473,6 +473,8 @@ void LudensScopeProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce:
 
     // Reference player / A-B. Analysis above always sees the dry input; only
     // the outgoing audio is replaced while the reference is audible.
+    bool mirrorHostPlaying = false;
+
     if (referenceMirror.load (std::memory_order_relaxed))
     {
         if (auto* playHead = getPlayHead())
@@ -481,6 +483,8 @@ void LudensScopeProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce:
             {
                 if (position->getIsPlaying())
                 {
+                    mirrorHostPlaying = true;
+
                     if (const auto time = position->getTimeInSeconds())
                     {
                         const auto length = referenceLength.load (std::memory_order_relaxed);
@@ -510,8 +514,10 @@ void LudensScopeProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce:
     {
         const bool playing = referencePlaying.load (std::memory_order_relaxed);
         const bool audible = referenceAudible.load (std::memory_order_relaxed);
+        const bool mirror = referenceMirror.load (std::memory_order_relaxed);
+        const bool hostPlaying = mirror && mirrorHostPlaying;
 
-        if (playing || audible || referenceMix >= 1.0e-4f)
+        if (playing || audible || hostPlaying || referenceMix >= 1.0e-4f)
         {
             const auto length = (std::int64_t) audio->getNumSamples();
             const int refChannels = audio->getNumChannels();
@@ -525,11 +531,12 @@ void LudensScopeProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce:
 
             const auto loopStart = referenceLoopStart.load (std::memory_order_relaxed);
             const auto loopEnd = referenceLoopEnd.load (std::memory_order_relaxed);
-            const auto effectiveEnd = loopEnd > loopStart ? loopEnd : length;
+            const bool looping = referenceLoop.load (std::memory_order_relaxed) && ! mirror;
+            const auto effectiveEnd = (looping && loopEnd > loopStart) ? loopEnd : length;
 
             auto pos = referencePosition.load (std::memory_order_relaxed);
-            bool stillPlaying = playing;
-            float targetMix = (audible && playing) ? 1.0f : 0.0f;
+            bool stillPlaying = playing || hostPlaying;
+            float targetMix = (audible && (playing || hostPlaying)) ? 1.0f : 0.0f;
 
             for (int i = 0; i < numSamples; ++i)
             {
@@ -548,8 +555,7 @@ void LudensScopeProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce:
 
                     if (++pos >= effectiveEnd)
                     {
-                        if (referenceLoop.load (std::memory_order_relaxed)
-                            && ! referenceMirror.load (std::memory_order_relaxed))
+                        if (looping)
                         {
                             pos = effectiveEnd == loopEnd ? loopStart : 0;
                         }
@@ -557,9 +563,13 @@ void LudensScopeProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce:
                         {
                             pos = length;
                             stillPlaying = false;
-                            referencePlaying.store (false, std::memory_order_relaxed);
-                            referenceAudible.store (false, std::memory_order_relaxed);
-                            targetMix = 0.0f;
+
+                            if (! mirror)
+                            {
+                                referencePlaying.store (false, std::memory_order_relaxed);
+                                referenceAudible.store (false, std::memory_order_relaxed);
+                                targetMix = 0.0f;
+                            }
                         }
                     }
                 }
@@ -574,6 +584,9 @@ void LudensScopeProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce:
             }
 
             referencePosition.store (pos, std::memory_order_relaxed);
+
+            if (mirror)
+                referencePlaying.store (mirrorHostPlaying, std::memory_order_relaxed);
         }
     }
 
@@ -765,8 +778,6 @@ void LudensScopeProcessor::getStateInformation (juce::MemoryBlock& destData)
 
 void LudensScopeProcessor::setStateInformation (const void* data, int sizeInBytes)
 {
-    clearSnapshots();
-
     if (data == nullptr || sizeInBytes < 20)
         return;
 
@@ -782,6 +793,8 @@ void LudensScopeProcessor::setStateInformation (const void* data, int sizeInByte
         || (version < 1 || version > 13)
         || slots != snapshotSlots || bins != snapshotBins)
         return;
+
+    clearSnapshots();
 
     for (int slot = 0; slot < slots; ++slot)
     {

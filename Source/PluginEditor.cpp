@@ -23,10 +23,22 @@ public:
     {
         auto analysis = analyzeReferenceFile (file, [this] { return threadShouldExit(); });
 
+        if (analysis.cancelled)
+            return;
+
         if (analysis.ok && analysis.audio != nullptr && targetSampleRate > 0.0)
         {
-            analysis.audio = resampleReference (*analysis.audio,
-                                                analysis.sampleRate, targetSampleRate);
+            bool resampledTruncated = false;
+
+            analysis.audio = resampleReference (*analysis.audio, analysis.sampleRate,
+                                                targetSampleRate,
+                                                [this] { return threadShouldExit(); },
+                                                &resampledTruncated);
+
+            if (analysis.audio == nullptr)
+                return;
+
+            analysis.truncated = analysis.truncated || resampledTruncated;
             analysis.sampleRate = targetSampleRate;
         }
 
@@ -312,7 +324,7 @@ LudensScopeEditor::LudensScopeEditor (LudensScopeProcessor& p)
     referenceButton.setTooltip ("Load a reference track; the transport appears on the spectrum");
     guidesButton.setTooltip ("Placement guides; Shift/Alt-click a zone to solo that band");
     spanButton.setTooltip ("Frequency span in octaves (wheel over the spectrum zooms)");
-    monoButton.setTooltip ("Analyse the mono sum to check phase cancellations");
+    monoButton.setTooltip ("Meters and scopes use the mono sum; the spectrum is always the mono sum");
     captureButton.setTooltip ("Store the averaged spectrum in the selected snapshot slot");
     freezeButton.setTooltip ("Freeze the spectrum, waterfall and meters");
     resetButton.setTooltip ("Reset meters, the loaded reference and the selected snapshot");
@@ -679,9 +691,11 @@ void LudensScopeEditor::timerCallback()
     if (truePeakDb > truePeakHoldDb)
         truePeakHoldDb = truePeakDb;
 
-    analyzer.update();
-
-    spectrogramView.push (analyzer.levels().data(), SpectrumAnalyzer::numBins);
+    if (numRead > 0)
+    {
+        analyzer.update();
+        spectrogramView.push (analyzer.levels().data(), SpectrumAnalyzer::numBins);
+    }
 
     // Side-channel analyser mirrors the settings and runs only for M/S view.
     if (showSide)
@@ -690,6 +704,7 @@ void LudensScopeEditor::timerCallback()
         sideAnalyzer.setWindow (analyzer.getWindow());
         sideAnalyzer.setTilt (analyzer.getTilt());
         sideAnalyzer.setOctaveSmoothing (analyzer.getOctaveSmoothing());
+        sideAnalyzer.setOverlap (analyzer.getOverlap());
 
         if (timingPreset == 0)
             sideAnalyzer.setTiming (0.85f, 0.30f, 0.80f);
@@ -706,10 +721,9 @@ void LudensScopeEditor::timerCallback()
                 sideBuffer[(size_t) i] = 0.5f * (readLeft[(size_t) i] - readRight[(size_t) i]);
 
             sideAnalyzer.pushMono (sideBuffer.data(), numRead);
+            sideAnalyzer.update();
+            spectrumView.setSideData (sideAnalyzer.levels().data(), sideAnalyzer.peaks().data());
         }
-
-        sideAnalyzer.update();
-        spectrumView.setSideData (sideAnalyzer.levels().data(), sideAnalyzer.peaks().data());
     }
 
     const float integrated = processor.integratedLufs();
@@ -802,6 +816,9 @@ void LudensScopeEditor::loadReferenceFile (const juce::File& file)
             if (safe == nullptr)
                 return;
 
+            if (analysis.cancelled)
+                return;
+
             safe->referenceButton.setButtonText ("REF FILE");
             safe->referenceButton.setEnabled (true);
 
@@ -812,7 +829,7 @@ void LudensScopeEditor::loadReferenceFile (const juce::File& file)
                     juce::MessageBoxIconType::WarningIcon,
                     "Reference file",
                     "Could not read " + file.getFileName()
-                        + ".\nSupported formats: WAV, AIFF, FLAC.");
+                        + ".\nSupported formats: WAV, AIFF, FLAC, OGG.");
                 return;
             }
 
@@ -831,6 +848,17 @@ void LudensScopeEditor::loadReferenceFile (const juce::File& file)
             safe->referencePath = file.getFullPathName();
             safe->processor.setReferenceCurveInfo (safe->referencePath, analysis.levels.data(), true);
             safe->spectrumView.setReferenceWaveform (safe->processor.referenceWaveform());
+
+            if (analysis.truncated)
+            {
+                const double minutes = (double) safe->processor.referenceLengthSamples()
+                                     / juce::jmax (1.0, safe->processor.getSampleRate()) / 60.0;
+                juce::AlertWindow::showMessageBoxAsync (
+                    juce::MessageBoxIconType::InfoIcon,
+                    "Reference file",
+                    "The reference was truncated to the first "
+                        + juce::String (minutes, 1) + " minutes (memory limit).");
+            }
 
             if (safe->pendingReferenceLoopStart >= 0.0)
             {
