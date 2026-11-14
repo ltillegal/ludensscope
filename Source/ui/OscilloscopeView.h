@@ -101,7 +101,8 @@ public:
 
         auto area = bounds.reduced (12.0f);
 
-        auto header = area.removeFromTop (14.0f);
+        const float us = juce::jmax (1.0f, theme::fontScale);
+        auto header = area.removeFromTop (14.0f * us);
 
         const int count = (int) juce::jmin (left.size(), right.size());
         const int window = windowSamples > 0
@@ -119,7 +120,7 @@ public:
 
         g.setFont (theme::detailFont (9.5f));
         g.setColour (theme::textDim);
-        g.drawText ("x" + juce::String (verticalGain, 2), header.withTrimmedRight (72.0f),
+        g.drawText ("x" + juce::String (verticalGain, 2), header.withTrimmedRight (72.0f * us),
                     juce::Justification::centredRight);
 
         g.setColour (isFrozen ? theme::accent2 : theme::textDim);
@@ -261,43 +262,44 @@ public:
 
             const float lufs = momentaryLufs;
 
-            const juce::Rectangle<float> stats (plot.getX() + 8.0f, plot.getY() + 6.0f, 360.0f, 18.0f);
+            const juce::Rectangle<float> stats (plot.getX() + 8.0f * us, plot.getY() + 6.0f * us,
+                                                360.0f * us, 18.0f * us);
 
             g.setColour (theme::bg.withAlpha (0.66f));
-            g.fillRoundedRectangle (stats, 9.0f);
+            g.fillRoundedRectangle (stats, 9.0f * us);
             g.setColour (theme::panelLine);
-            g.drawRoundedRectangle (stats, 9.0f, 1.0f);
+            g.drawRoundedRectangle (stats, 9.0f * us, 1.0f);
 
             g.setFont (theme::detailFont (8.5f));
             g.setColour (theme::textDim);
-            g.drawText ("PEAK", stats.withTrimmedLeft (9.0f).withWidth (28.0f),
+            g.drawText ("PEAK", stats.withTrimmedLeft (9.0f * us).withWidth (28.0f * us),
                         juce::Justification::centredLeft);
-            g.drawText ("RMS", stats.withTrimmedLeft (84.0f).withWidth (26.0f),
+            g.drawText ("RMS", stats.withTrimmedLeft (84.0f * us).withWidth (26.0f * us),
                         juce::Justification::centredLeft);
-            g.drawText ("CREST", stats.withTrimmedLeft (160.0f).withWidth (34.0f),
+            g.drawText ("CREST", stats.withTrimmedLeft (160.0f * us).withWidth (34.0f * us),
                         juce::Justification::centredLeft);
 
             g.setFont (theme::detailMonoFont (9.5f));
             g.setColour (theme::accent);
-            g.drawText (juce::String (peakDb, 1), stats.withTrimmedLeft (36.0f).withWidth (42.0f),
+            g.drawText (juce::String (peakDb, 1), stats.withTrimmedLeft (36.0f * us).withWidth (42.0f * us),
                         juce::Justification::centredLeft);
             g.setColour (theme::cold);
-            g.drawText (juce::String (rmsDb, 1), stats.withTrimmedLeft (110.0f).withWidth (42.0f),
+            g.drawText (juce::String (rmsDb, 1), stats.withTrimmedLeft (110.0f * us).withWidth (42.0f * us),
                         juce::Justification::centredLeft);
             g.setColour (theme::accent2);
             g.drawText (juce::String (peakDb - rmsDb, 1) + " dB",
-                        stats.withTrimmedLeft (194.0f).withWidth (86.0f),
+                        stats.withTrimmedLeft (194.0f * us).withWidth (86.0f * us),
                         juce::Justification::centredLeft);
 
             g.setFont (theme::detailFont (8.5f));
             g.setColour (theme::textDim);
-            g.drawText ("LUFS", stats.withTrimmedLeft (250.0f).withWidth (30.0f),
+            g.drawText ("LUFS", stats.withTrimmedLeft (250.0f * us).withWidth (30.0f * us),
                         juce::Justification::centredLeft);
 
             g.setFont (theme::detailMonoFont (9.5f));
             g.setColour (theme::text);
             g.drawText (lufs > -70.0f ? juce::String (lufs, 1) : juce::String ("--"),
-                        stats.withTrimmedLeft (282.0f).withWidth (64.0f),
+                        stats.withTrimmedLeft (282.0f * us).withWidth (64.0f * us),
                         juce::Justification::centredLeft);
         }
     }
