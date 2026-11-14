@@ -496,7 +496,7 @@ void LudensScopeEditor::resized()
                           refRowHeight);
 
     const int gap = juce::roundToInt (10.0f * uiScale);
-    const int stripHeight = juce::jlimit (64, 100, juce::roundToInt (84.0f * uiScale));
+    const int stripHeight = juce::jlimit (80, 120, juce::roundToInt (100.0f * uiScale));
     referenceStrip.setBounds (r.removeFromBottom (stripHeight));
     r.removeFromBottom (gap);
 

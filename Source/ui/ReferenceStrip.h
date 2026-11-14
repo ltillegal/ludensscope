@@ -75,17 +75,11 @@ private:
 
 inline void ReferenceStrip::resized()
 {
-    const float s = juce::jlimit (0.8f, 1.4f, (float) getHeight() / 84.0f);
+    const float s = juce::jlimit (0.8f, 1.4f, (float) getHeight() / 100.0f);
     auto b = getLocalBounds().toFloat().reduced (10.0f * s, 6.0f * s);
-    auto left = b.removeFromLeft (140.0f * s);
     auto right = b.removeFromRight (230.0f * s);
-    auto mid = b.reduced (8.0f * s, 0.0f);
 
-    left.removeFromTop (12.0f * s);
-    refFileArea = left.removeFromTop (22.0f * s);
-    nameArea = right.removeFromTop (14.0f * s);
-
-    waveArea = mid.withTrimmedTop (2.0f * s).withTrimmedBottom (12.0f * s);
+    waveArea = b.withTrimmedTop (2.0f * s).withTrimmedBottom (12.0f * s);
 
     auto row = right.removeFromTop (30.0f * s);
     const float btnW = 42.0f * s;
@@ -101,8 +95,9 @@ inline void ReferenceStrip::resized()
     row.removeFromLeft (gap);
     mirrorArea = row.removeFromLeft (btnW);
 
-    right.removeFromTop (12.0f * s); // time row
-    nameArea = right.removeFromTop (14.0f * s);
+    right.removeFromTop (12.0f * s); // time
+    right.removeFromTop (12.0f * s); // name
+    refFileArea = right.removeFromTop (14.0f * s);
 }
 
 inline void ReferenceStrip::paint (juce::Graphics& g)
@@ -110,27 +105,9 @@ inline void ReferenceStrip::paint (juce::Graphics& g)
     const auto b = getLocalBounds().toFloat();
     theme::drawPanel (g, b);
 
-    auto area = b.reduced (10.0f, 6.0f);
-    auto left = area.removeFromLeft (210.0f);
-    auto right = area.removeFromRight (190.0f);
-    auto mid = area.reduced (10.0f, 0.0f);
-
-    auto caption = left.removeFromTop (12.0f);
-    g.setFont (theme::detailFont (10.0f));
-    g.setColour (theme::textDim);
-    g.drawText ("REFERENCE", caption, juce::Justification::centredLeft);
-
-    g.setFont (theme::labelFont (8.0f));
-    g.setColour (theme::textDim);
-    g.drawText ("REF FILE", refFileArea, juce::Justification::centred);
-
-    left.removeFromTop (22.0f); // ref-file row, drawn from refFileArea above
-    g.setFont (theme::labelFont (8.0f));
-    g.setColour (theme::textDim.withAlpha (0.85f));
-    g.drawText (state.lufs > -99.0f
-                    ? juce::String (state.lufs, 1) + " LUFS"
-                    : "-inf LUFS",
-                left.removeFromTop (12.0f), juce::Justification::centredLeft);
+    const float s = juce::jlimit (0.8f, 1.4f, (float) getHeight() / 100.0f);
+    auto area = b.reduced (10.0f * s, 6.0f * s);
+    auto right = area.removeFromRight (230.0f * s);
 
     // Waveform.
     g.setColour (theme::bg.withAlpha (0.55f));
@@ -234,18 +211,39 @@ inline void ReferenceStrip::paint (juce::Graphics& g)
     pill (matchArea, state.match, "MATCH");
     pill (mirrorArea, state.mirror, "MIRROR");
 
-    right.removeFromTop (30.0f); // transport row, drawn from the areas above
+    right.removeFromTop (30.0f * s); // transport row, drawn from the areas above
     g.setFont (theme::monoFont (8.0f));
     g.setColour (theme::textDim);
     g.drawText (state.duration > 0.0
                     ? formatTime (state.position) + " / " + formatTime (state.duration)
                     : "--:--",
-                right.removeFromTop (12.0f), juce::Justification::centredRight);
+                right.removeFromTop (12.0f * s), juce::Justification::centredRight);
 
     g.setFont (theme::labelFont (8.0f));
     g.setColour (state.name.isNotEmpty() ? theme::text : theme::textDim);
     g.drawText (state.name.isEmpty() ? "no reference" : state.name,
-                right.removeFromTop (14.0f), juce::Justification::centredRight, true);
+                right.removeFromTop (12.0f * s), juce::Justification::centredRight, true);
+
+    g.setColour (theme::bg.withAlpha (0.5f));
+    g.fillRoundedRectangle (refFileArea, refFileArea.getHeight() * 0.5f);
+    g.setColour (theme::panelLine);
+    g.drawRoundedRectangle (refFileArea.reduced (0.5f), refFileArea.getHeight() * 0.5f, 1.0f);
+    g.setFont (theme::labelFont (8.0f));
+    g.setColour (theme::textDim);
+    g.drawText ("REF FILE", refFileArea, juce::Justification::centred);
+
+    right.removeFromTop (14.0f * s);
+    g.setFont (theme::labelFont (7.5f));
+    g.setColour (theme::textDim.withAlpha (0.85f));
+    g.drawText (state.lufs > -99.0f
+                    ? juce::String (state.lufs, 1) + " LUFS"
+                    : "-inf LUFS",
+                right.removeFromTop (10.0f * s), juce::Justification::centredRight);
+
+    right.removeFromTop (10.0f * s);
+    g.setFont (theme::detailFont (9.0f));
+    g.setColour (theme::textDim.withAlpha (0.7f));
+    g.drawText ("REFERENCE", right.removeFromTop (10.0f * s), juce::Justification::centredRight);
 }
 
 inline void ReferenceStrip::mouseDown (const juce::MouseEvent& e)
