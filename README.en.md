@@ -157,7 +157,8 @@ fraction of a dB of difference from the BS.1770-4 Annex 2 reference filter.
 `FFT → Gain staging` shows horizontal reference lines in the spectrum and
 oscilloscope: 0 dBFS, -6, -12 and 0 VU; the 0 VU line is highlighted. The
 calibration switches between **0 VU = -18 dBFS (EBU)** and **-20 dBFS
-(SMPTE)**. A stereo VU meter with L/R needles is always in the bottom row.
+(SMPTE)**. The bottom row carries an 80s cassette-deck style stereo VU: two
+separate L/R needle indicators in a rectangular window; needles rest left.
 
 The REF curve shows the power average plus a **p10-p90** band (the
 reference's variation over time); `FFT → Suggested EQ (REF)` lists up to

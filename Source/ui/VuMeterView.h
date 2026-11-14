@@ -53,10 +53,10 @@ public:
 
         theme::drawPanel (g, bounds);
 
-        const float scale = juce::jlimit (0.80f, 1.30f, (float) getHeight() / 175.0f);
-        auto area = bounds.reduced (10.0f * scale);
+        const float scale = juce::jlimit (0.72f, 1.25f, (float) getHeight() / 165.0f);
+        auto area = bounds.reduced (8.0f * scale);
 
-        auto header = area.removeFromTop (15.0f * scale);
+        auto header = area.removeFromTop (13.0f * scale);
         g.setFont (theme::labelFont (10.5f * scale));
         g.setColour (theme::textDim);
         g.drawText ("VU", header, juce::Justification::centredLeft);
@@ -66,18 +66,44 @@ public:
         g.drawText ("0 VU = " + juce::String ((int) zeroDbfs) + " dBFS",
                     header, juce::Justification::centredRight);
 
-        // Geometry: an upper arc around a pivot near the bottom.
-        const float footerHeight = 13.0f * scale;
-        const float pivotX = area.getCentreX();
-        const float pivotY = area.getBottom() - footerHeight - 3.0f * scale;
-        const float radius = juce::jmin (area.getWidth() * 0.477f,
-                                         area.getHeight() * 0.88f);
+        const float gap = 7.0f * scale;
+        auto leftFace = area.removeFromLeft ((area.getWidth() - gap) * 0.5f);
+        area.removeFromLeft (gap);
+        auto rightFace = area;
+
+        drawFace (g, leftFace, displayL, numericL, "L", theme::accent, scale);
+        drawFace (g, rightFace, displayR, numericR, "R", theme::cold, scale);
+    }
+
+private:
+    void drawFace (juce::Graphics& g, juce::Rectangle<float> face, float vu,
+                   float numeric, const juce::String& label,
+                   juce::Colour needleColour, float scale)
+    {
+        g.setColour (theme::bg.withAlpha (0.62f));
+        g.fillRoundedRectangle (face, 4.0f * scale);
+        g.setColour (theme::panelLine);
+        g.drawRoundedRectangle (face.reduced (0.5f), 4.0f * scale, 1.0f);
+
+        auto inner = face.reduced (7.0f * scale);
+        auto top = inner.removeFromTop (11.0f * scale);
+
+        g.setFont (theme::labelFont (8.0f * scale));
+        g.setColour (theme::textDim);
+        g.drawText (label, top, juce::Justification::centredLeft);
+        g.drawText ((numeric >= 0.0f ? "+" : "") + juce::String (numeric, 1),
+                    top, juce::Justification::centredRight);
+
+        const float pivotX = inner.getCentreX();
+        const float pivotY = inner.getBottom() - 3.0f * scale;
+        const float radius = juce::jmin (inner.getWidth() * 0.455f,
+                                         inner.getHeight() * 0.90f);
         constexpr float startAngle = 2.7925f; // 160 deg
         constexpr float endAngle = 0.3491f;   // 20 deg
 
-        const auto pointFor = [&] (float vu)
+        const auto pointFor = [&] (float value)
         {
-            const float t = juce::jlimit (0.0f, 1.0f, (vu + 20.0f) / 23.0f);
+            const float t = juce::jlimit (0.0f, 1.0f, (value + 20.0f) / 23.0f);
             const float angle = startAngle + (endAngle - startAngle) * t;
             return juce::Point<float> (pivotX + radius * std::cos (angle),
                                        pivotY - radius * std::sin (angle));
@@ -85,14 +111,12 @@ public:
 
         juce::Path arc;
 
-        for (int i = 0; i <= 72; ++i)
+        for (int i = 0; i <= 64; ++i)
         {
-            const auto p = pointFor (-20.0f + 23.0f * (float) i / 72.0f);
+            const auto p = pointFor (-20.0f + 23.0f * (float) i / 64.0f);
 
-            if (i == 0)
-                arc.startNewSubPath (p);
-            else
-                arc.lineTo (p);
+            if (i == 0) arc.startNewSubPath (p);
+            else        arc.lineTo (p);
         }
 
         g.setColour (theme::gridStrong);
@@ -110,53 +134,33 @@ public:
             const bool zero = std::abs (mark) < 0.01f;
 
             g.setColour (zero ? theme::accent2 : theme::textDim.withAlpha (0.75f));
-            g.drawLine ({ p, p + outward * 4.5f * scale }, zero ? 1.8f : 1.0f);
+            g.drawLine ({ p, p + outward * 4.0f * scale }, zero ? 1.8f : 1.0f);
         }
 
-        g.setFont (theme::labelFont (7.0f * scale));
+        g.setFont (theme::labelFont (6.8f * scale));
 
-        for (const float label : labels)
+        for (const float labelValue : labels)
         {
-            const auto p = pointFor (label);
+            const auto p = pointFor (labelValue);
             const auto outward = (p - juce::Point<float> (pivotX, pivotY))
                                  / juce::jmax (1.0e-3f, radius);
-            const auto labelPoint = p + outward * 11.0f * scale;
-            const bool zero = std::abs (label) < 0.01f;
+            const auto labelPoint = p + outward * 10.0f * scale;
+            const bool zero = std::abs (labelValue) < 0.01f;
 
             g.setColour (zero ? theme::accent2 : theme::textDim);
-            g.drawText (label > 0.0f ? "+" + juce::String ((int) label)
-                                     : juce::String ((int) label),
+            g.drawText (labelValue > 0.0f ? "+" + juce::String ((int) labelValue)
+                                          : juce::String ((int) labelValue),
                         juce::Rectangle<float> (labelPoint.x - 9.0f * scale,
                                                 labelPoint.y - 5.0f * scale,
                                                 18.0f * scale, 10.0f * scale),
                         juce::Justification::centred);
         }
 
-        const auto drawNeedle = [&] (float vu, juce::Colour colour)
-        {
-            const auto p = pointFor (vu);
-            g.setColour (colour);
-            g.drawLine ({ juce::Point<float> (pivotX, pivotY), p }, 1.8f * scale);
-            g.fillEllipse (pivotX - 2.5f * scale, pivotY - 2.5f * scale,
-                           5.0f * scale, 5.0f * scale);
-        };
-
-        drawNeedle (displayR, theme::cold);
-        drawNeedle (displayL, theme::accent);
-
-        const auto formatVu = [] (float value)
-        {
-            return (value >= 0.0f ? "+" : "") + juce::String (value, 1);
-        };
-
-        const auto footer = getLocalBounds().toFloat().removeFromBottom (footerHeight);
-
-        g.setFont (theme::monoFont (8.5f * scale));
-        g.setColour (theme::textDim);
-        g.drawText ("L " + formatVu (numericL) + " VU",
-                    footer.withTrimmedLeft (7.0f * scale), juce::Justification::centredLeft);
-        g.drawText ("R " + formatVu (numericR) + " VU",
-                    footer.withTrimmedRight (7.0f * scale), juce::Justification::centredRight);
+        const auto needlePoint = pointFor (vu);
+        g.setColour (needleColour);
+        g.drawLine ({ juce::Point<float> (pivotX, pivotY), needlePoint }, 1.8f * scale);
+        g.fillEllipse (pivotX - 2.4f * scale, pivotY - 2.4f * scale,
+                       4.8f * scale, 4.8f * scale);
     }
 
 private:
