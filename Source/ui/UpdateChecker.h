@@ -39,6 +39,7 @@ inline juce::String readUrlTextWithTimeout (const juce::URL& url, int timeoutMs)
     // curl's WebInputStream::cancel() is not safe from another thread on
     // Linux; the detached check thread may stay blocked, but the editor is
     // never affected.
+    juce::ignoreUnused (timeoutMs);
     return web.readEntireStreamAsString();
    #else
     std::atomic<bool> finished { false };
@@ -96,7 +97,7 @@ inline UpdateInfo performUpdateCheck()
    #if defined (JucePlugin_VersionString)
     info.currentVersion = juce::String (JucePlugin_VersionString);
    #else
-    info.currentVersion = "0.3.0";
+    info.currentVersion = juce::String (LUDENSCOPE_VERSION_STRING);
    #endif
 
     const auto jsonText = readUrlTextWithTimeout (

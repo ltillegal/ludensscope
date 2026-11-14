@@ -8,6 +8,7 @@ endif()
 
 set(LUDENSCOPE_VERSION "0.3.1")
 project(LudensScope VERSION ${LUDENSCOPE_VERSION} LANGUAGES C CXX)
+add_compile_definitions (LUDENSCOPE_VERSION_STRING="${LUDENSCOPE_VERSION}")
 
 enable_testing()
 

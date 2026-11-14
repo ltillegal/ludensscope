@@ -1043,9 +1043,11 @@ void LudensScopeProcessor::setBandSolo (bool active, float lowHz, float highHz)
     if (! active)
     {
         const auto version = soloVersion.load (std::memory_order_relaxed);
-        soloVersion.store (version + 1, std::memory_order_release);
+        soloVersion.store (version + 1, std::memory_order_seq_cst);
+        std::atomic_thread_fence (std::memory_order_seq_cst);
         bandSoloActive.store (false, std::memory_order_relaxed);
-        soloVersion.store (version + 2, std::memory_order_release);
+        std::atomic_thread_fence (std::memory_order_seq_cst);
+        soloVersion.store (version + 2, std::memory_order_seq_cst);
         return;
     }
 
@@ -1062,7 +1064,8 @@ void LudensScopeProcessor::setBandSolo (bool active, float lowHz, float highHz)
                                      lowPass.a1, lowPass.a2 };
 
     const auto version = soloVersion.load (std::memory_order_relaxed);
-    soloVersion.store (version + 1, std::memory_order_release); // odd = writing
+    soloVersion.store (version + 1, std::memory_order_seq_cst); // odd = writing
+    std::atomic_thread_fence (std::memory_order_seq_cst);
 
     for (int i = 0; i < 5; ++i)
     {
@@ -1073,7 +1076,8 @@ void LudensScopeProcessor::setBandSolo (bool active, float lowHz, float highHz)
     soloResetRequested.store (true, std::memory_order_relaxed);
     bandSoloActive.store (true, std::memory_order_relaxed);
 
-    soloVersion.store (version + 2, std::memory_order_release); // even = stable
+    std::atomic_thread_fence (std::memory_order_seq_cst);
+    soloVersion.store (version + 2, std::memory_order_seq_cst); // even = stable
 }
 
 juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter()
