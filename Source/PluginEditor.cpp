@@ -136,10 +136,11 @@ void DonateButton::paintButton (juce::Graphics& g, bool isMouseOver, bool isMous
     g.drawRoundedRectangle (bounds.reduced (0.5f), corner, 1.0f);
 
     const bool wide = bounds.getWidth() > 40.0f;
-    const float cx = wide ? bounds.getX() + bounds.getHeight() * 0.54f
+    const float cx = wide ? bounds.getX() + bounds.getWidth() * 0.20f
                           : bounds.getCentreX();
     const float cy = bounds.getCentreY();
-    const float s = bounds.getHeight() * (wide ? 0.21f : 0.25f);
+    const float s = wide ? juce::jmin (bounds.getHeight() * 0.20f, bounds.getWidth() * 0.16f)
+                         : bounds.getHeight() * 0.25f;
 
     juce::Path heart;
     heart.startNewSubPath (cx, cy + s * 0.85f);
@@ -157,8 +158,8 @@ void DonateButton::paintButton (juce::Graphics& g, bool isMouseOver, bool isMous
     if (wide)
     {
         g.setColour (isMouseOver ? theme::text : theme::text.withAlpha (0.85f));
-        g.setFont (theme::labelFont (juce::jlimit (8.0f, 12.0f, bounds.getHeight() * 0.35f)));
-        g.drawText ("DONATE", bounds.withTrimmedLeft (bounds.getHeight() * 0.92f),
+        g.setFont (theme::labelFont (juce::jlimit (8.0f, 11.0f, bounds.getHeight() * 0.30f)));
+        g.drawText ("DONATE", bounds.withTrimmedLeft (bounds.getWidth() * 0.36f),
                     juce::Justification::centredLeft);
     }
 }
@@ -467,14 +468,14 @@ void LudensScopeEditor::resized()
 
     auto rail = railBounds.withTrimmedLeft (2).withTrimmedRight (2)
                           .withTrimmedTop (juce::roundToInt (8.0f * uiScale));
-    const int buttonHeight = juce::roundToInt (28.0f * uiScale);
-    const int refRowHeight = juce::roundToInt (34.0f * uiScale);
+    const int refRowHeight = juce::roundToInt (44.0f * uiScale);
     const int refMargin = juce::roundToInt (6.0f * uiScale);
-    const int refCaption = juce::roundToInt (16.0f * uiScale);
+    const int refCaption = juce::roundToInt (15.0f * uiScale);
     const int refTop = railBounds.getBottom() - refMargin - refRowHeight - refCaption;
     const int available = juce::jmax (0, refTop - rail.getY());
-    const int buttonGap = juce::jmax (juce::roundToInt (4.0f * uiScale),
-                                      (available - buttonHeight * 9) / 8);
+    const int buttonGap = juce::roundToInt (2.0f * uiScale);
+    const int buttonHeight = juce::jmax (juce::roundToInt (22.0f * uiScale),
+                                         (available - buttonGap * 8) / 9);
 
     const int stackHeight = buttonHeight * 9 + buttonGap * 8;
     auto stack = rail.withHeight (juce::jmin (available, stackHeight));
