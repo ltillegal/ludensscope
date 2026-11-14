@@ -201,6 +201,8 @@ public:
         int levelMatch = 1;
         int mirror = 0;
         float waterfallRatio = 0.32f;
+        int gainStaging = 0;
+        int vuZeroDbfs = -18;
     };
 
     ViewSettings getViewSettings() const noexcept { return viewSettingsValue; }

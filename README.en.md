@@ -151,6 +151,19 @@ window (about 0.9–1.35×).
 True peak uses an approximate detector (12-tap windowed sinc); expect a
 fraction of a dB of difference from the BS.1770-4 Annex 2 reference filter.
 
+### Gain staging and VU
+
+`FFT → Gain staging` shows horizontal reference lines in the spectrum and
+oscilloscope: 0 dBFS, -6, -12 and 0 VU; the 0 VU line is highlighted. The
+calibration switches between **0 VU = -18 dBFS (EBU)** and **-20 dBFS
+(SMPTE)**. A stereo VU meter with L/R needles is always in the bottom row.
+
+The VU follows IEC 60268-17 / ANSI C16.5: 0 VU = +4 dBu = 1.228 V RMS at
+1 kHz, -20..+3 VU scale, 300 ms rise/fall to 99% (one-pole tau ~65 ms),
+1-1.5% overshoot. In the digital domain 0 VU is the alignment level
+-18 dBFS (EBU R68) or -20 dBFS (SMPTE RP 155); the VU reads average
+loudness, not peaks - use TRUE PEAK for peaks.
+
 ## Updates
 
 `FFT` → `Check for updates...` queries the latest GitHub release. If a newer

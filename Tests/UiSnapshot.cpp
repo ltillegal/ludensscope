@@ -461,6 +461,8 @@ int main (int argc, char** argv)
     testView.levelMatch = 0;
     testView.mirror = 1;
     testView.waterfallRatio = 0.45f;
+    testView.gainStaging = 1;
+    testView.vuZeroDbfs = -20;
     testView.spanIndex = 2;
     testView.rangeLow = 50.0f;
     testView.rangeHigh = 5000.0f;
@@ -499,6 +501,8 @@ int main (int argc, char** argv)
         && restoredView.levelMatch == 0
         && restoredView.mirror == 1
         && std::abs (restoredView.waterfallRatio - 0.45f) < 0.01f
+        && restoredView.gainStaging == 1
+        && restoredView.vuZeroDbfs == -20
         && restoredView.spanIndex == 2
         && std::abs (restoredView.rangeLow - 50.0f) < 1.0f
         && std::abs (restoredView.rangeHigh - 5000.0f) < 1.0f
