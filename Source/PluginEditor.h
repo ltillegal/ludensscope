@@ -107,6 +107,7 @@ private:
     void showThemeMenu();
     void applyTheme();
     void applyGainStaging();
+    void updateMatchSuggestions();
     static juce::Array<juce::Component::SafePointer<LudensScopeEditor>>& openEditors();
     void checkForUpdates();
     void handleUpdateResult (const UpdateInfo& info);
@@ -166,6 +167,13 @@ private:
     bool showSide = false;
     bool gainStaging = false;
     int vuZeroDbfs = -18;
+    bool showMatch = false;
+    bool hasReferenceBand = false;
+    juce::String referenceBandPath;
+    std::array<float, SpectrumAnalyzer::numBins> referenceLow {};
+    std::array<float, SpectrumAnalyzer::numBins> referenceHigh {};
+    juce::StringArray matchLines;
+    int matchTick = 0;
     bool showNoteGrid = false;
     int smoothingPreset = 0;
     int overlapPreset = 0;

@@ -158,6 +158,11 @@ oscilloscope: 0 dBFS, -6, -12 and 0 VU; the 0 VU line is highlighted. The
 calibration switches between **0 VU = -18 dBFS (EBU)** and **-20 dBFS
 (SMPTE)**. A stereo VU meter with L/R needles is always in the bottom row.
 
+The REF curve shows the power average plus a **p10-p90** band (the
+reference's variation over time); `FFT → Suggested EQ (REF)` lists up to
+four broad `CUT/BOOST` hints from the difference of the average spectra
+(read-only, no processing).
+
 The VU follows IEC 60268-17 / ANSI C16.5: 0 VU = +4 dBu = 1.228 V RMS at
 1 kHz, -20..+3 VU scale, 300 ms rise/fall to 99% (one-pole tau ~65 ms),
 1-1.5% overshoot. In the digital domain 0 VU is the alignment level

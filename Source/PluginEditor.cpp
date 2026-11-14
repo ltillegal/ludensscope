@@ -668,6 +668,12 @@ void LudensScopeEditor::timerCallback()
     {
         analyzer.update();
         spectrogramView.push (analyzer.levels().data(), SpectrumAnalyzer::numBins);
+
+        if (showMatch && hasReference && ++matchTick >= 15)
+        {
+            matchTick = 0;
+            updateMatchSuggestions();
+        }
     }
 
     // Side-channel analyser mirrors the settings and runs only for M/S view.
@@ -893,8 +899,13 @@ void LudensScopeEditor::handleReferenceLoaded (const juce::File& file, int targe
     }
 
     referenceDb = analysis.levels;
+    referenceLow = analysis.levelsLow;
+    referenceHigh = analysis.levelsHigh;
+    hasReferenceBand = true;
+    referenceBandPath = file.getFullPathName();
     hasReference = true;
-    spectrumView.setReference (referenceDb.data(), true);
+    spectrumView.setReference (referenceDb.data(), true,
+                               referenceLow.data(), referenceHigh.data());
 
     processor.setReferenceAudio (std::move (analysis.audio), analysis.lufs);
     processor.clearUndo();
@@ -986,6 +997,7 @@ void LudensScopeEditor::showFftMenu()
     menu.addItem (720, "Reference lines (FFT)", true, gainStaging);
     menu.addItem (721, "0 VU = -18 dBFS (EBU)", true, vuZeroDbfs == -18);
     menu.addItem (722, "0 VU = -20 dBFS (SMPTE)", true, vuZeroDbfs == -20);
+    menu.addItem (730, "Suggested EQ (REF)", hasReference, showMatch);
 
     bool anySnapshot = false;
 
@@ -1048,6 +1060,18 @@ void LudensScopeEditor::applyFftMenu (int result)
     {
         vuZeroDbfs = result == 722 ? -20 : -18;
         applyGainStaging();
+        saveViewSettings();
+        return;
+    }
+
+    if (result == 730)
+    {
+        showMatch = ! showMatch;
+        spectrumView.setShowMatch (showMatch);
+
+        if (showMatch)
+            updateMatchSuggestions();
+
         saveViewSettings();
         return;
     }
@@ -1405,6 +1429,10 @@ void LudensScopeEditor::applyViewSettings (const LudensScopeProcessor::ViewSetti
     vuZeroDbfs = settings.vuZeroDbfs == -20 ? -20 : -18;
     applyGainStaging();
 
+    showMatch = settings.showMatch != 0;
+    spectrumView.setShowMatch (showMatch);
+
+
     showPeakMarkers = settings.peakMarkers != 0;
     spectrumView.setPeakMarkers (showPeakMarkers);
 
@@ -1469,6 +1497,7 @@ void LudensScopeEditor::saveViewSettings()
     settings.waterfallRatio = waterfallRatio;
     settings.gainStaging = gainStaging ? 1 : 0;
     settings.vuZeroDbfs = vuZeroDbfs;
+    settings.showMatch = showMatch ? 1 : 0;
     settings.oscWindow = oscilloscopeView.getWindowSamples();
     settings.oscGain = oscilloscopeView.getVerticalGain();
 
@@ -1739,6 +1768,71 @@ void LudensScopeEditor::applyTheme()
         child->repaint();
 }
 
+void LudensScopeEditor::updateMatchSuggestions()
+{
+    matchLines.clear();
+
+    if (! hasReference)
+    {
+        spectrumView.setMatchSuggestions (matchLines, showMatch);
+        return;
+    }
+
+    const auto& mix = analyzer.averageLevels();
+    const double centres[] = { 63.0, 125.0, 250.0, 500.0, 1000.0,
+                               2000.0, 4000.0, 8000.0, 16000.0 };
+
+    struct Suggestion { float diff; double centre; };
+    std::vector<Suggestion> found;
+
+    for (const double centre : centres)
+    {
+        const double low = centre / 1.41421356237;
+        const double high = centre * 1.41421356237;
+        double mixSum = 0.0, refSum = 0.0;
+        int count = 0;
+
+        for (int i = 0; i < SpectrumAnalyzer::numBins; ++i)
+        {
+            const double hz = 20.0 * std::pow (1000.0,
+                                               (double) i / (double) (SpectrumAnalyzer::numBins - 1));
+
+            if (hz >= low && hz <= high)
+            {
+                mixSum += (double) mix[(size_t) i];
+                refSum += (double) referenceDb[(size_t) i];
+                ++count;
+            }
+        }
+
+        if (count > 0)
+        {
+            const float diff = (float) ((mixSum - refSum) / (double) count);
+
+            if (std::abs (diff) >= 0.8f)
+                found.push_back ({ diff, centre });
+        }
+    }
+
+    std::sort (found.begin(), found.end(),
+               [] (const Suggestion& a, const Suggestion& b)
+               {
+                   return std::abs (a.diff) > std::abs (b.diff);
+               });
+
+    for (int i = 0; i < (int) found.size() && i < 4; ++i)
+    {
+        const auto& suggestion = found[(size_t) i];
+        const auto hz = suggestion.centre >= 1000.0
+                            ? juce::String (suggestion.centre / 1000.0, 1) + " kHz"
+                            : juce::String ((int) suggestion.centre) + " Hz";
+        matchLines.add ((suggestion.diff > 0.0f ? "CUT " : "BOOST ")
+                        + juce::String (std::abs (suggestion.diff), 1) + " dB @ " + hz);
+    }
+
+    spectrumView.setMatchSuggestions (matchLines, showMatch);
+}
+
 void LudensScopeEditor::applyGainStaging()
 {
     spectrumView.setGainStaging (gainStaging, (float) vuZeroDbfs);
@@ -1806,7 +1900,15 @@ void LudensScopeEditor::applyReferenceSettings()
     spectrumView.setReferencePlaceholder ({});
     referenceDb = reference.curve;
     hasReference = true;
-    spectrumView.setReference (referenceDb.data(), true);
+
+    const bool band = hasReferenceBand && reference.path == referenceBandPath;
+
+    if (! band)
+        hasReferenceBand = false;
+
+    spectrumView.setReference (referenceDb.data(), true,
+                               band ? referenceLow.data() : nullptr,
+                               band ? referenceHigh.data() : nullptr);
 
     if (processor.hasReferenceAudio() && processor.getReferencePath() == reference.path)
     {
