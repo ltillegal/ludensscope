@@ -25,7 +25,11 @@ public:
         float lufs = -100.0f;
     };
 
-    ReferenceStrip() = default;
+    ReferenceStrip()
+    {
+        setOpaque (true);
+        setBufferedToImage (true);
+    }
 
     void setState (State s) { state = std::move (s); repaint(); }
 

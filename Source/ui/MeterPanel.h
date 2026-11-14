@@ -12,7 +12,11 @@
 class MeterPanel : public juce::Component
 {
 public:
-    MeterPanel() = default;
+    MeterPanel()
+    {
+        setOpaque (true);
+        setBufferedToImage (true);
+    }
 
     void setUiScale (float scale) noexcept
     {
