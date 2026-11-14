@@ -467,20 +467,17 @@ void LudensScopeEditor::resized()
 
     auto rail = railBounds.withTrimmedLeft (2).withTrimmedRight (2)
                           .withTrimmedTop (juce::roundToInt (8.0f * uiScale));
-    const int buttonHeight = juce::roundToInt (26.0f * uiScale);
-    const int refRowHeight = buttonHeight;
-    const int refMargin = juce::roundToInt (8.0f * uiScale);
-    const int refCaption = juce::roundToInt (30.0f * uiScale);
+    const int buttonHeight = juce::roundToInt (28.0f * uiScale);
+    const int refRowHeight = juce::roundToInt (34.0f * uiScale);
+    const int refMargin = juce::roundToInt (6.0f * uiScale);
+    const int refCaption = juce::roundToInt (16.0f * uiScale);
     const int refTop = railBounds.getBottom() - refMargin - refRowHeight - refCaption;
     const int available = juce::jmax (0, refTop - rail.getY());
-    const int minGap = juce::roundToInt (6.0f * uiScale);
-    const int maxGap = juce::roundToInt (22.0f * uiScale);
-    const int buttonGap = juce::jlimit (minGap, juce::jmax (minGap, maxGap),
-                                        (available - buttonHeight * 9) / 8);
+    const int buttonGap = juce::jmax (juce::roundToInt (4.0f * uiScale),
+                                      (available - buttonHeight * 9) / 8);
 
     const int stackHeight = buttonHeight * 9 + buttonGap * 8;
-    auto stack = rail.withHeight (juce::jmin (available, stackHeight))
-                      .translated (0, juce::jmax (0, (available - stackHeight) / 2));
+    auto stack = rail.withHeight (juce::jmin (available, stackHeight));
 
     juce::Component* const buttons[] = {
         &fftButton, &guidesButton, &spanButton, &monoButton,
