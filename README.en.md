@@ -142,6 +142,9 @@ duplication is only for the spectrum/vector analysis.
 
 The `THEME` button in the top-right switches seven interface palettes:
 **Blue** (current), **Dark**, **Light**, **Magenta**, **Green**, **Red**,
+True peak uses an approximate detector (12-tap windowed sinc); expect a
+fraction of a dB of difference from the BS.1770-4 Annex 2 reference filter.
+
 **Orange**. The choice is global: it is stored in LudensScope's settings and
 applied to every open instance; the light theme re-tints the
 logo and curves automatically, and the waterfall follows the palette. The

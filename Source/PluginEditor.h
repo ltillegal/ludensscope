@@ -3,6 +3,8 @@
 #include <juce_gui_basics/juce_gui_basics.h>
 
 #include <array>
+#include <atomic>
+#include <cstdint>
 #include <memory>
 #include <vector>
 
@@ -19,7 +21,7 @@
 #include "ui/VectorScopeView.h"
 
 class ScopeLookAndFeel;
-class ReferenceLoader;
+struct ReferenceAnalysis;
 
 class ReferenceSlotSwitch : public juce::Component,
                              public juce::SettableTooltipClient
@@ -190,14 +192,17 @@ private:
     double pendingReferenceLoopEnd = -1.0;
     double pendingReferencePosition = 0.0;
     int lastReferenceGeneration = 0;
+    int lastStateRevision = 0;
 
     std::unique_ptr<juce::FileChooser> referenceChooser;
-    std::unique_ptr<ReferenceLoader> referenceLoader;
+    std::atomic<std::uint64_t> referenceLoadGeneration { 0 };
+    std::shared_ptr<std::atomic<bool>> referenceLoadCancel;
     std::unique_ptr<juce::FileChooser> snapshotChooser;
     std::unique_ptr<juce::FileChooser> pngChooser;
     std::unique_ptr<juce::TooltipWindow> tooltipWindow;
     bool updateCheckRunning = false;
     void handleDownloadFinished (bool succeeded, const juce::String& message);
+    void handleReferenceLoaded (const juce::File& file, int targetSlot, ReferenceAnalysis& analysis);
 
     CurvePresetStore curvePresets;
     std::array<float, SpectrumAnalyzer::numBins> targetCurve {};

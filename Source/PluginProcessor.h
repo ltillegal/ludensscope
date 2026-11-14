@@ -124,6 +124,7 @@ public:
     }
 
     static constexpr int referenceSlotCount = 4;
+    static constexpr juce::int64 maxReferenceTotalBytes = 768ll << 20;
 
     bool isReferenceSlotFilled (int slot) const noexcept
     {
@@ -148,6 +149,8 @@ public:
     bool isBandSolo() const noexcept { return bandSoloActive.load(); }
 
     bool supportsMonoBuses() const;
+    juce::int64 referenceAudioBytes() const;
+    juce::int64 referenceSlotBytes (int slot) const;
 
     // FFT snapshots (UI state, persisted in the project).
     static constexpr int snapshotBins = SpectrumAnalyzer::numBins;
@@ -161,6 +164,7 @@ public:
     int selectedSnapshot() const noexcept;
     void setSelectedSnapshot (int slot) noexcept;
     int snapshotGeneration() const noexcept;
+    int stateRevision() const noexcept { return stateRevisionValue.load(); }
 
     // Analyzer settings (UI state, persisted in the project).
     struct FftSettings
@@ -293,11 +297,13 @@ private:
     std::array<bool, snapshotSlots> snapshotFilled {};
     std::atomic<int> selectedSnapshotValue { 0 };
     std::atomic<int> snapshotGenerationValue { 0 };
+    std::atomic<int> stateRevisionValue { 0 };
 
     FftSettings fftSettingsValue;
     ViewSettings viewSettingsValue;
 
     std::atomic<bool> bandSoloActive { false };
+    std::atomic<std::uint32_t> soloVersion { 0 };
     std::atomic<bool> soloResetRequested { false };
     std::atomic<float> soloHighPass[5] {};
     std::atomic<float> soloLowPass[5] {};

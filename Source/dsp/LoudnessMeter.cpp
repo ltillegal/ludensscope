@@ -70,6 +70,7 @@ void LoudnessMeter::reset() noexcept
     blocksSeen = 0;
 
     integratedEnergy.fill (0.0f);
+    integratedWrite = 0;
     integratedCount = 0;
 
     clearLraHistogram();
@@ -153,13 +154,19 @@ void LoudnessMeter::flushSubBlock() noexcept
         lraHistogram[(size_t) bin].fetch_add (1, std::memory_order_relaxed);
     }
 
+    const float blockEnergy = meanOfLast (blockMsL, 4) + meanOfLast (blockMsR, 4);
+
     if (integratedCount < maxIntegratedBlocks)
     {
-        integratedEnergy[(size_t) integratedCount++] =
-            meanOfLast (blockMsL, 4) + meanOfLast (blockMsR, 4);
-
-        integratedValue.store (computeIntegrated(), std::memory_order_relaxed);
+        integratedEnergy[(size_t) integratedCount++] = blockEnergy;
     }
+    else
+    {
+        integratedEnergy[(size_t) integratedWrite] = blockEnergy;
+        integratedWrite = (integratedWrite + 1) % maxIntegratedBlocks;
+    }
+
+    integratedValue.store (computeIntegrated(), std::memory_order_relaxed);
 }
 
 float LoudnessMeter::meanOfLast (const std::array<float, windowSubBlocks>& values, int count) const noexcept

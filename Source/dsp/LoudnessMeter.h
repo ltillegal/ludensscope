@@ -77,6 +77,7 @@ private:
 
     std::array<float, maxIntegratedBlocks> integratedEnergy {};
     int integratedCount = 0;
+    int integratedWrite = 0;
 
     std::array<std::atomic<std::uint32_t>, lraBins> lraHistogram {};
 

@@ -8,54 +8,6 @@
 
 #include <algorithm>
 
-class ReferenceLoader final : public juce::Thread
-{
-public:
-    ReferenceLoader (juce::File f, double targetRate,
-                     std::function<void (ReferenceAnalysis&)> finished)
-        : juce::Thread ("LudensScope reference analysis"),
-          file (std::move (f)), targetSampleRate (targetRate),
-          onFinished (std::move (finished))
-    {
-    }
-
-    void run() override
-    {
-        auto analysis = analyzeReferenceFile (file, [this] { return threadShouldExit(); });
-
-        if (analysis.cancelled)
-            return;
-
-        if (analysis.ok && analysis.audio != nullptr && targetSampleRate > 0.0)
-        {
-            bool resampledTruncated = false;
-
-            analysis.audio = resampleReference (*analysis.audio, analysis.sampleRate,
-                                                targetSampleRate,
-                                                [this] { return threadShouldExit(); },
-                                                &resampledTruncated);
-
-            if (analysis.audio == nullptr)
-                return;
-
-            analysis.truncated = analysis.truncated || resampledTruncated;
-            analysis.sampleRate = targetSampleRate;
-        }
-
-        auto shared = std::make_shared<ReferenceAnalysis> (std::move (analysis));
-
-        juce::MessageManager::callAsync ([done = onFinished, shared]
-        {
-            done (*shared);
-        });
-    }
-
-private:
-    juce::File file;
-    double targetSampleRate;
-    std::function<void (ReferenceAnalysis&)> onFinished;
-};
-
 class ScopeLookAndFeel final : public juce::LookAndFeel_V4
 {
 public:
@@ -378,6 +330,7 @@ LudensScopeEditor::LudensScopeEditor (LudensScopeProcessor& p)
     applyFftSettings (processor.getFftSettings());
     applyViewSettings (processor.getViewSettings());
     applyReferenceSettings();
+    lastStateRevision = processor.stateRevision();
 
     setSize (1060, 700);
     startTimerHz (30);
@@ -392,11 +345,10 @@ LudensScopeEditor::~LudensScopeEditor()
         if (editors[i] == nullptr || editors[i].getComponent() == this)
             editors.remove (i);
 
-    if (referenceLoader != nullptr)
-    {
-        referenceLoader->signalThreadShouldExit();
-        referenceLoader->stopThread (2000);
-    }
+    referenceLoadGeneration.fetch_add (1, std::memory_order_relaxed);
+
+    if (referenceLoadCancel != nullptr)
+        referenceLoadCancel->store (true, std::memory_order_relaxed);
 
     // Never leave the host's mix filtered or replaced once the window closes.
     processor.setBandSolo (false, 0.0f, 0.0f);
@@ -549,7 +501,7 @@ void LudensScopeEditor::resized()
                           railBounds.getWidth() - juce::roundToInt (4.0f * uiScale),
                           refRowHeight);
 
-    constexpr int gap = 10;
+    const int gap = juce::roundToInt (10.0f * uiScale);
     const int bottomHeight = juce::jlimit (150, 230, (int) ((float) r.getHeight() * 0.34f));
     auto bottom = r.removeFromBottom (bottomHeight);
     r.removeFromBottom (gap);
@@ -738,6 +690,14 @@ void LudensScopeEditor::timerCallback()
                           processor.clippedSampleCount(), truePeakOvers);
 
 
+    if (processor.stateRevision() != lastStateRevision)
+    {
+        lastStateRevision = processor.stateRevision();
+        applyFftSettings (processor.getFftSettings());
+        applyViewSettings (processor.getViewSettings());
+        applyReferenceSettings();
+    }
+
     if (processor.referenceGeneration() != lastReferenceGeneration)
         applyReferenceSettings();
 
@@ -799,77 +759,139 @@ void LudensScopeEditor::chooseReferenceFile()
 void LudensScopeEditor::loadReferenceFile (const juce::File& file)
 {
     const int targetSlot = processor.getActiveReferenceSlot();
+    const std::uint64_t generation = ++referenceLoadGeneration;
 
-    if (referenceLoader != nullptr)
-        referenceLoader->stopThread (2000);
+    auto cancel = std::make_shared<std::atomic<bool>> (false);
+
+    if (referenceLoadCancel != nullptr)
+        referenceLoadCancel->store (true, std::memory_order_relaxed);
+
+    referenceLoadCancel = cancel;
 
     referenceButton.setButtonText ("LOADING...");
     referenceButton.setEnabled (false);
 
     const double targetRate = processor.getSampleRate() > 0.0 ? processor.getSampleRate() : 48000.0;
+    juce::Component::SafePointer<LudensScopeEditor> safe (this);
 
-    referenceLoader = std::make_unique<ReferenceLoader> (
-        file, targetRate,
-        [safe = juce::Component::SafePointer<LudensScopeEditor> (this), file, targetSlot]
-        (ReferenceAnalysis& analysis)
+    const bool started = juce::Thread::launch (
+        [safe, file, targetRate, targetSlot, generation, cancel]
         {
-            if (safe == nullptr)
+            auto analysis = analyzeReferenceFile (
+                file, [cancel] { return cancel->load (std::memory_order_relaxed); });
+
+            if (analysis.cancelled || cancel->load (std::memory_order_relaxed))
                 return;
 
-            if (analysis.cancelled)
-                return;
-
-            safe->referenceButton.setButtonText ("REF FILE");
-            safe->referenceButton.setEnabled (true);
-
-            if (! analysis.ok)
+            if (analysis.ok && analysis.audio != nullptr && targetRate > 0.0)
             {
-                safe->spectrumView.setReferencePlaceholder ("COULD NOT READ REFERENCE FILE");
-                juce::AlertWindow::showMessageBoxAsync (
-                    juce::MessageBoxIconType::WarningIcon,
-                    "Reference file",
-                    "Could not read " + file.getFileName()
-                        + ".\nSupported formats: WAV, AIFF, FLAC, OGG.");
-                return;
+                bool resampledTruncated = false;
+
+                analysis.audio = resampleReference (*analysis.audio, analysis.sampleRate,
+                                                    targetRate,
+                                                    [cancel] { return cancel->load (std::memory_order_relaxed); },
+                                                    &resampledTruncated);
+
+                if (analysis.audio == nullptr)
+                    return;
+
+                analysis.truncated = analysis.truncated || resampledTruncated;
+                analysis.sampleRate = targetRate;
             }
 
-            if (safe->processor.getActiveReferenceSlot() != targetSlot)
+            auto shared = std::make_shared<ReferenceAnalysis> (std::move (analysis));
+
+            juce::MessageManager::callAsync ([safe, file, targetSlot, generation, shared]
             {
-                safe->pendingReferenceLoopStart = -1.0;
-                return;
-            }
+                if (safe == nullptr)
+                    return;
 
-            safe->referenceDb = analysis.levels;
-            safe->hasReference = true;
-            safe->spectrumView.setReference (safe->referenceDb.data(), true);
+                if (safe->referenceLoadGeneration.load (std::memory_order_relaxed) != generation)
+                    return;
 
-            safe->processor.setReferenceAudio (std::move (analysis.audio), analysis.lufs);
-            safe->processor.clearUndo();
-            safe->referencePath = file.getFullPathName();
-            safe->processor.setReferenceCurveInfo (safe->referencePath, analysis.levels.data(), true);
-            safe->spectrumView.setReferenceWaveform (safe->processor.referenceWaveform());
-
-            if (analysis.truncated)
-            {
-                const double minutes = (double) safe->processor.referenceLengthSamples()
-                                     / juce::jmax (1.0, safe->processor.getSampleRate()) / 60.0;
-                juce::AlertWindow::showMessageBoxAsync (
-                    juce::MessageBoxIconType::InfoIcon,
-                    "Reference file",
-                    "The reference was truncated to the first "
-                        + juce::String (minutes, 1) + " minutes (memory limit).");
-            }
-
-            if (safe->pendingReferenceLoopStart >= 0.0)
-            {
-                safe->processor.setReferenceLoopRange (safe->pendingReferenceLoopStart,
-                                                       safe->pendingReferenceLoopEnd);
-                safe->processor.setReferencePositionSeconds (safe->pendingReferencePosition);
-                safe->pendingReferenceLoopStart = -1.0;
-            }
+                safe->handleReferenceLoaded (file, targetSlot, *shared);
+            });
         });
 
-    referenceLoader->startThread();
+    if (! started)
+    {
+        referenceLoadCancel.reset();
+        referenceButton.setButtonText ("REF FILE");
+        referenceButton.setEnabled (true);
+    }
+}
+
+void LudensScopeEditor::handleReferenceLoaded (const juce::File& file, int targetSlot,
+                                               ReferenceAnalysis& analysis)
+{
+    if (analysis.cancelled)
+        return;
+
+    referenceButton.setButtonText ("REF FILE");
+    referenceButton.setEnabled (true);
+
+    if (! analysis.ok)
+    {
+        spectrumView.setReferencePlaceholder ("COULD NOT READ REFERENCE FILE");
+        juce::AlertWindow::showMessageBoxAsync (
+            juce::MessageBoxIconType::WarningIcon,
+            "Reference file",
+            "Could not read " + file.getFileName()
+                + ".\nSupported formats: WAV, AIFF, FLAC, OGG.");
+        return;
+    }
+
+    if (processor.getActiveReferenceSlot() != targetSlot)
+    {
+        pendingReferenceLoopStart = -1.0;
+        return;
+    }
+
+    if (analysis.audio != nullptr)
+    {
+        const auto newBytes = (juce::int64) analysis.audio->getNumSamples()
+                            * analysis.audio->getNumChannels() * (juce::int64) sizeof (float);
+        const auto oldBytes = processor.referenceSlotBytes (targetSlot);
+
+        if (processor.referenceAudioBytes() - oldBytes + newBytes
+            > LudensScopeProcessor::maxReferenceTotalBytes)
+        {
+            juce::AlertWindow::showMessageBoxAsync (
+                juce::MessageBoxIconType::WarningIcon,
+                "Reference file",
+                "Reference memory limit reached (768 MiB across four slots). "
+                "Load a shorter file or replace another slot.");
+            return;
+        }
+    }
+
+    referenceDb = analysis.levels;
+    hasReference = true;
+    spectrumView.setReference (referenceDb.data(), true);
+
+    processor.setReferenceAudio (std::move (analysis.audio), analysis.lufs);
+    processor.clearUndo();
+    referencePath = file.getFullPathName();
+    processor.setReferenceCurveInfo (referencePath, analysis.levels.data(), true);
+    spectrumView.setReferenceWaveform (processor.referenceWaveform());
+
+    if (analysis.truncated)
+    {
+        const double minutes = (double) processor.referenceLengthSamples()
+                             / juce::jmax (1.0, processor.getSampleRate()) / 60.0;
+        juce::AlertWindow::showMessageBoxAsync (
+            juce::MessageBoxIconType::InfoIcon,
+            "Reference file",
+            "The reference was truncated to the first "
+                + juce::String (minutes, 1) + " minutes (memory limit).");
+    }
+
+    if (pendingReferenceLoopStart >= 0.0)
+    {
+        processor.setReferenceLoopRange (pendingReferenceLoopStart, pendingReferenceLoopEnd);
+        processor.setReferencePositionSeconds (pendingReferencePosition);
+        pendingReferenceLoopStart = -1.0;
+    }
 }
 
 void LudensScopeEditor::showFftMenu()
@@ -1504,9 +1526,6 @@ void LudensScopeEditor::syncSnapshots()
                                  processor.selectedSnapshot());
     snapshotGeneration = processor.snapshotGeneration();
 
-    applyFftSettings (processor.getFftSettings());
-    applyViewSettings (processor.getViewSettings());
-
     spectrumView.setSnapshots (snapshots, snapshotFilled, snapshotSlot);
 }
 
@@ -1654,6 +1673,11 @@ void LudensScopeEditor::showThemeMenu()
 void LudensScopeEditor::applyTheme()
 {
     logoImage = tintLogo (logoSource, theme::text);
+
+    // The waterfall stores painted colours, so old rows cannot follow a new
+    // palette; dropping the history keeps every pixel in the current theme.
+    spectrogramView.clear();
+
     repaint();
 
     for (auto* child : getChildren())
@@ -1752,28 +1776,34 @@ void LudensScopeEditor::applyReferenceSettings()
 
 void LudensScopeEditor::saveCurvePreset()
 {
-    juce::AlertWindow window ("Save FFT curve", "Preset name:",
-                              juce::MessageBoxIconType::NoIcon);
-    window.addTextEditor ("name", targetCurveActive ? targetCurveName
+    auto* window = new juce::AlertWindow ("Save FFT curve", "Preset name:",
+                                          juce::MessageBoxIconType::NoIcon);
+    window->addTextEditor ("name", targetCurveActive ? targetCurveName
                                                      : juce::String ("My curve"));
-    window.addButton ("Save", 1);
-    window.addButton ("Cancel", 0);
+    window->addButton ("Save", 1);
+    window->addButton ("Cancel", 0);
 
-    if (window.runModalLoop() != 1)
-        return;
+    juce::Component::SafePointer<LudensScopeEditor> safe (this);
 
-    const auto name = window.getTextEditorContents ("name").trim();
+    window->enterModalState (true, juce::ModalCallbackFunction::create (
+        [safe, window] (int result)
+        {
+            if (result != 1 || safe == nullptr)
+                return;
 
-    if (name.isEmpty())
-        return;
+            const auto name = window->getTextEditorContents ("name").trim();
 
-    const auto& average = analyzer.averageLevels();
+            if (name.isEmpty())
+                return;
 
-    if (curvePresets.save (name, average.data()))
-    {
-        applyTargetCurve (name);
-        saveViewSettings();
-    }
+            const auto& average = safe->analyzer.averageLevels();
+
+            if (safe->curvePresets.save (name, average.data()))
+            {
+                safe->applyTargetCurve (name);
+                safe->saveViewSettings();
+            }
+        }), true);
 }
 
 void LudensScopeEditor::loadCurvePreset (int index)
