@@ -6,11 +6,13 @@
 
 #include "Theme.h"
 
-// Stereo volume-unit meter emulating the standard VU ballistics:
-// 0 VU is the digital reference (default -18 dBFS, EBU), the scale is
-// -20..+3 VU, and the needle takes 300 ms to reach 99% of a step
-// (IEC 60268-17 / ANSI C16.5-1942). The 300 ms response is modelled with
-// a one-pole whose time constant is 300 ms / ln(100) = 65.1 ms.
+// Stereo volume-unit meter following IEC 60268-17 / ANSI C16.5:
+// - the pointer deflection is proportional to voltage, so the dB scale is
+//   non-linear (0 VU sits at ~68.5% of the -20..+3 arc)
+// - ballistics: 300 ms to 99% of a step with 1..1.5% overshoot, modelled
+//   as a second-order system in the voltage domain
+//   (zeta = 0.8, omega_n = 16.67 rad/s), not a one-pole in dB
+// - 0 VU is the digital reference (default -18 dBFS, EBU)
 class VuMeterView : public juce::Component
 {
 public:
@@ -33,14 +35,32 @@ public:
             return db - zeroDbfs;
         };
 
-        const float tau = 0.0651f; // 300 ms to 99%
-        const float coeff = (float) (1.0 - std::exp (-juce::jmax (0.001, deltaSeconds) / tau));
-
         const float rawL = rawVu (rmsLeft);
         const float rawR = rawVu (rmsRight);
 
-        displayL += coeff * (juce::jlimit (-20.0f, 3.0f, rawL) - displayL);
-        displayR += coeff * (juce::jlimit (-20.0f, 3.0f, rawR) - displayR);
+        // VU ballistics in the voltage domain: 300 ms to 99%, 1.5% overshoot.
+        constexpr float zeta = 0.8f;
+        constexpr float omegaN = 16.67f; // rad/s -> 300 ms settling at zeta 0.8
+        const float dt = juce::jlimit (0.001f, 0.1f, (float) deltaSeconds);
+
+        const auto targetVoltage = [] (float vu)
+        {
+            return std::pow (10.0f, juce::jlimit (-20.0f, 3.0f, vu) / 20.0f);
+        };
+
+        const auto step = [&] (float& v, float& velocity, float target)
+        {
+            velocity += (omegaN * omegaN * (target - v)
+                         - 2.0f * zeta * omegaN * velocity) * dt;
+            v += velocity * dt;
+            v = juce::jlimit (0.07f, 1.6f, v); // mechanical stops
+        };
+
+        step (voltageL, velocityL, targetVoltage (rawL));
+        step (voltageR, velocityR, targetVoltage (rawR));
+
+        displayL = 20.0f * std::log10 (juce::jmax (voltageL, 1.0e-6f));
+        displayR = 20.0f * std::log10 (juce::jmax (voltageR, 1.0e-6f));
 
         numericL = rawL;
         numericR = rawR;
@@ -193,6 +213,8 @@ private:
 private:
     float zeroDbfs = -18.0f;
     float displayL = -20.0f, displayR = -20.0f;
+    float voltageL = 0.1f, voltageR = 0.1f;   // -20 VU at rest
+    float velocityL = 0.0f, velocityR = 0.0f;
     float numericL = -20.0f, numericR = -20.0f;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (VuMeterView)
