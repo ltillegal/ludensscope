@@ -170,16 +170,25 @@ The VU follows IEC 60268-17 / ANSI C16.5: 0 VU = +4 dBu = 1.228 V RMS at
 -18 dBFS (EBU R68) or -20 dBFS (SMPTE RP 155); the VU reads average
 loudness, not peaks - use TRUE PEAK for peaks.
 
+## Install from a release
+
+- Linux: `sudo apt install ./LudensScope-linux.deb` — installs the VST3 to `/usr/lib/vst3`.
+- macOS: open `LudensScope-macos.pkg` — installs the VST3 and AU to `/Library/Audio/Plug-Ins`.
+- Windows: run `LudensScope-windows.exe` — installs the VST3 to `C:\Program Files\Common Files\VST3`.
+- [Komi Store](https://komistore.app/) picks the release up from the installable
+  assets (`.deb` / `.pkg` / `.exe`) automatically.
+
 ## Updates
 
 `FFT` → `Check for updates...` queries the latest GitHub release. If a newer
-version exists, the plugin downloads the package for the current OS to
+version exists, the plugin downloads the installer for the current OS to
 `~/Downloads`, verifies its SHA-256 against `SHA256SUMS.txt` from the same
 release and reveals the folder. The plugin never replaces its own loaded binary:
-quit the DAW, unzip the archive and replace the VST3/AU.
+quit the DAW and run the downloaded installer.
 
 Releases are built by `.github/workflows/release.yml` from a `vX.Y.Z` tag:
-macOS — VST3 + AU, Linux and Windows — VST3. The build version comes from
+Linux — `.deb`, macOS — `.pkg` (VST3 + AU), Windows — `.exe`, plus
+`SHA256SUMS.txt`. There are no zip assets. The build version comes from
 `-DLUDENSCOPE_VERSION`, so the tag and the version must match. The update check
 only makes a network request when you ask for it. The binaries are unsigned and
 not notarised — on macOS you may need to clear the quarantine flag.
