@@ -171,6 +171,12 @@ namespace theme
                                               size, juce::Font::plain));
     }
 
+    inline float fontScale = 1.0f;
+
+    inline juce::Font detailFont (float size) { return labelFont (size * fontScale); }
+    inline juce::Font detailBoldFont (float size) { return boldFont (size * fontScale); }
+    inline juce::Font detailMonoFont (float size) { return monoFont (size * fontScale); }
+
     inline juce::Colour levelColour (float lufs)
     {
         if (lufs > -9.0f)  return hot;

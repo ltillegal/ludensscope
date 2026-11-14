@@ -67,10 +67,11 @@ public:
                     header, juce::Justification::centredRight);
 
         // Geometry: an upper arc around a pivot near the bottom.
+        const float footerHeight = 13.0f * scale;
         const float pivotX = area.getCentreX();
-        const float pivotY = area.getBottom() - 4.0f * scale;
-        const float radius = juce::jmin (area.getWidth() * 0.43f,
-                                         area.getHeight() * 0.86f);
+        const float pivotY = area.getBottom() - footerHeight - 3.0f * scale;
+        const float radius = juce::jmin (area.getWidth() * 0.477f,
+                                         area.getHeight() * 0.88f);
         constexpr float startAngle = 2.7925f; // 160 deg
         constexpr float endAngle = 0.3491f;   // 20 deg
 
@@ -131,15 +132,6 @@ public:
                         juce::Justification::centred);
         }
 
-        // 0 VU label.
-        g.setFont (theme::labelFont (8.0f * scale));
-        g.setColour (theme::accent2);
-        const auto zeroPoint = pointFor (0.0f);
-        g.drawText ("0", juce::Rectangle<float> (zeroPoint.x - 5.0f * scale,
-                                                 zeroPoint.y - 22.0f * scale,
-                                                 10.0f * scale, 10.0f * scale),
-                    juce::Justification::centred);
-
         const auto drawNeedle = [&] (float vu, juce::Colour colour)
         {
             const auto p = pointFor (vu);
@@ -157,11 +149,14 @@ public:
             return (value >= 0.0f ? "+" : "") + juce::String (value, 1);
         };
 
-        g.setFont (theme::monoFont (9.0f * scale));
+        const auto footer = getLocalBounds().toFloat().removeFromBottom (footerHeight);
+
+        g.setFont (theme::monoFont (8.5f * scale));
         g.setColour (theme::textDim);
-        g.drawText ("L " + formatVu (numericL) + "  R " + formatVu (numericR) + " VU",
-                    getLocalBounds().toFloat().removeFromBottom (12.0f * scale + 6.0f),
-                    juce::Justification::centred);
+        g.drawText ("L " + formatVu (numericL) + " VU",
+                    footer.withTrimmedLeft (7.0f * scale), juce::Justification::centredLeft);
+        g.drawText ("R " + formatVu (numericR) + " VU",
+                    footer.withTrimmedRight (7.0f * scale), juce::Justification::centredRight);
     }
 
 private:

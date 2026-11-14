@@ -416,7 +416,7 @@ public:
         auto area = bounds.reduced (12.0f);
         auto titleRow = area.removeFromTop (16.0f);
 
-        g.setFont (theme::labelFont (10.5f));
+        g.setFont (theme::detailFont (10.5f));
         g.setColour (theme::textDim);
         g.drawText ("SPECTRUM  " + rangeText(), titleRow, juce::Justification::centredLeft);
 
@@ -473,7 +473,7 @@ public:
             return plot.getBottom() - plot.getHeight() * t;
         };
 
-        g.setFont (theme::monoFont (9.0f));
+        g.setFont (theme::detailMonoFont (9.0f));
 
         // Note grid: octave C markers for tonal checks.
         if (showNoteGrid)
@@ -522,7 +522,7 @@ public:
                 if (soloed)
                     g.drawVerticalLine ((int) std::round (x1), plot.getY(), plot.getBottom());
 
-                g.setFont (theme::labelFont (9.0f));
+                g.setFont (theme::detailFont (9.0f));
                 g.setColour (soloed ? theme::accent : theme::textDim.withAlpha (0.9f));
                 g.drawText (zone.name,
                             juce::Rectangle<float> (x0, plot.getBottom() - 12.0f, x1 - x0, 11.0f),
@@ -652,12 +652,12 @@ public:
             g.setColour (theme::panelLine);
             g.drawRoundedRectangle (box.reduced (0.5f), 5.0f, 1.0f);
 
-            g.setFont (theme::labelFont (8.0f));
+            g.setFont (theme::detailFont (8.0f));
             g.setColour (theme::accent2);
             g.drawText ("REF MATCH  (mix vs reference)", box.reduced (7.0f, 0.0f).removeFromTop (13.0f),
                         juce::Justification::centredLeft);
 
-            g.setFont (theme::labelFont (8.0f));
+            g.setFont (theme::detailFont (8.0f));
 
             for (int i = 0; i < count; ++i)
             {
@@ -722,7 +722,7 @@ public:
             g.setColour (theme::panel.withAlpha (0.55f));
             g.fillRoundedRectangle (hint, 5.0f);
             g.setColour (theme::textDim);
-            g.setFont (theme::labelFont (8.5f));
+            g.setFont (theme::detailFont (8.5f));
             g.drawText (referencePlaceholder, hint, juce::Justification::centred);
         }
 
@@ -752,7 +752,7 @@ public:
             g.setColour (theme::panel.withAlpha (0.85f));
             g.fillRoundedRectangle (chip, 4.0f);
             g.setColour (theme::accent2);
-            g.setFont (theme::labelFont (8.5f));
+            g.setFont (theme::detailFont (8.5f));
             g.drawText ("TARGET  " + targetCurveName.substring (0, 24), chip,
                         juce::Justification::centred);
         }
@@ -908,7 +908,7 @@ public:
                 g.fillRoundedRectangle (x - 18.0f, labelY, 36.0f, 12.0f, 3.0f);
 
                 g.setColour (theme::accent2);
-                g.setFont (theme::monoFont (8.5f));
+                g.setFont (theme::detailMonoFont (8.5f));
                 g.drawText (label, juce::Rectangle<float> (x - 18.0f, labelY, 36.0f, 12.0f),
                             juce::Justification::centred);
             }
@@ -954,12 +954,12 @@ public:
                     g.setColour (colours[band]);
                     g.fillEllipse (pill.getX() + 7.0f, pill.getCentreY() - 1.5f, 3.0f, 3.0f);
 
-                    g.setFont (theme::labelFont (8.5f));
+                    g.setFont (theme::detailFont (8.5f));
                     g.setColour (theme::textDim);
                     g.drawText (labels[band], pill.withTrimmedLeft (14.0f),
                                 juce::Justification::centredLeft);
 
-                    g.setFont (theme::monoFont (9.0f));
+                    g.setFont (theme::detailMonoFont (9.0f));
                     g.setColour (theme::text);
                     g.drawText (juce::String (juce::roundToInt (100.0f * bandPower[band] / total)) + "%",
                                 pill.withTrimmedRight (7.0f), juce::Justification::centredRight);
@@ -1198,7 +1198,7 @@ public:
 
             auto textArea = box.reduced (7.0f, 4.0f);
 
-            g.setFont (theme::monoFont (10.0f));
+            g.setFont (theme::detailMonoFont (10.0f));
             g.setColour (theme::text);
             g.drawText (line1, textArea.removeFromTop (12.0f), juce::Justification::centredLeft);
 

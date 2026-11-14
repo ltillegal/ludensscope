@@ -429,7 +429,7 @@ void LudensScopeEditor::paint (juce::Graphics& g)
     g.setColour (theme::text);
     g.drawText ("LudensScope", brand, juce::Justification::centredLeft);
 
-    g.setFont (theme::labelFont (9.5f));
+    g.setFont (theme::detailFont (9.5f));
     g.setColour (theme::textDim);
     g.drawText ("STEREO ANALYZER", header, juce::Justification::centredLeft);
 
@@ -442,7 +442,7 @@ void LudensScopeEditor::paint (juce::Graphics& g)
         g.fillRect (getLocalBounds());
         g.setColour (theme::accent);
         g.drawRect (getLocalBounds().reduced (3), 2);
-        g.setFont (theme::labelFont (15.0f));
+        g.setFont (theme::detailFont (15.0f));
         g.drawText ("DROP REFERENCE AUDIO", getLocalBounds(), juce::Justification::centred);
     }
 }
@@ -453,7 +453,10 @@ void LudensScopeEditor::resized()
 
     const float scaleW = (float) getWidth() / 1060.0f;
     const float scaleH = (float) getHeight() / 700.0f;
-    uiScale = juce::jlimit (0.9f, 1.35f, juce::jmin (scaleW, scaleH));
+    const float autoScale = juce::jlimit (0.9f, 1.35f, juce::jmin (scaleW, scaleH));
+    const float requestedScale = uiScalePercent > 0 ? (float) uiScalePercent / 100.0f : autoScale;
+    uiScale = juce::jlimit (0.75f, 1.5f, requestedScale);
+    theme::fontScale = uiScale;
     spectrumView.setUiScale (uiScale);
     meterPanel.setUiScale (uiScale);
 
@@ -531,7 +534,7 @@ void LudensScopeEditor::resized()
 
     vectorScopeView.setBounds (vectorBounds);
 
-    const int vuWidth = juce::jlimit (180, 230, juce::roundToInt (190.0f * uiScale));
+    const int vuWidth = juce::jlimit (150, 230, bottomHeight);
     auto vuBounds = bottom.removeFromLeft (vuWidth);
     bottom.removeFromLeft (gap);
 
@@ -1432,6 +1435,9 @@ void LudensScopeEditor::applyViewSettings (const LudensScopeProcessor::ViewSetti
     showMatch = settings.showMatch != 0;
     spectrumView.setShowMatch (showMatch);
 
+    uiScalePercent = settings.uiScalePercent;
+    resized();
+
 
     showPeakMarkers = settings.peakMarkers != 0;
     spectrumView.setPeakMarkers (showPeakMarkers);
@@ -1498,6 +1504,7 @@ void LudensScopeEditor::saveViewSettings()
     settings.gainStaging = gainStaging ? 1 : 0;
     settings.vuZeroDbfs = vuZeroDbfs;
     settings.showMatch = showMatch ? 1 : 0;
+    settings.uiScalePercent = uiScalePercent;
     settings.oscWindow = oscilloscopeView.getWindowSamples();
     settings.oscGain = oscilloscopeView.getVerticalGain();
 
@@ -1731,6 +1738,13 @@ void LudensScopeEditor::showThemeMenu()
 
     for (int i = 0; i < 7; ++i)
         menu.addItem (3000 + i, theme::themeName (i), true, theme::getTheme() == i);
+
+    menu.addSeparator();
+    menu.addSectionHeader ("UI scale");
+    menu.addItem (3100, "Auto", true, uiScalePercent == 0);
+    menu.addItem (3101, "100%", true, uiScalePercent == 100);
+    menu.addItem (3102, "125%", true, uiScalePercent == 125);
+    menu.addItem (3103, "150%", true, uiScalePercent == 150);
 
     menu.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (themeButton),
                         [safe = juce::Component::SafePointer<LudensScopeEditor> (this)] (int result)

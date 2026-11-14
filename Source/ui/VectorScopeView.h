@@ -25,7 +25,7 @@ public:
 
         auto area = bounds.reduced (12.0f);
 
-        g.setFont (theme::labelFont (10.5f));
+        g.setFont (theme::detailFont (10.5f));
         g.setColour (theme::textDim);
         g.drawText ("STEREO IMAGE", area.removeFromTop (14.0f), juce::Justification::centredLeft);
 
@@ -105,7 +105,7 @@ public:
             g.fillRect (x - 0.75f, y - 0.75f, 1.5f, 1.5f);
         }
 
-        g.setFont (theme::labelFont (9.0f));
+        g.setFont (theme::detailFont (9.0f));
         g.setColour (theme::textDim);
         g.drawText ("L", juce::Rectangle<float> (centre.x - radius - 12.0f, centre.y - 6.0f, 9.0f, 12.0f),
                     juce::Justification::centredRight);

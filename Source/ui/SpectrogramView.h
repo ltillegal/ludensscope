@@ -120,11 +120,11 @@ public:
         auto area = bounds.reduced (12.0f);
         auto titleRow = area.removeFromTop (14.0f);
 
-        g.setFont (theme::labelFont (10.5f));
+        g.setFont (theme::detailFont (10.5f));
         g.setColour (theme::textDim);
         g.drawText ("WATERFALL", titleRow, juce::Justification::centredLeft);
 
-        g.setFont (theme::labelFont (9.0f));
+        g.setFont (theme::detailFont (9.0f));
         g.drawText ("older \xe2\x86\x91  " + juce::String (historySeconds(), 1) + " s",
                     titleRow, juce::Justification::centredRight);
 
@@ -152,7 +152,7 @@ public:
         g.setGradientFill (scale);
         g.fillRect (legend);
 
-        g.setFont (theme::monoFont (7.5f));
+        g.setFont (theme::detailMonoFont (7.5f));
         g.setColour (theme::textDim);
         g.drawText ("0", juce::Rectangle<float> (legendX + 9.0f, plot.getY(), 18.0f, 10.0f),
                     juce::Justification::centredLeft);
