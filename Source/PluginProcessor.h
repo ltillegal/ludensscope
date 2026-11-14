@@ -164,7 +164,7 @@ public:
     int selectedSnapshot() const noexcept;
     void setSelectedSnapshot (int slot) noexcept;
     int snapshotGeneration() const noexcept;
-    int stateRevision() const noexcept { return stateRevisionValue.load(); }
+    int stateRevision() const noexcept { return stateRevisionValue.load (std::memory_order_acquire); }
 
     // Analyzer settings (UI state, persisted in the project).
     struct FftSettings
@@ -307,6 +307,8 @@ private:
     std::atomic<bool> soloResetRequested { false };
     std::atomic<float> soloHighPass[5] {};
     std::atomic<float> soloLowPass[5] {};
+    BiquadCoefficients soloCachedHighPass, soloCachedLowPass;
+    bool soloCachedActive = false;
     BiquadMemory soloHighPassMemory[2];
     BiquadMemory soloLowPassMemory[2];
 

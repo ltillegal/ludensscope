@@ -35,6 +35,12 @@ inline juce::String readUrlTextWithTimeout (const juce::URL& url, int timeoutMs)
     if (! web.connect (nullptr))
         return {};
 
+   #if JUCE_LINUX
+    // curl's WebInputStream::cancel() is not safe from another thread on
+    // Linux; the detached check thread may stay blocked, but the editor is
+    // never affected.
+    return web.readEntireStreamAsString();
+   #else
     std::atomic<bool> finished { false };
     std::thread watchdog ([&web, &finished, timeoutMs]
     {
@@ -55,6 +61,7 @@ inline juce::String readUrlTextWithTimeout (const juce::URL& url, int timeoutMs)
     finished.store (true);
     watchdog.join();
     return text;
+   #endif
 }
 
 inline bool isNewerVersion (const juce::String& candidate, const juce::String& current)
@@ -89,7 +96,7 @@ inline UpdateInfo performUpdateCheck()
    #if defined (JucePlugin_VersionString)
     info.currentVersion = juce::String (JucePlugin_VersionString);
    #else
-    info.currentVersion = "0.2.9";
+    info.currentVersion = "0.3.0";
    #endif
 
     const auto jsonText = readUrlTextWithTimeout (

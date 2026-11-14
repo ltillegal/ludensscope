@@ -116,6 +116,41 @@ int main (int argc, char** argv)
         }
     }
 
+    // Mono reference: the same sine in one channel must measure ~3.01 dB
+    // below the dual-mono stereo file (no double counting in LUFS).
+    juce::File monoReferenceFile (juce::File::getSpecialLocation (juce::File::tempDirectory)
+                                      .getChildFile ("ludensscope-reference-mono-test.wav"));
+    monoReferenceFile.deleteFile();
+
+    {
+        juce::WavAudioFormat wavFormat;
+        std::unique_ptr<juce::AudioFormatWriter> writer (
+            wavFormat.createWriterFor (new juce::FileOutputStream (monoReferenceFile),
+                                       48000.0, 1, 16, juce::StringPairArray(), 0));
+
+        if (writer != nullptr)
+        {
+            juce::AudioBuffer<float> sine (1, 96000);
+
+            for (int i = 0; i < sine.getNumSamples(); ++i)
+                sine.setSample (0, i, 0.5f * (float) std::sin (2.0 * pi * 1000.0 * (double) i / 48000.0));
+
+            writer->writeFromAudioSampleBuffer (sine, 0, sine.getNumSamples());
+        }
+    }
+
+    const auto monoReferenceAnalysis = analyzeReferenceFile (monoReferenceFile);
+    const bool monoReferenceOk = monoReferenceAnalysis.ok && referenceAnalysis.ok
+                                 && std::abs ((referenceAnalysis.lufs - monoReferenceAnalysis.lufs)
+                                              - 3.01f) < 0.2f
+                                 && std::abs (monoReferenceAnalysis.lufs + 9.0f) < 0.8f;
+
+    std::printf ("mono reference LUFS %.2f vs stereo %.2f (delta %.2f) %s\n",
+                 (double) monoReferenceAnalysis.lufs, (double) referenceAnalysis.lufs,
+                 (double) (referenceAnalysis.lufs - monoReferenceAnalysis.lufs),
+                 monoReferenceOk ? "ok" : "FAIL");
+    monoReferenceFile.deleteFile();
+
     juce::Timer::callAfterDelay (7000, [&processor, &referenceAnalysis, &referenceFile]
     {
         const float lufs = referenceAnalysis.lufs;

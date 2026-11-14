@@ -571,7 +571,7 @@ void LudensScopeProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce:
                 float refL = 0.0f;
                 float refR = 0.0f;
 
-                if (stillPlaying && length > 0)
+                if (stillPlaying && length > 0 && pos < effectiveEnd)
                 {
                     const auto p = (int) (pos % length);
                     refL = audio->getSample (0, p);
@@ -616,41 +616,39 @@ void LudensScopeProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce:
 
     // Band solo: a high-pass + low-pass pair on the outgoing audio only, so
     // the analysers above always see the untouched mix.
-    bool soloActive = false;
-    BiquadCoefficients highPass, lowPass;
-    bool soloConsistent = false;
+    const auto soloSnapshot = soloVersion.load (std::memory_order_acquire);
 
-    for (;;)
+    if ((soloSnapshot & 1u) == 0u)
     {
-        const auto version = soloVersion.load (std::memory_order_acquire);
+        const bool soloActiveNow = bandSoloActive.load (std::memory_order_relaxed);
 
-        if ((version & 1u) != 0u)
-            continue;
-
-        soloActive = bandSoloActive.load (std::memory_order_relaxed);
-
-        if (! soloActive)
+        if (! soloActiveNow)
         {
-            soloConsistent = true;
-            break;
+            soloCachedActive = false;
         }
-
-        highPass = { soloHighPass[0].load(), soloHighPass[1].load(),
-                     soloHighPass[2].load(), soloHighPass[3].load(),
-                     soloHighPass[4].load() };
-        lowPass = { soloLowPass[0].load(), soloLowPass[1].load(),
-                    soloLowPass[2].load(), soloLowPass[3].load(),
-                    soloLowPass[4].load() };
-
-        if (soloVersion.load (std::memory_order_acquire) == version)
+        else
         {
-            soloConsistent = true;
-            break;
+            const BiquadCoefficients highPassNow { soloHighPass[0].load(), soloHighPass[1].load(),
+                                                    soloHighPass[2].load(), soloHighPass[3].load(),
+                                                    soloHighPass[4].load() };
+            const BiquadCoefficients lowPassNow { soloLowPass[0].load(), soloLowPass[1].load(),
+                                                   soloLowPass[2].load(), soloLowPass[3].load(),
+                                                   soloLowPass[4].load() };
+
+            if (soloVersion.load (std::memory_order_acquire) == soloSnapshot)
+            {
+                soloCachedHighPass = highPassNow;
+                soloCachedLowPass = lowPassNow;
+                soloCachedActive = true;
+            }
         }
     }
 
-    if (soloConsistent && soloActive)
+    if (soloCachedActive)
     {
+        const auto highPass = soloCachedHighPass;
+        const auto lowPass = soloCachedLowPass;
+
         if (soloResetRequested.exchange (false, std::memory_order_relaxed))
         {
             for (auto& memory : soloHighPassMemory) memory = {};
@@ -990,7 +988,7 @@ void LudensScopeProcessor::setStateInformation (const void* data, int sizeInByte
     clearUndo();
     snapshotGenerationValue.fetch_add (1);
 
-    stateRevisionValue.fetch_add (1, std::memory_order_relaxed);
+    stateRevisionValue.fetch_add (1, std::memory_order_release);
 }
 
 LudensScopeProcessor::BiquadCoefficients LudensScopeProcessor::makeHighPass (
@@ -1045,9 +1043,9 @@ void LudensScopeProcessor::setBandSolo (bool active, float lowHz, float highHz)
     if (! active)
     {
         const auto version = soloVersion.load (std::memory_order_relaxed);
-        soloVersion.store (version + 1, std::memory_order_relaxed);
+        soloVersion.store (version + 1, std::memory_order_release);
         bandSoloActive.store (false, std::memory_order_relaxed);
-        soloVersion.store (version + 2, std::memory_order_relaxed);
+        soloVersion.store (version + 2, std::memory_order_release);
         return;
     }
 
@@ -1064,7 +1062,7 @@ void LudensScopeProcessor::setBandSolo (bool active, float lowHz, float highHz)
                                      lowPass.a1, lowPass.a2 };
 
     const auto version = soloVersion.load (std::memory_order_relaxed);
-    soloVersion.store (version + 1, std::memory_order_relaxed); // odd = writing
+    soloVersion.store (version + 1, std::memory_order_release); // odd = writing
 
     for (int i = 0; i < 5; ++i)
     {
@@ -1075,7 +1073,7 @@ void LudensScopeProcessor::setBandSolo (bool active, float lowHz, float highHz)
     soloResetRequested.store (true, std::memory_order_relaxed);
     bandSoloActive.store (true, std::memory_order_relaxed);
 
-    soloVersion.store (version + 2, std::memory_order_relaxed); // even = stable
+    soloVersion.store (version + 2, std::memory_order_release); // even = stable
 }
 
 juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter()
