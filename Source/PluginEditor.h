@@ -87,6 +87,7 @@ private:
     void syncSnapshots();
     void chooseReferenceFile();
     void loadReferenceFile (const juce::File& file);
+    void selectSource (bool reference);
     void toggleReferencePlay();
     void toggleReferenceLoop();
     void toggleReferenceAb();
@@ -149,7 +150,8 @@ private:
     DonateButton donateButton;
     juce::TextButton themeButton { "THEME" };
     ReferenceStrip referenceStrip;
-    ReferenceSlotSwitch slotSwitch;
+    juce::TextButton origButton { "ORIG" };
+    juce::TextButton refButton  { "REF" };
     juce::Image logoImage;
     juce::Image logoSource;
     juce::Rectangle<int> railBounds;

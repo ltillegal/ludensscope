@@ -70,6 +70,19 @@ public:
     }
 
     void setReferencePlaying (bool shouldPlay) noexcept;
+
+    // ORIG/REF monitor: when REF, the analysers and the output use the
+    // reference playback instead of the dry DAW input.
+    void setReferenceMonitor (bool shouldMonitor) noexcept
+    {
+        referenceMonitor.store (shouldMonitor);
+        referencePlaying.store (shouldMonitor);
+
+        if (! shouldMonitor)
+            referenceAudible.store (false);
+    }
+
+    bool isReferenceMonitoring() const noexcept { return referenceMonitor.load(); }
     void setReferenceAudible (bool shouldBeAudible) noexcept;
     void setReferenceLoop (bool shouldLoop) noexcept { referenceLoop.store (shouldLoop); }
     void setReferenceGainDb (float gainDb) noexcept { referenceGainDb.store (gainDb); }
@@ -262,6 +275,7 @@ private:
 
     mutable juce::SpinLock referenceLock;
     std::shared_ptr<juce::AudioBuffer<float>> referenceAudio;
+    std::atomic<bool> referenceMonitor { false };
     std::atomic<bool> referencePlaying { false };
     std::atomic<bool> referenceAudible { false };
     std::atomic<bool> referenceLoop { true };
