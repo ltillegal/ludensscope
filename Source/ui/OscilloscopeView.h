@@ -25,6 +25,12 @@ public:
 
     void setMomentaryLufs (float lufs) noexcept { momentaryLufs = lufs; }
 
+    void setGainStaging (bool enabled, float zeroDbfs) noexcept
+    {
+        gainStaging = enabled;
+        vuZeroDbfs = zeroDbfs;
+    }
+
     void setSampleRate (double newSampleRate) noexcept
     {
         sampleRate = newSampleRate > 0.0 ? newSampleRate : 48000.0;
@@ -155,6 +161,29 @@ public:
                    - juce::jlimit (-1.0f, 1.0f, sample * verticalGain) * plot.getHeight() * 0.46f;
         };
 
+        if (gainStaging)
+        {
+            const float levels[] = { 0.0f, -6.0f, -12.0f, vuZeroDbfs };
+
+            for (const float level : levels)
+            {
+                const float amplitude = juce::Decibels::decibelsToGain (level);
+                const float y = yFor (amplitude);
+                const bool zero = std::abs (level - vuZeroDbfs) < 0.01f;
+
+                g.setColour (zero ? theme::accent2.withAlpha (0.60f)
+                                  : theme::textDim.withAlpha (0.25f));
+                g.drawHorizontalLine ((int) std::round (y), plot.getX(), plot.getRight());
+
+                g.setFont (theme::labelFont (7.0f));
+                g.setColour (zero ? theme::accent2 : theme::textDim);
+                g.drawText (zero ? "0 VU" : juce::String ((int) level) + " dB",
+                            juce::Rectangle<float> (plot.getX() + 4.0f, y - 9.0f,
+                                                    56.0f, 9.0f),
+                            juce::Justification::centredLeft);
+            }
+        }
+
         // Min/max envelope per pixel column: at long time windows this draws
         // the waveform shape instead of a sparse, aliased polyline.
         const auto drawChannel = [&] (const std::vector<float>& data, juce::Colour colour)
@@ -282,6 +311,8 @@ private:
 
     std::vector<float> envelopeTops, envelopeBottoms;
     float momentaryLufs = -100.0f;
+    bool gainStaging = false;
+    float vuZeroDbfs = -18.0f;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (OscilloscopeView)
 };

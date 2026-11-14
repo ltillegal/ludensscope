@@ -184,6 +184,7 @@ LudensScopeEditor::LudensScopeEditor (LudensScopeProcessor& p)
     addAndMakeVisible (spectrogramView);
     addAndMakeVisible (meterPanel);
     addAndMakeVisible (vectorScopeView);
+    addAndMakeVisible (vuMeterView);
     addAndMakeVisible (oscilloscopeView);
 
     freezeButton.setClickingTogglesState (true);
@@ -529,6 +530,12 @@ void LudensScopeEditor::resized()
     bottom.removeFromLeft (gap);
 
     vectorScopeView.setBounds (vectorBounds);
+
+    const int vuWidth = juce::jlimit (180, 230, juce::roundToInt (190.0f * uiScale));
+    auto vuBounds = bottom.removeFromLeft (vuWidth);
+    bottom.removeFromLeft (gap);
+
+    vuMeterView.setBounds (vuBounds);
     oscilloscopeView.setBounds (bottom);
 }
 
@@ -703,6 +710,26 @@ void LudensScopeEditor::timerCallback()
                           correlation, truePeakHoldDb, processor.lraLu(), plr,
                           processor.clippedSampleCount(), truePeakOvers);
 
+
+    float vuL = 0.0f, vuR = 0.0f;
+
+    if (numRead > 0)
+    {
+        double sumL = 0.0, sumR = 0.0;
+
+        for (int i = 0; i < numRead; ++i)
+        {
+            const double l = readLeft[(size_t) i];
+            const double r = readRight[(size_t) i];
+            sumL += l * l;
+            sumR += r * r;
+        }
+
+        vuL = (float) std::sqrt (sumL / (double) numRead);
+        vuR = (float) std::sqrt (sumR / (double) numRead);
+    }
+
+    vuMeterView.setLevels (vuL, vuR, (float) vuZeroDbfs, 1.0 / 30.0);
 
     vectorScopeView.setData (scopeLeft.data() + (scopeSize - 1024),
                              scopeRight.data() + (scopeSize - 1024), 1024);
@@ -954,6 +981,12 @@ void LudensScopeEditor::showFftMenu()
     menu.addItem (602, "Side (M/S) curve", true, showSide);
     menu.addItem (603, "Note grid", true, showNoteGrid);
 
+    menu.addSeparator();
+    menu.addSectionHeader ("Gain staging");
+    menu.addItem (720, "Reference lines (FFT)", true, gainStaging);
+    menu.addItem (721, "0 VU = -18 dBFS (EBU)", true, vuZeroDbfs == -18);
+    menu.addItem (722, "0 VU = -20 dBFS (SMPTE)", true, vuZeroDbfs == -20);
+
     bool anySnapshot = false;
 
     for (int slot = 0; slot < LudensScopeProcessor::snapshotSlots; ++slot)
@@ -1003,6 +1036,22 @@ void LudensScopeEditor::showFftMenu()
 
 void LudensScopeEditor::applyFftMenu (int result)
 {
+    if (result == 720)
+    {
+        gainStaging = ! gainStaging;
+        applyGainStaging();
+        saveViewSettings();
+        return;
+    }
+
+    if (result == 721 || result == 722)
+    {
+        vuZeroDbfs = result == 722 ? -20 : -18;
+        applyGainStaging();
+        saveViewSettings();
+        return;
+    }
+
     if (result >= 100 && result < 104)
     {
         const int sizes[] = { 2048, 4096, 8192, 16384 };
@@ -1352,6 +1401,10 @@ void LudensScopeEditor::applyViewSettings (const LudensScopeProcessor::ViewSetti
     showSide = settings.sideCurve != 0;
     spectrumView.setShowSide (showSide);
 
+    gainStaging = settings.gainStaging != 0;
+    vuZeroDbfs = settings.vuZeroDbfs == -20 ? -20 : -18;
+    applyGainStaging();
+
     showPeakMarkers = settings.peakMarkers != 0;
     spectrumView.setPeakMarkers (showPeakMarkers);
 
@@ -1414,6 +1467,8 @@ void LudensScopeEditor::saveViewSettings()
     settings.targetLufs = meterPanel.getTarget();
     settings.waterfallHistory = waterfallHistory;
     settings.waterfallRatio = waterfallRatio;
+    settings.gainStaging = gainStaging ? 1 : 0;
+    settings.vuZeroDbfs = vuZeroDbfs;
     settings.oscWindow = oscilloscopeView.getWindowSamples();
     settings.oscGain = oscilloscopeView.getVerticalGain();
 
@@ -1682,6 +1737,13 @@ void LudensScopeEditor::applyTheme()
 
     for (auto* child : getChildren())
         child->repaint();
+}
+
+void LudensScopeEditor::applyGainStaging()
+{
+    spectrumView.setGainStaging (gainStaging, (float) vuZeroDbfs);
+    oscilloscopeView.setGainStaging (gainStaging, (float) vuZeroDbfs);
+    vuMeterView.setZeroDbfs ((float) vuZeroDbfs);
 }
 
 void LudensScopeEditor::toggleLevelMatch()

@@ -129,6 +129,12 @@ public:
         uiScale = juce::jlimit (0.85f, 1.4f, scale);
     }
 
+    void setGainStaging (bool enabled, float zeroDbfs) noexcept
+    {
+        gainStaging = enabled;
+        vuZeroDbfs = zeroDbfs;
+    }
+
     void setReferenceWaveform (const std::vector<float>& waveform)
     {
         referenceWaveform = waveform;
@@ -1272,6 +1278,8 @@ private:
     bool transportAudible = false;
     bool referenceLevelMatch = true;
     bool referenceMirror = false;
+    bool gainStaging = false;
+    float vuZeroDbfs = -18.0f;
     float uiScale = 1.0f;
     double transportPosition = 0.0;
     double transportLength = 0.0;

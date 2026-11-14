@@ -18,6 +18,7 @@
 #include "ui/SpectrogramView.h"
 #include "ui/SpectrumView.h"
 #include "ui/Theme.h"
+#include "ui/VuMeterView.h"
 #include "ui/VectorScopeView.h"
 
 class ScopeLookAndFeel;
@@ -105,6 +106,7 @@ private:
     void toggleMirror();
     void showThemeMenu();
     void applyTheme();
+    void applyGainStaging();
     static juce::Array<juce::Component::SafePointer<LudensScopeEditor>>& openEditors();
     void checkForUpdates();
     void handleUpdateResult (const UpdateInfo& info);
@@ -135,6 +137,7 @@ private:
     SpectrumView spectrumView;
     SpectrogramView spectrogramView;
     MeterPanel meterPanel;
+    VuMeterView vuMeterView;
     VectorScopeView vectorScopeView;
     OscilloscopeView oscilloscopeView;
 
@@ -161,6 +164,8 @@ private:
     bool showPeakMarkers = true;
     bool showDifference = false;
     bool showSide = false;
+    bool gainStaging = false;
+    int vuZeroDbfs = -18;
     bool showNoteGrid = false;
     int smoothingPreset = 0;
     int overlapPreset = 0;
