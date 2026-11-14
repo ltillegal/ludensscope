@@ -477,17 +477,19 @@ void LudensScopeEditor::resized()
                                .withSizeKeepingCentre (themeWidth, themeHeight));
     r.removeFromTop (8);
 
+    const int gap = juce::roundToInt (10.0f * uiScale);
+    const int stripHeight = juce::jlimit (80, 120, juce::roundToInt (100.0f * uiScale));
+    auto stripBounds = r.removeFromBottom (stripHeight);
+    referenceStrip.setBounds (stripBounds);
+    r.removeFromBottom (gap);
+
     const int railWidth = juce::roundToInt (88.0f * uiScale);
     railBounds = r.removeFromRight (railWidth);
     r.removeFromRight (juce::roundToInt (10.0f * uiScale));
 
     auto rail = railBounds.withTrimmedLeft (2).withTrimmedRight (2)
                           .withTrimmedTop (juce::roundToInt (8.0f * uiScale));
-    const int refRowHeight = juce::roundToInt (44.0f * uiScale);
-    const int refMargin = juce::roundToInt (6.0f * uiScale);
-    const int refCaption = juce::roundToInt (15.0f * uiScale);
-    const int refTop = railBounds.getBottom() - refMargin - refRowHeight - refCaption;
-    const int available = juce::jmax (0, refTop - rail.getY());
+    const int available = juce::jmax (0, rail.getHeight());
     const int buttonGap = juce::roundToInt (2.0f * uiScale);
     const int buttonHeight = juce::jmax (juce::roundToInt (22.0f * uiScale),
                                          (available - buttonGap * 8) / 9);
@@ -506,19 +508,15 @@ void LudensScopeEditor::resized()
         stack.removeFromTop (buttonGap);
     }
 
+    // ORIG/REF share the vertical band of the reference waveform strip.
     auto sourceRow = juce::Rectangle<int> (railBounds.getX() + juce::roundToInt (2.0f * uiScale),
-                                           railBounds.getBottom() - refMargin - refRowHeight,
+                                           stripBounds.getY() + juce::roundToInt (6.0f * uiScale),
                                            railBounds.getWidth() - juce::roundToInt (4.0f * uiScale),
-                                           refRowHeight);
+                                           stripHeight - juce::roundToInt (12.0f * uiScale));
     const int sourceGap = juce::roundToInt (3.0f * uiScale);
     origButton.setBounds (sourceRow.removeFromLeft ((sourceRow.getWidth() - sourceGap) / 2));
     sourceRow.removeFromLeft (sourceGap);
     refButton.setBounds (sourceRow);
-
-    const int gap = juce::roundToInt (10.0f * uiScale);
-    const int stripHeight = juce::jlimit (80, 120, juce::roundToInt (100.0f * uiScale));
-    referenceStrip.setBounds (r.removeFromBottom (stripHeight));
-    r.removeFromBottom (gap);
 
     const int bottomHeight = juce::jlimit (115, 160, (int) ((float) r.getHeight() * 0.22f));
     auto bottom = r.removeFromBottom (bottomHeight);
