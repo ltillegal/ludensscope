@@ -2,7 +2,7 @@
 
 [![build](https://github.com/ltillegal/ludensscope/actions/workflows/build.yml/badge.svg)](https://github.com/ltillegal/ludensscope/actions/workflows/build.yml)
 
-[Русский](README.md) · **English**
+[Русский](README.md) · **English** · [❤ Donate](https://www.paypal.com/donate/?business=0eskimo0%40gmail.com&item_name=LudensScope&currency_code=USD)
 
 A minimalist stereo analyser in **VST3 and AU** formats: spectrum, loudness
 to ITU-R BS.1770-4, true peak, vectorscope, oscilloscope and reference.
