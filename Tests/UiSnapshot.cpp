@@ -271,6 +271,12 @@ int main (int argc, char** argv)
         target->mouseMove (moveEvent);
     }
 
+    // The meters have been driven by the test signal; put the VU needles
+    // back to their rest stop on the left, as on the Waves product shot.
+    for (auto* child : editor->getChildren())
+        if (auto* vu = dynamic_cast<VuMeterView*> (child))
+            vu->setRest();
+
     const auto image = editor->createComponentSnapshot (editor->getLocalBounds(), true, 1.0f);
 
     juce::File output = juce::File::getCurrentWorkingDirectory()

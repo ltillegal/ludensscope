@@ -18,6 +18,16 @@ class VuMeterView : public juce::Component
 public:
     VuMeterView() = default;
 
+    // Puts both needles back on their mechanical rest stop (left, -20 VU).
+    void setRest() noexcept
+    {
+        displayL = displayR = -20.0f;
+        voltageL = voltageR = 0.1f;
+        velocityL = velocityR = 0.0f;
+        numericL = numericR = -20.0f;
+        repaint();
+    }
+
     void setZeroDbfs (float newZero) noexcept
     {
         zeroDbfs = juce::jlimit (-30.0f, -6.0f, newZero);
