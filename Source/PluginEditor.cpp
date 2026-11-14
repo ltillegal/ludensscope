@@ -213,9 +213,22 @@ LudensScopeEditor::LudensScopeEditor (LudensScopeProcessor& p)
     undoButton.setTooltip ("Restore the meters, snapshot, reference and counters from before the last RESET");
     addAndMakeVisible (undoButton);
 
-    slotSwitch.setTooltip ("Reference slots A-D");
-    slotSwitch.onSelect = [this] (int slot) { selectReferenceSlot (slot); };
-    addAndMakeVisible (slotSwitch);
+    addAndMakeVisible (referenceStrip);
+    referenceStrip.onPlay = [this] { toggleReferencePlay(); };
+    referenceStrip.onLoop = [this] { toggleReferenceLoop(); };
+    referenceStrip.onAb = [this] { toggleReferenceAb(); };
+    referenceStrip.onMatch = [this] { toggleLevelMatch(); };
+    referenceStrip.onMirror = [this] { toggleMirror(); };
+    referenceStrip.onRefFile = [this] { chooseReferenceFile(); };
+    referenceStrip.onSelectSlot = [this] (int slot) { selectReferenceSlot (slot); };
+    referenceStrip.onSeek = [this] (double seconds)
+    {
+        processor.setReferencePositionSeconds (seconds);
+    };
+    referenceStrip.onLoopRange = [this] (double start, double end)
+    {
+        processor.setReferenceLoopRange (start, end);
+    };
 
     themeButton.setTooltip ("Interface colour theme");
     themeButton.onClick = [this] { showThemeMenu(); };
@@ -263,18 +276,12 @@ LudensScopeEditor::LudensScopeEditor (LudensScopeProcessor& p)
 
     spectrogramView.setPushDivider (waterfallHistory);
 
-    referenceButton.setColour (juce::TextButton::buttonColourId, theme::panel);
-    referenceButton.setColour (juce::TextButton::textColourOffId, theme::text);
-    referenceButton.onClick = [this] { chooseReferenceFile(); };
-    addAndMakeVisible (referenceButton);
-
     fftButton.setColour (juce::TextButton::buttonColourId, theme::panel);
     fftButton.setColour (juce::TextButton::textColourOffId, theme::text);
     fftButton.onClick = [this] { showFftMenu(); };
     addAndMakeVisible (fftButton);
 
     fftButton.setTooltip ("FFT size, window, ballistics, tilt, smoothing");
-    referenceButton.setTooltip ("Load a reference track; the transport appears on the spectrum");
     guidesButton.setTooltip ("Placement guides; Shift/Alt-click a zone to solo that band");
     spanButton.setTooltip ("Frequency span in octaves (wheel over the spectrum zooms)");
     monoButton.setTooltip ("Meters and scopes use the mono sum; the spectrum is always the mono sum");
@@ -291,22 +298,6 @@ LudensScopeEditor::LudensScopeEditor (LudensScopeProcessor& p)
     {
         spanIndex = 0;
         applyRange (20.0f, 20000.0f);
-    };
-
-    spectrumView.onPlayToggle = [this] { toggleReferencePlay(); };
-    spectrumView.onLoopToggle = [this] { toggleReferenceLoop(); };
-    spectrumView.onAbToggle = [this] { toggleReferenceAb(); };
-    spectrumView.onLevelMatchToggle = [this] { toggleLevelMatch(); };
-    spectrumView.onMirrorToggle = [this] { toggleMirror(); };
-    
-    spectrumView.onReferenceSeek = [this] (double seconds)
-    {
-        processor.setReferencePositionSeconds (seconds);
-    };
-
-    spectrumView.onLoopRangeChange = [this] (double start, double end)
-    {
-        processor.setReferenceLoopRange (start, end);
     };
 
     spectrumView.setSnapshots (snapshots, snapshotFilled, snapshotSlot);
@@ -410,7 +401,7 @@ void LudensScopeEditor::paint (juce::Graphics& g)
         g.fillRect (railBounds.getX() + 12, rowTop - 10, railBounds.getWidth() - 24, 1);
         g.setFont (theme::labelFont (juce::jlimit (7.0f, 10.0f, 8.0f * uiScale)));
         g.setColour (theme::textDim);
-        g.drawText ("REF", railBounds.getX(), rowTop - 24, railBounds.getWidth(), 12,
+        g.drawText ("", railBounds.getX(), rowTop - 24, railBounds.getWidth(), 12,
                     juce::Justification::centred);
     }
 
@@ -474,23 +465,18 @@ void LudensScopeEditor::resized()
     auto rail = railBounds.withTrimmedLeft (2).withTrimmedRight (2)
                           .withTrimmedTop (juce::roundToInt (8.0f * uiScale));
     const int buttonHeight = juce::roundToInt (26.0f * uiScale);
-    const int refRowHeight = buttonHeight;
-    const int refMargin = juce::roundToInt (8.0f * uiScale);
-    const int refCaption = juce::roundToInt (34.0f * uiScale);
-
-    const int refTop = railBounds.getBottom() - refMargin - refRowHeight - refCaption;
-    const int available = juce::jmax (0, refTop - rail.getY());
+    const int available = juce::jmax (0, rail.getHeight());
     const int minGap = juce::roundToInt (6.0f * uiScale);
     const int maxGap = juce::roundToInt (22.0f * uiScale);
     const int buttonGap = juce::jlimit (minGap, juce::jmax (minGap, maxGap),
-                                        (available - buttonHeight * 10) / 9);
+                                        (available - buttonHeight * 9) / 8);
 
-    const int stackHeight = buttonHeight * 10 + buttonGap * 9;
+    const int stackHeight = buttonHeight * 9 + buttonGap * 8;
     auto stack = rail.withHeight (juce::jmin (available, stackHeight))
                       .translated (0, juce::jmax (0, (available - stackHeight) / 2));
 
     juce::Component* const buttons[] = {
-        &fftButton, &referenceButton, &guidesButton, &spanButton, &monoButton,
+        &fftButton, &guidesButton, &spanButton, &monoButton,
         &captureButton, &freezeButton, &undoButton, &resetButton, &donateButton
     };
 
@@ -500,12 +486,11 @@ void LudensScopeEditor::resized()
         stack.removeFromTop (buttonGap);
     }
 
-    slotSwitch.setBounds (railBounds.getX() + juce::roundToInt (2.0f * uiScale),
-                          railBounds.getBottom() - refMargin - refRowHeight,
-                          railBounds.getWidth() - juce::roundToInt (4.0f * uiScale),
-                          refRowHeight);
-
     const int gap = juce::roundToInt (10.0f * uiScale);
+    const int stripHeight = juce::jlimit (64, 100, juce::roundToInt (84.0f * uiScale));
+    referenceStrip.setBounds (r.removeFromBottom (stripHeight));
+    r.removeFromBottom (gap);
+
     const int bottomHeight = juce::jlimit (115, 160, (int) ((float) r.getHeight() * 0.22f));
     auto bottom = r.removeFromBottom (bottomHeight);
     r.removeFromBottom (gap);
@@ -612,24 +597,34 @@ void LudensScopeEditor::timerCallback()
     const double referenceRate = preparedSampleRate > 0.0 ? preparedSampleRate : 48000.0;
 
     undoButton.setEnabled (processor.hasUndo());
-    slotSwitch.setState (processor.getActiveReferenceSlot(),
-                         processor.isReferenceSlotFilled (0),
-                         processor.isReferenceSlotFilled (1),
-                         processor.isReferenceSlotFilled (2),
-                         processor.isReferenceSlotFilled (3));
+
+    ReferenceStrip::State stripState;
+    stripState.waveform = processor.referenceWaveform();
+    stripState.duration = referenceRate > 0.0
+                              ? (double) processor.referenceLengthSamples() / referenceRate : 0.0;
+    stripState.position = referenceRate > 0.0
+                              ? (double) processor.referencePositionSamples() / referenceRate : 0.0;
+    stripState.loopStart = processor.referenceLoopStartSeconds();
+    stripState.loopEnd = processor.referenceLoopEndSeconds();
+    stripState.playing = processor.isReferencePlaying();
+    stripState.looping = processor.isReferenceLooping();
+    stripState.audible = processor.isReferenceAudible();
+    stripState.match = levelMatch;
+    stripState.mirror = mirror;
+    stripState.activeSlot = processor.getActiveReferenceSlot();
+
+    for (int i = 0; i < 4; ++i)
+        stripState.filled[(size_t) i] = processor.isReferenceSlotFilled (i);
+
+    stripState.name = referencePath.isNotEmpty()
+                          ? juce::File (referencePath).getFileName() : juce::String();
+    stripState.lufs = processor.referenceLufs();
+    referenceStrip.setState (std::move (stripState));
+
     spectrumView.setReferenceModes (levelMatch, mirror);
 
     if (levelMatch && processor.hasReferenceAudio())
         updateReferenceGain();
-
-    spectrumView.setTransport (processor.hasReferenceAudio(),
-                               processor.isReferencePlaying(),
-                               processor.isReferenceLooping(),
-                               processor.isReferenceAudible(),
-                               (double) processor.referencePositionSamples() / referenceRate,
-                               (double) processor.referenceLengthSamples() / referenceRate,
-                               processor.referenceLoopStartSeconds(),
-                               processor.referenceLoopEndSeconds());
 
     if (processor.stateRevision() != lastStateRevision)
     {
@@ -804,8 +799,6 @@ void LudensScopeEditor::loadReferenceFile (const juce::File& file)
 
     referenceLoadCancel = cancel;
 
-    referenceButton.setButtonText ("LOADING...");
-    referenceButton.setEnabled (false);
 
     const double targetRate = processor.getSampleRate() > 0.0 ? processor.getSampleRate() : 48000.0;
     juce::Component::SafePointer<LudensScopeEditor> safe (this);
@@ -852,8 +845,6 @@ void LudensScopeEditor::loadReferenceFile (const juce::File& file)
     if (! started)
     {
         referenceLoadCancel.reset();
-        referenceButton.setButtonText ("REF FILE");
-        referenceButton.setEnabled (true);
     }
 }
 
@@ -863,8 +854,6 @@ void LudensScopeEditor::handleReferenceLoaded (const juce::File& file, int targe
     if (analysis.cancelled)
         return;
 
-    referenceButton.setButtonText ("REF FILE");
-    referenceButton.setEnabled (true);
 
     if (! analysis.ok)
     {
@@ -914,7 +903,6 @@ void LudensScopeEditor::handleReferenceLoaded (const juce::File& file, int targe
     processor.clearUndo();
     referencePath = file.getFullPathName();
     processor.setReferenceCurveInfo (referencePath, analysis.levels.data(), true);
-    spectrumView.setReferenceWaveform (processor.referenceWaveform());
 
     if (analysis.truncated)
     {
@@ -1886,11 +1874,6 @@ void LudensScopeEditor::selectReferenceSlot (int slot)
 
     processor.switchReferenceSlot (slot);
     applyReferenceSettings();
-    slotSwitch.setState (processor.getActiveReferenceSlot(),
-                         processor.isReferenceSlotFilled (0),
-                         processor.isReferenceSlotFilled (1),
-                         processor.isReferenceSlotFilled (2),
-                         processor.isReferenceSlotFilled (3));
 }
 
 void LudensScopeEditor::applyReferenceSettings()
@@ -1929,7 +1912,6 @@ void LudensScopeEditor::applyReferenceSettings()
         referencePath = reference.path;
         processor.setReferenceLoopRange (reference.loopStart, reference.loopEnd);
         processor.setReferencePositionSeconds (reference.position);
-        spectrumView.setReferenceWaveform (processor.referenceWaveform());
         return;
     }
 
