@@ -25,6 +25,38 @@ struct UpdateInfo
     juce::String error;
 };
 
+inline juce::String readUrlTextWithTimeout (const juce::URL& url, int timeoutMs)
+{
+    juce::WebInputStream web (url, false);
+    web.withConnectionTimeout (2000);
+    web.withExtraHeaders ("User-Agent: LudensScope\r\n"
+                          "Accept: application/vnd.github+json");
+
+    if (! web.connect (nullptr))
+        return {};
+
+    std::atomic<bool> finished { false };
+    std::thread watchdog ([&web, &finished, timeoutMs]
+    {
+        const int steps = juce::jmax (1, timeoutMs / 100);
+
+        for (int i = 0; i < steps; ++i)
+        {
+            if (finished.load())
+                return;
+
+            juce::Thread::sleep (100);
+        }
+
+        web.cancel();
+    });
+
+    auto text = web.readEntireStreamAsString();
+    finished.store (true);
+    watchdog.join();
+    return text;
+}
+
 inline bool isNewerVersion (const juce::String& candidate, const juce::String& current)
 {
     const auto parse = [] (juce::String text)
@@ -60,38 +92,16 @@ inline UpdateInfo performUpdateCheck()
     info.currentVersion = "0.2.9";
    #endif
 
-    juce::WebInputStream web (juce::URL ("https://api.github.com/repos/ltillegal/ludensscope/releases/latest"),
-                              false);
-    web.withConnectionTimeout (2000);
-    web.withExtraHeaders ("User-Agent: LudensScope\r\n"
-                          "Accept: application/vnd.github+json");
+    const auto jsonText = readUrlTextWithTimeout (
+        juce::URL ("https://api.github.com/repos/ltillegal/ludensscope/releases/latest"), 5000);
 
-    if (! web.connect (nullptr))
+    if (jsonText.isEmpty())
     {
         info.error = "Could not reach GitHub. Check your internet connection.";
         return info;
     }
 
-    // A server that accepts the connection and then goes silent must not
-    // leave the check thread hanging forever: cancel the read after 5 s.
-    std::atomic<bool> readFinished { false };
-    std::thread watchdog ([&web, &readFinished]
-    {
-        for (int i = 0; i < 50; ++i)
-        {
-            if (readFinished.load())
-                return;
-
-            juce::Thread::sleep (100);
-        }
-
-        web.cancel();
-    });
-
-    const auto json = juce::JSON::parse (web.readEntireStreamAsString());
-
-    readFinished.store (true);
-    watchdog.join();
+    const auto json = juce::JSON::parse (jsonText);
 
     if (! json.isObject() || json["tag_name"].toString().isEmpty())
     {
@@ -152,6 +162,7 @@ public:
     void run() override
     {
         const auto options = juce::URL::InputStreamOptions (juce::URL::ParameterHandling::inAddress)
+                                 .withConnectionTimeoutMs (5000)
                                  .withExtraHeaders ("User-Agent: LudensScope");
 
         auto temp = juce::File::getSpecialLocation (juce::File::tempDirectory)
@@ -208,17 +219,14 @@ public:
 
         if (update.checksumUrl.isNotEmpty())
         {
-            if (auto checksumStream = juce::URL (update.checksumUrl).createInputStream (options))
-            {
-                const auto text = checksumStream->readEntireStreamAsString();
+            const auto text = readUrlTextWithTimeout (juce::URL (update.checksumUrl), 5000);
 
-                for (const auto& line : juce::StringArray::fromLines (text))
+            for (const auto& line : juce::StringArray::fromLines (text))
+            {
+                if (line.containsIgnoreCase (update.assetName))
                 {
-                    if (line.containsIgnoreCase (update.assetName))
-                    {
-                        expected = line.upToFirstOccurrenceOf (" ", false, false).trim();
-                        break;
-                    }
+                    expected = line.upToFirstOccurrenceOf (" ", false, false).trim();
+                    break;
                 }
             }
         }

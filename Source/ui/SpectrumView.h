@@ -392,18 +392,24 @@ public:
         g.setColour (theme::textDim);
         g.drawText ("SPECTRUM  " + rangeText(), titleRow, juce::Justification::centredLeft);
 
-        // Snapshot slots A-D.
-        const juce::Rectangle<float> snapArea (titleRow.getRight() - 44.0f - 112.0f,
-                                               titleRow.getY(), 108.0f, titleRow.getHeight());
-        g.setFont (theme::labelFont (8.5f));
+        // Snapshot slots A-D, scaled with the rest of the transport UI.
+        const float snapScale = uiScale;
+        const juce::Rectangle<float> snapArea (titleRow.getRight() - 44.0f * snapScale
+                                                   - 112.0f * snapScale,
+                                               titleRow.getY(), 108.0f * snapScale,
+                                               titleRow.getHeight());
+        g.setFont (theme::labelFont (8.5f * snapScale));
         g.setColour (theme::textDim);
-        g.drawText ("SNAP", snapArea.withWidth (32.0f), juce::Justification::centredLeft);
+        g.drawText ("SNAP", snapArea.withWidth (32.0f * snapScale),
+                    juce::Justification::centredLeft);
 
         for (int i = 0; i < snapshotCount; ++i)
         {
-            const juce::Rectangle<float> letter (snapArea.getX() + 36.0f + (float) i * 18.0f,
-                                                 titleRow.getY() + 2.0f, 15.0f,
-                                                 titleRow.getHeight() - 4.0f);
+            const juce::Rectangle<float> letter (snapArea.getX() + 36.0f * snapScale
+                                                     + (float) i * 18.0f * snapScale,
+                                                 titleRow.getY() + 2.0f * snapScale,
+                                                 15.0f * snapScale,
+                                                 titleRow.getHeight() - 4.0f * snapScale);
             snapshotLetterAreas[(size_t) i] = letter;
 
             if (i == selectedSnapshot)
@@ -414,7 +420,7 @@ public:
                 g.drawRoundedRectangle (letter.expanded (1.0f, 0.0f), 3.0f, 1.0f);
             }
 
-            g.setFont (theme::labelFont (9.0f));
+            g.setFont (theme::labelFont (9.0f * snapScale));
             g.setColour (snapshotPresent[(size_t) i] ? snapshotColour (i)
                                                      : theme::textDim.withAlpha (0.45f));
             g.drawText (juce::String::charToString ((juce::juce_wchar) ('A' + i)),
