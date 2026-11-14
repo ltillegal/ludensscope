@@ -478,12 +478,14 @@ void LudensScopeEditor::resized()
     r.removeFromTop (8);
 
     const int gap = juce::roundToInt (10.0f * uiScale);
+    const int railWidth = juce::roundToInt (88.0f * uiScale);
     const int stripHeight = juce::jlimit (80, 120, juce::roundToInt (100.0f * uiScale));
-    auto stripBounds = r.removeFromBottom (stripHeight);
-    referenceStrip.setBounds (stripBounds);
+
+    auto stripBand = r.removeFromBottom (stripHeight);
+    auto sourceBand = stripBand.removeFromRight (railWidth);
+    referenceStrip.setBounds (stripBand);
     r.removeFromBottom (gap);
 
-    const int railWidth = juce::roundToInt (88.0f * uiScale);
     railBounds = r.removeFromRight (railWidth);
     r.removeFromRight (juce::roundToInt (10.0f * uiScale));
 
@@ -508,11 +510,9 @@ void LudensScopeEditor::resized()
         stack.removeFromTop (buttonGap);
     }
 
-    // ORIG/REF share the vertical band of the reference waveform strip.
-    auto sourceRow = juce::Rectangle<int> (railBounds.getX() + juce::roundToInt (2.0f * uiScale),
-                                           stripBounds.getY() + juce::roundToInt (6.0f * uiScale),
-                                           railBounds.getWidth() - juce::roundToInt (4.0f * uiScale),
-                                           stripHeight - juce::roundToInt (12.0f * uiScale));
+    // ORIG/REF take their own band beside the waveform strip, never above it.
+    auto sourceRow = sourceBand.reduced (juce::roundToInt (2.0f * uiScale),
+                                        juce::roundToInt (6.0f * uiScale));
     const int sourceGap = juce::roundToInt (3.0f * uiScale);
     origButton.setBounds (sourceRow.removeFromLeft ((sourceRow.getWidth() - sourceGap) / 2));
     sourceRow.removeFromLeft (sourceGap);
