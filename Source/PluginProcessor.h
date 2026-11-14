@@ -29,7 +29,15 @@ public:
     bool acceptsMidi() const override { return false; }
     bool producesMidi() const override { return false; }
     bool isMidiEffect() const override { return false; }
-    double getTailLengthSeconds() const override { return 0.0; }
+    double getTailLengthSeconds() const override
+    {
+        const auto length = referenceLength.load (std::memory_order_relaxed);
+        const auto rate = getSampleRate();
+
+        return (length > 0 && rate > 0.0)
+                   ? juce::jlimit (0.0, 5.0, (double) length / rate)
+                   : 0.0;
+    }
 
     int getNumPrograms() override { return 1; }
     int getCurrentProgram() override { return 0; }
@@ -229,7 +237,7 @@ private:
 
     LoudnessMeter loudness;
 
-    static constexpr int fifoSize = 1 << 15;
+    static constexpr int fifoSize = 1 << 17;
     juce::AbstractFifo fifo { fifoSize };
     std::array<float, fifoSize> fifoLeft {};
     std::array<float, fifoSize> fifoRight {};
