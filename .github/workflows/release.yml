@@ -63,6 +63,26 @@ jobs:
           cd build/LudensScope_artefacts/Release/VST3
           zip -r "$GITHUB_WORKSPACE/LudensScope-linux.zip" LudensScope.vst3
 
+      # Komi Store (and most Linux users) prefer a real package over a zip.
+      - name: Package (Linux deb)
+        if: runner.os == 'Linux'
+        run: |
+          PKG="ludensscope_${LUDENSCOPE_VERSION}_amd64"
+          mkdir -p "deb/$PKG/DEBIAN" "deb/$PKG/usr/lib/vst3"
+          cp -R build/LudensScope_artefacts/Release/VST3/LudensScope.vst3 "deb/$PKG/usr/lib/vst3/"
+          cat > "deb/$PKG/DEBIAN/control" <<EOF
+          Package: ludensscope
+          Version: ${LUDENSCOPE_VERSION}
+          Architecture: amd64
+          Maintainer: AlekLudens <0eskimo0@gmail.com>
+          Section: sound
+          Priority: optional
+          Description: LudensScope - stereo spectrum, loudness and scope analyser (VST3)
+           Minimalist stereo analyser: spectrum, loudness to ITU-R BS.1770-4,
+           true peak, vectorscope, oscilloscope and reference.
+          EOF
+          dpkg-deb --build --root-owner-group "deb/$PKG" "$GITHUB_WORKSPACE/${PKG}.deb"
+
       - name: Package (macOS)
         if: runner.os == 'macOS'
         run: |
@@ -76,6 +96,24 @@ jobs:
           cd dist
           zip -r "$GITHUB_WORKSPACE/LudensScope-macos.zip" LudensScope.vst3 LudensScope.component
 
+      # Installable .pkg: drops VST3 + AU where every DAW looks for them.
+      - name: Package (macOS pkg)
+        if: runner.os == 'macOS'
+        run: |
+          pkgroot="$RUNNER_TEMP/pkgroot"
+          mkdir -p "$pkgroot/Library/Audio/Plug-Ins/VST3" \
+                   "$pkgroot/Library/Audio/Plug-Ins/Components"
+          cp -R build/LudensScope_artefacts/Release/VST3/LudensScope.vst3 \
+                "$pkgroot/Library/Audio/Plug-Ins/VST3/"
+          cp -R build/LudensScope_artefacts/Release/AU/LudensScope.component \
+                "$pkgroot/Library/Audio/Plug-Ins/Components/"
+          pkgbuild --root "$pkgroot" \
+            --identifier local.ludensscope.installer \
+            --version "$LUDENSCOPE_VERSION" \
+            --install-location / \
+            --ownership recommended \
+            "$GITHUB_WORKSPACE/LudensScope-${LUDENSCOPE_VERSION}-macos.pkg"
+
       - name: Package (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
@@ -86,7 +124,10 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: package-${{ matrix.name }}
-          path: LudensScope-*.zip
+          path: |
+            LudensScope-*.zip
+            LudensScope-*.pkg
+            ludensscope_*.deb
 
   release:
     needs: build
@@ -100,7 +141,7 @@ jobs:
       - name: Checksums
         run: |
           cd artifacts
-          sha256sum *.zip > SHA256SUMS.txt
+          sha256sum * > SHA256SUMS.txt
           cat SHA256SUMS.txt
 
       - uses: softprops/action-gh-release@v2
@@ -108,5 +149,7 @@ jobs:
           tag_name: ${{ inputs.tag || github.ref_name }}
           generate_release_notes: true
           files: |
-            artifacts/*.zip
+            artifacts/LudensScope-*.zip
+            artifacts/LudensScope-*.pkg
+            artifacts/ludensscope_*.deb
             artifacts/SHA256SUMS.txt
