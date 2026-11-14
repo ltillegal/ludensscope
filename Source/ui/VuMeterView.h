@@ -80,6 +80,8 @@ private:
                    float numeric, const juce::String& label,
                    juce::Colour needleColour, float scale)
     {
+        const float fs = juce::jlimit (0.9f, 1.3f, face.getWidth() / 190.0f);
+
         g.setColour (theme::bg.withAlpha (0.62f));
         g.fillRoundedRectangle (face, 4.0f * scale);
         g.setColour (theme::panelLine);
@@ -88,8 +90,10 @@ private:
         auto inner = face.reduced (7.0f * scale);
         auto top = inner.removeFromTop (11.0f * scale);
 
-        g.setFont (theme::labelFont (8.0f * scale));
+        g.setFont (theme::labelFont (8.0f * fs));
         g.setColour (theme::textDim);
+        g.drawText ("VU", top.removeFromLeft (18.0f * fs),
+                    juce::Justification::centredLeft);
         g.drawText (label, top, juce::Justification::centredLeft);
         g.drawText ((numeric >= 0.0f ? "+" : "") + juce::String (numeric, 1),
                     top, juce::Justification::centredRight);
@@ -101,60 +105,83 @@ private:
         constexpr float startAngle = 2.7925f; // 160 deg
         constexpr float endAngle = 0.3491f;   // 20 deg
 
+        // VU deflection is proportional to voltage, not dB: the classic scale
+        // is non-linear, with 0 VU at ~70% of the arc (IEC 60268-17 / ANSI C16.5).
         const auto pointFor = [&] (float value)
         {
-            const float t = juce::jlimit (0.0f, 1.0f, (value + 20.0f) / 23.0f);
+            const float v = std::pow (10.0f, juce::jlimit (-20.0f, 3.0f, value) / 20.0f);
+            const float t = juce::jlimit (0.0f, 1.0f, (v - 0.1f) / (1.41253754f - 0.1f));
             const float angle = startAngle + (endAngle - startAngle) * t;
             return juce::Point<float> (pivotX + radius * std::cos (angle),
                                        pivotY - radius * std::sin (angle));
         };
 
-        juce::Path arc;
+        juce::Path arc, arcHot;
 
-        for (int i = 0; i <= 64; ++i)
+        for (int i = 0; i <= 96; ++i)
         {
-            const auto p = pointFor (-20.0f + 23.0f * (float) i / 64.0f);
+            const float value = -20.0f + 23.0f * (float) i / 96.0f;
+            const auto p = pointFor (value);
 
-            if (i == 0) arc.startNewSubPath (p);
-            else        arc.lineTo (p);
+            if (value <= 0.001f)
+            {
+                if (arc.isEmpty()) arc.startNewSubPath (p);
+                else              arc.lineTo (p);
+            }
+
+            if (value >= -0.001f)
+            {
+                if (arcHot.isEmpty()) arcHot.startNewSubPath (p);
+                else                 arcHot.lineTo (p);
+            }
         }
 
         g.setColour (theme::gridStrong);
         g.strokePath (arc, juce::PathStrokeType (1.0f));
+        g.setColour (theme::hot);
+        g.strokePath (arcHot, juce::PathStrokeType (1.6f));
 
         const float marks[] = { -20.0f, -10.0f, -7.0f, -5.0f, -3.0f,
                                 -2.0f, -1.0f, 0.0f, 1.0f, 2.0f, 3.0f };
-        const float labels[] = { -20.0f, -10.0f, -5.0f, -3.0f, 0.0f, 3.0f };
+        const float labels[] = { -20.0f, -10.0f, -7.0f, -5.0f, -3.0f,
+                                 -2.0f, -1.0f, 0.0f, 1.0f, 2.0f, 3.0f };
 
         for (const float mark : marks)
         {
             const auto p = pointFor (mark);
             const auto outward = (p - juce::Point<float> (pivotX, pivotY))
                                  / juce::jmax (1.0e-3f, radius);
+            const bool over = mark >= -0.001f;
             const bool zero = std::abs (mark) < 0.01f;
 
-            g.setColour (zero ? theme::accent2 : theme::textDim.withAlpha (0.75f));
-            g.drawLine ({ p, p + outward * 4.0f * scale }, zero ? 1.8f : 1.0f);
+            g.setColour (over ? theme::hot : theme::textDim.withAlpha (0.75f));
+            g.drawLine ({ p, p + outward * 4.0f * scale },
+                        zero ? 1.8f : (over ? 1.2f : 1.0f));
         }
 
-        g.setFont (theme::labelFont (6.8f * scale));
+        g.setFont (theme::labelFont (8.2f * fs));
 
         for (const float labelValue : labels)
         {
             const auto p = pointFor (labelValue);
             const auto outward = (p - juce::Point<float> (pivotX, pivotY))
                                  / juce::jmax (1.0e-3f, radius);
-            const auto labelPoint = p + outward * 10.0f * scale;
-            const bool zero = std::abs (labelValue) < 0.01f;
+            const auto labelPoint = p - outward * 11.0f * scale;
+            const bool over = labelValue >= -0.001f;
 
-            g.setColour (zero ? theme::accent2 : theme::textDim);
+            g.setColour (over ? theme::hot : theme::textDim);
             g.drawText (labelValue > 0.0f ? "+" + juce::String ((int) labelValue)
                                           : juce::String ((int) labelValue),
-                        juce::Rectangle<float> (labelPoint.x - 9.0f * scale,
-                                                labelPoint.y - 5.0f * scale,
-                                                18.0f * scale, 10.0f * scale),
+                        juce::Rectangle<float> (labelPoint.x - 12.0f * fs,
+                                                labelPoint.y - 5.0f * fs,
+                                                24.0f * fs, 10.0f * fs),
                         juce::Justification::centred);
         }
+
+        g.setFont (theme::labelFont (6.0f * fs));
+        g.setColour (theme::textDim.withAlpha (0.55f));
+        g.drawText ("LUDENS", face.removeFromBottom (9.0f * fs),
+                    juce::Justification::centred);
 
         const auto needlePoint = pointFor (vu);
         g.setColour (needleColour);
