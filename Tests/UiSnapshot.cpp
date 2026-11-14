@@ -92,6 +92,37 @@ int main (int argc, char** argv)
         }
     }
 
+    // A separate, musical reference for the screenshot: the strip should show
+    // a real waveform envelope, not the flat band of a continuous sine.
+    juce::File displayReferenceFile (juce::File::getSpecialLocation (juce::File::tempDirectory)
+                                         .getChildFile ("ludensscope-reference-display.wav"));
+    displayReferenceFile.deleteFile();
+
+    {
+        juce::WavAudioFormat wavFormat;
+        std::unique_ptr<juce::AudioFormatWriter> writer (
+            wavFormat.createWriterFor (new juce::FileOutputStream (displayReferenceFile),
+                                       48000.0, 2, 16, juce::StringPairArray(), 0));
+
+        if (writer != nullptr)
+        {
+            juce::AudioBuffer<float> music (2, 96000);
+
+            for (int i = 0; i < music.getNumSamples(); ++i)
+            {
+                const double t = (double) i / 48000.0;
+                const float low = 0.30f * (float) std::sin (2.0 * pi * 70.0 * t);
+                const float mid = 0.18f * (float) std::sin (2.0 * pi * 950.0 * t);
+                const float env = 0.15f + 0.85f * (0.5f + 0.5f * (float) std::sin (2.0 * pi * 1.3 * t));
+                const float high = 0.10f * env * (float) std::sin (2.0 * pi * 9000.0 * t);
+                music.setSample (0, i, low + mid + high);
+                music.setSample (1, i, low - 0.8f * mid + 0.7f * high);
+            }
+
+            writer->writeFromAudioSampleBuffer (music, 0, music.getNumSamples());
+        }
+    }
+
     if (referenceFile.existsAsFile())
     {
         referenceAnalysis = analyzeReferenceFile (referenceFile);
@@ -276,6 +307,56 @@ int main (int argc, char** argv)
     for (auto* child : editor->getChildren())
         if (auto* vu = dynamic_cast<VuMeterView*> (child))
             vu->setRest();
+
+    // The analysed reference is a flat sine; show a musical waveform in the
+    // strip's screenshot without touching the processor's reference tests.
+    if (const auto displayAnalysis = analyzeReferenceFile (displayReferenceFile);
+        displayAnalysis.ok && displayAnalysis.audio != nullptr)
+    {
+        for (auto* child : editor->getChildren())
+            if (auto* strip = dynamic_cast<ReferenceStrip*> (child))
+            {
+                ReferenceStrip::State st;
+
+                const auto& audio = *displayAnalysis.audio;
+                const int samples = audio.getNumSamples();
+                const int cols = 512;
+                st.waveform.assign ((size_t) cols * 2, 0.0f);
+
+                for (int c = 0; c < cols; ++c)
+                {
+                    const int from = (int) ((juce::int64) c * samples / cols);
+                    const int to = (int) ((juce::int64) (c + 1) * samples / cols);
+                    float low = 0.0f, high = 0.0f;
+
+                    for (int i = from; i < to; ++i)
+                    {
+                        const float v = 0.5f * (audio.getSample (0, i) + audio.getSample (1, i));
+                        low = juce::jmin (low, v);
+                        high = juce::jmax (high, v);
+                    }
+
+                    st.waveform[(size_t) (c * 2)] = low;
+                    st.waveform[(size_t) (c * 2 + 1)] = high;
+                }
+
+                st.duration = 48000.0 > 0.0 ? (double) samples / 48000.0 : 0.0;
+                st.position = processor.referenceLoopStartSeconds();
+                st.loopStart = processor.referenceLoopStartSeconds();
+                st.loopEnd = processor.referenceLoopEndSeconds();
+                st.playing = processor.isReferencePlaying();
+                st.looping = processor.isReferenceLooping();
+                st.audible = processor.isReferenceAudible();
+                st.activeSlot = processor.getActiveReferenceSlot();
+
+                for (int i = 0; i < 4; ++i)
+                    st.filled[(size_t) i] = processor.isReferenceSlotFilled (i);
+
+                st.name = displayReferenceFile.getFileName();
+                st.lufs = displayAnalysis.lufs;
+                strip->setState (std::move (st));
+            }
+    }
 
     const auto image = editor->createComponentSnapshot (editor->getLocalBounds(), true, 1.0f);
 

@@ -19,6 +19,7 @@
 #include "ui/SpectrumView.h"
 #include "ui/Theme.h"
 #include "ui/VuMeterView.h"
+#include "ui/ReferenceStrip.h"
 #include "ui/VectorScopeView.h"
 
 class ScopeLookAndFeel;
@@ -147,7 +148,7 @@ private:
     juce::TextButton undoButton   { "UNDO" };
     DonateButton donateButton;
     juce::TextButton themeButton { "THEME" };
-    ReferenceSlotSwitch slotSwitch;
+    ReferenceStrip referenceStrip;
     juce::Image logoImage;
     juce::Image logoSource;
     juce::Rectangle<int> railBounds;
@@ -156,7 +157,6 @@ private:
     juce::TextButton monoButton { "MONO" };
     juce::TextButton spanButton { "SPAN 10" };
     juce::TextButton guidesButton { "GUIDES" };
-    juce::TextButton referenceButton { "REF FILE" };
     juce::TextButton fftButton { "FFT 4096" };
 
     int timingPreset = 1;
