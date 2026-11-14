@@ -281,6 +281,33 @@ int main (int argc, char** argv)
     const bool slotsOk = slotB && slotABack;
     std::printf ("reference slots: %s\n", slotsOk ? "ok" : "FAIL");
 
+    // ORIG/REF source: with REF monitoring, a silent input must come out as
+    // the reference playback and feed the analyser FIFO from it.
+    processor.setReferenceMonitor (true);
+    processor.setReferencePlaying (true);
+    processor.setReferenceLoopRange (0.0, 0.1);
+    processor.setReferencePositionSeconds (0.0);
+
+    juce::AudioBuffer<float> sourceBuffer (2, 512);
+    juce::MidiBuffer sourceMidi;
+    sourceBuffer.clear();
+    processor.processBlock (sourceBuffer, sourceMidi);
+
+    float sourceL[512] = {}, sourceR[512] = {};
+    const int sourceRead = processor.readSamples (sourceL, sourceR, 512);
+    float sourcePeak = 0.0f;
+
+    for (int i = 0; i < sourceRead; ++i)
+        sourcePeak = juce::jmax (sourcePeak, std::abs (sourceL[i]), std::abs (sourceR[i]));
+
+    const bool sourceOk = sourceRead > 0 && sourcePeak > 0.05f; // reference is a 0.5 sine
+    processor.setReferenceMonitor (false);
+    processor.setReferencePlaying (false);
+    processor.setReferenceLoopRange (0.0,
+        (double) processor.referenceLengthSamples() / 48000.0);
+    processor.setReferencePositionSeconds (0.0);
+    std::printf ("ORIG/REF source: %s (peak %.3f)\n", sourceOk ? "ok" : "FAIL", sourcePeak);
+
     // Exercise the reference curve so the snapshot also covers that path.
     if (auto* ludens = dynamic_cast<LudensScopeEditor*> (editor.get()))
     {
@@ -722,6 +749,7 @@ int main (int argc, char** argv)
 
     return clipped == 2 && undoOk && referenceOk && gainOk && seekOk
            && snapshotPersisted && settingsPersisted
+           && sourceOk
            && referencePersisted
            && viewPersisted && presetOk && slotsOk && slotBLoaded && soloOk && loopOk && waveformOk ? 0 : 1;
 }
