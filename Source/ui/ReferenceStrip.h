@@ -30,7 +30,6 @@ public:
     void setState (State s) { state = std::move (s); repaint(); }
 
     std::function<void()> onPlay, onLoop, onAb, onMatch, onMirror, onRefFile;
-    std::function<void (int)> onSelectSlot;
     std::function<void (double)> onSeek;
     std::function<void (double, double)> onLoopRange;
 
@@ -69,7 +68,6 @@ private:
     State state;
     juce::Rectangle<float> waveArea, playArea, loopArea, abArea, matchArea, mirrorArea;
     juce::Rectangle<float> refFileArea, nameArea;
-    std::array<juce::Rectangle<float>, 4> slotAreas;
 
     bool draggingLoop = false, draggingStart = false, draggingEnd = false;
     double dragAnchor = 0.0;
@@ -78,31 +76,26 @@ private:
 inline void ReferenceStrip::resized()
 {
     auto b = getLocalBounds().toFloat().reduced (10.0f, 6.0f);
-    auto left = b.removeFromLeft (210.0f);
-    auto right = b.removeFromRight (190.0f);
+    auto left = b.removeFromLeft (140.0f);
+    auto right = b.removeFromRight (230.0f);
     auto mid = b.reduced (10.0f, 0.0f);
 
     left.removeFromTop (12.0f);
-    auto tabs = left.removeFromTop (20.0f);
-
-    for (auto& slot : slotAreas)
-    {
-        slot = tabs.removeFromLeft (24.0f);
-        tabs.removeFromLeft (3.0f);
-    }
-
-    tabs.removeFromLeft (4.0f);
-    refFileArea = tabs.removeFromLeft (72.0f);
+    refFileArea = left.removeFromTop (22.0f);
     nameArea = left.removeFromTop (12.0f);
 
     waveArea = mid.withTrimmedTop (2.0f).withTrimmedBottom (12.0f);
 
-    auto row = right.removeFromTop (20.0f);
-    playArea = row.removeFromLeft (24.0f);
-    loopArea = row.removeFromLeft (40.0f);
-    abArea = row.removeFromLeft (36.0f);
+    auto row = right.removeFromTop (30.0f);
+    playArea = row.removeFromLeft (28.0f);
+    row.removeFromLeft (5.0f);
+    loopArea = row.removeFromLeft (42.0f);
+    row.removeFromLeft (5.0f);
+    abArea = row.removeFromLeft (38.0f);
+    row.removeFromLeft (5.0f);
     matchArea = row.removeFromLeft (46.0f);
-    mirrorArea = row.removeFromLeft (44.0f);
+    row.removeFromLeft (5.0f);
+    mirrorArea = row.removeFromLeft (48.0f);
 }
 
 inline void ReferenceStrip::paint (juce::Graphics& g)
@@ -120,26 +113,11 @@ inline void ReferenceStrip::paint (juce::Graphics& g)
     g.setColour (theme::textDim);
     g.drawText ("REFERENCE", caption, juce::Justification::centredLeft);
 
-    for (int i = 0; i < 4; ++i)
-    {
-        const bool active = state.activeSlot == i;
-        const bool filled = state.filled[(size_t) i];
-
-        g.setColour (active ? theme::accent.withAlpha (0.18f) : theme::bg.withAlpha (0.5f));
-        g.fillRoundedRectangle (slotAreas[(size_t) i], 3.0f);
-        g.setColour (active ? theme::accent : theme::panelLine);
-        g.drawRoundedRectangle (slotAreas[(size_t) i].reduced (0.5f), 3.0f, 1.0f);
-        g.setFont (theme::labelFont (8.5f));
-        g.setColour (active ? theme::accent : (filled ? theme::text : theme::textDim));
-        g.drawText (juce::String::charToString ((juce::juce_wchar) ('A' + i)),
-                    slotAreas[(size_t) i], juce::Justification::centred);
-    }
-
     g.setFont (theme::labelFont (8.0f));
     g.setColour (theme::textDim);
     g.drawText ("REF FILE", refFileArea, juce::Justification::centred);
 
-    left.removeFromTop (20.0f); // slot tabs, drawn from slotAreas above
+    left.removeFromTop (22.0f); // ref-file row, drawn from refFileArea above
     auto nameRow = left.removeFromTop (12.0f);
     g.setFont (theme::labelFont (8.5f));
     g.setColour (state.name.isNotEmpty() ? theme::text : theme::textDim);
@@ -214,33 +192,44 @@ inline void ReferenceStrip::paint (juce::Graphics& g)
                     waveArea, juce::Justification::centred);
     }
 
-    // Transport.
-    g.setColour (state.playing ? theme::accent2 : theme::accent);
+    // Transport: a round play button and rounded pills, evenly spaced.
+    g.setColour (state.playing ? theme::accent2 : theme::bg.withAlpha (0.5f));
+    g.fillEllipse (playArea.reduced (1.0f));
+    g.setColour (state.playing ? theme::accent2 : theme::panelLine);
+    g.drawEllipse (playArea.reduced (1.0f), 1.0f);
+
+    g.setColour (state.playing ? theme::bg : theme::accent);
 
     if (state.playing)
     {
-        g.fillRect (playArea.getCentreX() - 3.0f, playArea.getCentreY() - 3.0f, 6.0f, 6.0f);
+        g.fillRect (playArea.getCentreX() - 3.5f, playArea.getCentreY() - 3.5f, 7.0f, 7.0f);
     }
     else
     {
         juce::Path triangle;
-        triangle.addTriangle (playArea.getCentreX() - 3.0f, playArea.getCentreY() - 4.0f,
-                              playArea.getCentreX() - 3.0f, playArea.getCentreY() + 4.0f,
-                              playArea.getCentreX() + 4.0f, playArea.getCentreY());
+        triangle.addTriangle (playArea.getCentreX() - 3.0f, playArea.getCentreY() - 4.5f,
+                              playArea.getCentreX() - 3.0f, playArea.getCentreY() + 4.5f,
+                              playArea.getCentreX() + 5.0f, playArea.getCentreY());
         g.fillPath (triangle);
     }
 
-    g.setFont (theme::labelFont (8.0f));
-    g.setColour (state.looping ? theme::accent2 : theme::textDim);
-    g.drawText ("LOOP", loopArea, juce::Justification::centred);
-    g.setColour (state.audible ? theme::accent : theme::textDim);
-    g.drawText (state.audible ? "REF" : "MIX", abArea, juce::Justification::centred);
-    g.setColour (state.match ? theme::accent2 : theme::textDim);
-    g.drawText ("MATCH", matchArea, juce::Justification::centred);
-    g.setColour (state.mirror ? theme::accent : theme::textDim);
-    g.drawText ("MIRROR", mirrorArea, juce::Justification::centred);
+    const auto pill = [&] (juce::Rectangle<float> r, bool on, const juce::String& text)
+    {
+        g.setColour (on ? theme::accent.withAlpha (0.16f) : theme::bg.withAlpha (0.5f));
+        g.fillRoundedRectangle (r, r.getHeight() * 0.5f);
+        g.setColour (on ? theme::accent : theme::panelLine);
+        g.drawRoundedRectangle (r.reduced (0.5f), r.getHeight() * 0.5f, 1.0f);
+        g.setFont (theme::labelFont (8.5f));
+        g.setColour (on ? theme::accent : theme::textDim);
+        g.drawText (text, r, juce::Justification::centred);
+    };
 
-    right.removeFromTop (20.0f); // transport row, drawn from the areas above
+    pill (loopArea, state.looping, "LOOP");
+    pill (abArea, state.audible, state.audible ? "REF" : "MIX");
+    pill (matchArea, state.match, "MATCH");
+    pill (mirrorArea, state.mirror, "MIRROR");
+
+    right.removeFromTop (30.0f); // transport row, drawn from the areas above
     g.setFont (theme::monoFont (8.0f));
     g.setColour (theme::textDim);
     g.drawText (state.duration > 0.0
@@ -252,15 +241,6 @@ inline void ReferenceStrip::paint (juce::Graphics& g)
 inline void ReferenceStrip::mouseDown (const juce::MouseEvent& e)
 {
     const auto p = e.position;
-
-    for (int i = 0; i < 4; ++i)
-        if (slotAreas[(size_t) i].contains (p))
-        {
-            if (onSelectSlot)
-                onSelectSlot (i);
-
-            return;
-        }
 
     if (refFileArea.contains (p)) { if (onRefFile) onRefFile(); return; }
     if (playArea.contains (p))    { if (onPlay) onPlay(); return; }
