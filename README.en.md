@@ -20,7 +20,7 @@ general plugin presets — only named target curves.
 | True peak: 4x oversampling, polyphase FIR | `Source/dsp/TruePeakDetector.h` |
 | PLR and clip counter | `Source/PluginProcessor.*`, `Source/PluginEditor.cpp` |
 | UI: spectrum, waterfall, meters, goniometer, oscilloscope, guides | `Source/ui/*` |
-| Reference: loading, analysis, two slots, player, drag and drop | `Source/dsp/ReferenceAnalysis.h`, `Source/PluginProcessor.*` |
+| Reference: loading, analysis, one file, ORIG/REF, player, drag and drop | `Source/dsp/ReferenceAnalysis.h`, `Source/PluginProcessor.*` |
 | Update check | `Source/ui/UpdateChecker.h` |
 
 The audio thread only filters and measures energy; FFT and drawing run on the
@@ -107,20 +107,18 @@ cmake --build --preset dev -j$(nproc)
    selected slot.
 
    Reference: `REF FILE` loads wav/aiff/flac (or drop a file onto the plugin
-   window). The averaged curve is drawn in grey; a transport appears on the
-   spectrum (play/stop, `LOOP`, `REF/MIX`, `MATCH`, `MIRROR`, time) with a seek
-   bar: click to seek, drag to select a loop range, drag its edges separately;
-   the file waveform is drawn on the bar. There are **four reference slots A–D**
-   — the `REF` row at the bottom of the right rail (not to be confused with
-   `SNAP A–D`, which are spectrum snapshots); switching is instant (audio is
-   cached in memory), and the path, curve, LUFS and loop are stored in the
-   project. `MATCH` continuously level-matches the reference to the mix's
-   integrated LUFS; `MIRROR` makes the reference follow the DAW transport (FREE
-   mode is seek/loop). An empty slot shows `REF X EMPTY — USE REF FILE` on the
-   spectrum. The reference gain
-   is matched to the current integrated loudness of the mix. On project open the
-   file is reloaded; if it is missing, the curve remains for comparison. Files
-   longer than 10 minutes are truncated.
+   window). The averaged curve is drawn in grey; a full-width reference strip at
+   the bottom holds the waveform, the loop region (drag the wave to select, drag
+   its edges separately, double-click for the whole file), the playhead,
+   play/`LOOP`/`REF-MIX`/`MATCH`/`MIRROR`, time, name and LUFS. There is now
+   **one reference file**. The A–D slots became an **ORIG / REF** source switch:
+   `ORIG` feeds the sound and every indicator from the DAW, `REF` feeds them
+   (spectrum, LUFS, true peak, VU, oscilloscope, waterfall, correlation) from the
+   reference player. `MATCH` continuously level-matches the reference to the
+   mix's integrated LUFS; `MIRROR` makes the reference follow the DAW transport.
+   The path, curve, LUFS and loop are stored in the project; on project open the
+   file is reloaded, and if it is missing the curve remains for comparison.
+   Files longer than 10 minutes are truncated.
 
    `FREEZE` stops the frame; `RESET` clears peaks, loudness, the selected
    snapshot, the reference and the counters; `UNDO` restores the state from
@@ -145,7 +143,7 @@ The `THEME` button in the top-right switches seven interface palettes:
 **Orange**. The choice is global: it is stored in LudensScope's settings and
 applied to every open instance; the light theme re-tints the
 logo and curves automatically, and the waterfall follows the palette. The
-right-rail buttons, `THEME`, the A–D slots and the transport scale with the
+right-rail buttons, `THEME`, ORIG/REF and the transport scale with the
 window (about 0.9–1.35×). The `THEME` menu also offers **UI scale**:
 Auto / 100% / 125% / 150%, scaling fonts, controls and the window.
 
