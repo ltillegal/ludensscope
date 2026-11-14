@@ -34,12 +34,22 @@ FetchContent_MakeAvailable(JUCE)
 juce_add_binary_data(LudensScopeBinaryData SOURCES
   Source/assets/ludens_logo.png)
 
+set(LUDENSCOPE_FORMATS VST3 AU Standalone)
+if(APPLE OR WIN32)
+  list(APPEND LUDENSCOPE_FORMATS AAX)
+endif()
+
+set(LUDENSCOPE_COPY_PLUGIN TRUE)
+if(DEFINED ENV{CI})
+  set(LUDENSCOPE_COPY_PLUGIN FALSE)
+endif()
+
 juce_add_plugin(LudensScope
   COMPANY_NAME "LudensScope"
   BUNDLE_ID "local.ludensscope"
   PLUGIN_MANUFACTURER_CODE LDNS
   PLUGIN_CODE LDSC
-  FORMATS VST3 AU
+  FORMATS ${LUDENSCOPE_FORMATS}
   PRODUCT_NAME "LudensScope"
   DESCRIPTION "Stereo spectrum, loudness and scope analyzer"
   IS_SYNTH FALSE
@@ -47,7 +57,7 @@ juce_add_plugin(LudensScope
   NEEDS_MIDI_OUTPUT FALSE
   IS_MIDI_EFFECT FALSE
   EDITOR_WANTS_KEYBOARD_FOCUS FALSE
-  COPY_PLUGIN_AFTER_BUILD TRUE
+  COPY_PLUGIN_AFTER_BUILD ${LUDENSCOPE_COPY_PLUGIN}
   NEEDS_CURL TRUE
   VST3_CATEGORIES "Fx Analyzer")
 
@@ -74,6 +84,19 @@ target_link_libraries(LudensScope PRIVATE
   PUBLIC
   juce::juce_recommended_config_flags
   juce::juce_recommended_warning_flags)
+
+# CLAP via the MIT-licensed clap-juce-extensions wrapper.
+FetchContent_Declare(clap_juce_extensions
+  GIT_REPOSITORY https://github.com/free-audio/clap-juce-extensions.git
+  GIT_TAG 6bde108329ff9fc24404b79b8b397261a75cf6a8
+  GIT_SUBMODULES_RECURSE TRUE
+  GIT_PROGRESS TRUE)
+
+FetchContent_MakeAvailable(clap_juce_extensions)
+
+clap_juce_extensions_plugin(TARGET LudensScope
+  CLAP_ID "com.ltillegal.ludensscope"
+  CLAP_FEATURES audio-effect analyzer stereo utility)
 
 option(LUDENSCOPE_BUILD_TESTS "Build the offline calibration test" OFF)
 

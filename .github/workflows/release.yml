@@ -64,8 +64,23 @@ jobs:
           set -euo pipefail
           cd "$GITHUB_WORKSPACE"
           rm -rf pkgroot
-          mkdir -p pkgroot/DEBIAN pkgroot/usr/lib/vst3
+          mkdir -p pkgroot/DEBIAN pkgroot/usr/lib/vst3 pkgroot/usr/lib/clap \
+                   pkgroot/usr/bin pkgroot/usr/share/applications \
+                   pkgroot/usr/share/icons/hicolor/256x256/apps
           cp -R build/LudensScope_artefacts/Release/VST3/LudensScope.vst3 pkgroot/usr/lib/vst3/
+          cp -R build/LudensScope_artefacts/Release/CLAP/LudensScope.clap pkgroot/usr/lib/clap/
+          install -Dm755 build/LudensScope_artefacts/Release/Standalone/LudensScope pkgroot/usr/bin/ludensscope
+          install -Dm644 Source/assets/ludens_logo.png pkgroot/usr/share/icons/hicolor/256x256/apps/ludensscope.png
+          cat > pkgroot/usr/share/applications/ludensscope.desktop <<EOF
+          [Desktop Entry]
+          Name=LudensScope
+          Comment=Stereo audio analyzer
+          Exec=ludensscope
+          Icon=ludensscope
+          Terminal=false
+          Type=Application
+          Categories=AudioVideo;Audio;
+          EOF
           cat > pkgroot/DEBIAN/control <<EOF
           Package: ludensscope
           Version: ${LUDENSCOPE_VERSION}
@@ -74,7 +89,7 @@ jobs:
           Architecture: amd64
           Maintainer: ltillegal <0eskimo0@gmail.com>
           Depends: libasound2 | libasound2t64, libcurl4 | libcurl4t64, libfreetype6, libx11-6, libxext6, libxinerama1, libxrandr2, libxrender1, libgl1
-          Description: Stereo audio analyzer VST3
+          Description: Stereo audio analyzer (VST3, CLAP, standalone)
            Spectrum, BS.1770 loudness, true peak, reference A-D, gain staging and VU.
           EOF
           dpkg-deb --build --root-owner-group pkgroot LudensScope-linux.deb
@@ -86,13 +101,25 @@ jobs:
           set -euo pipefail
           cd "$GITHUB_WORKSPACE"
           for bundle in build/LudensScope_artefacts/Release/VST3/LudensScope.vst3 \
-                        build/LudensScope_artefacts/Release/AU/LudensScope.component; do
-            codesign --force --deep --sign - "$bundle"
+                        build/LudensScope_artefacts/Release/AU/LudensScope.component \
+                        build/LudensScope_artefacts/Release/CLAP/LudensScope.clap \
+                        build/LudensScope_artefacts/Release/AAX/LudensScope.aaxplugin \
+                        build/LudensScope_artefacts/Release/Standalone/LudensScope.app; do
+            if [ -e "$bundle" ]; then
+              codesign --force --deep --sign - "$bundle"
+            fi
           done
           rm -rf pkgroot
-          mkdir -p pkgroot/Library/Audio/Plug-Ins/VST3 pkgroot/Library/Audio/Plug-Ins/Components
+          mkdir -p pkgroot/Library/Audio/Plug-Ins/VST3 \
+                   pkgroot/Library/Audio/Plug-Ins/Components \
+                   pkgroot/Library/Audio/Plug-Ins/CLAP \
+                   "pkgroot/Library/Application Support/Avid/Audio/Plug-Ins" \
+                   pkgroot/Applications
           cp -R build/LudensScope_artefacts/Release/VST3/LudensScope.vst3 pkgroot/Library/Audio/Plug-Ins/VST3/
           cp -R build/LudensScope_artefacts/Release/AU/LudensScope.component pkgroot/Library/Audio/Plug-Ins/Components/
+          cp -R build/LudensScope_artefacts/Release/CLAP/LudensScope.clap pkgroot/Library/Audio/Plug-Ins/CLAP/
+          cp -R build/LudensScope_artefacts/Release/AAX/LudensScope.aaxplugin "pkgroot/Library/Application Support/Avid/Audio/Plug-Ins/"
+          cp -R build/LudensScope_artefacts/Release/Standalone/LudensScope.app pkgroot/Applications/
           pkgbuild --root pkgroot --identifier com.ltillegal.ludensscope \
                    --version "$LUDENSCOPE_VERSION" --install-location / LudensScope-macos.pkg
 
@@ -115,14 +142,31 @@ jobs:
           !insertmacro MUI_PAGE_INSTFILES
           !insertmacro MUI_PAGE_FINISH
           !insertmacro MUI_LANGUAGE "English"
-          Section "LudensScope" SecMain
+          Section "VST3" SecVst3
             SetOutPath "$INSTDIR"
             File /r "build\LudensScope_artefacts\Release\VST3\LudensScope.vst3"
             WriteUninstaller "$INSTDIR\LudensScope-uninstall.exe"
           SectionEnd
+          Section "CLAP" SecClap
+            SetOutPath "$COMMONFILES64\CLAP"
+            File /r "build\LudensScope_artefacts\Release\CLAP\LudensScope.clap"
+          SectionEnd
+          Section "AAX (Pro Tools)" SecAax
+            SetOutPath "$COMMONFILES64\Avid\Audio\Plug-Ins"
+            File /r "build\LudensScope_artefacts\Release\AAX\LudensScope.aaxplugin"
+          SectionEnd
+          Section "Standalone" SecStandalone
+            SetOutPath "$PROGRAMFILES64\LudensScope"
+            File "build\LudensScope_artefacts\Release\Standalone\LudensScope.exe"
+            CreateShortcut "$SMPROGRAMS\LudensScope.lnk" "$PROGRAMFILES64\LudensScope\LudensScope.exe"
+          SectionEnd
           Section "Uninstall"
             Delete "$INSTDIR\LudensScope-uninstall.exe"
             RMDir /r "$INSTDIR\LudensScope.vst3"
+            Delete "$COMMONFILES64\CLAP\LudensScope.clap"
+            RMDir /r "$COMMONFILES64\Avid\Audio\Plug-Ins\LudensScope.aaxplugin"
+            RMDir /r "$PROGRAMFILES64\LudensScope"
+            Delete "$SMPROGRAMS\LudensScope.lnk"
           SectionEnd
           '@
           Set-Content -Path installer.nsi -Value $script -Encoding UTF8
