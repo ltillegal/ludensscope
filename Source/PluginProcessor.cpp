@@ -435,6 +435,10 @@ void LudensScopeProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce:
     if (buffer.getNumChannels() < 1 || numSamples <= 0)
         return;
 
+    const bool stereo = buffer.getNumChannels() > 1;
+    const float* left = buffer.getReadPointer (0);
+    const float* right = stereo ? buffer.getReadPointer (1) : left;
+
     if (undoCaptureRequested.exchange (false, std::memory_order_relaxed))
     {
         loudness.captureState (undoIntegrated.get(), undoIntegratedCount, undoHistogram.get());
@@ -458,42 +462,6 @@ void LudensScopeProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce:
         clippedSamples.store (0, std::memory_order_relaxed);
     }
 
-    const bool stereo = buffer.getNumChannels() > 1;
-    const float* left = buffer.getReadPointer (0);
-    const float* right = stereo ? buffer.getReadPointer (1) : left;
-
-    std::uint32_t blockClips = 0;
-
-    for (int i = 0; i < numSamples; ++i)
-    {
-        if (std::abs (left[i]) >= 1.0f)  ++blockClips;
-        if (stereo && std::abs (right[i]) >= 1.0f) ++blockClips;
-    }
-
-    if (blockClips > 0)
-        clippedSamples.fetch_add (blockClips, std::memory_order_relaxed);
-
-    if (stereo)
-        loudness.process (left, right, numSamples);
-    else
-        loudness.processMono (left, numSamples);
-
-    int start1 = 0, size1 = 0, start2 = 0, size2 = 0;
-    fifo.prepareToWrite (numSamples, start1, size1, start2, size2);
-
-    if (size1 > 0)
-    {
-        std::memcpy (fifoLeft.data()  + start1, left,  sizeof (float) * (size_t) size1);
-        std::memcpy (fifoRight.data() + start1, right, sizeof (float) * (size_t) size1);
-    }
-
-    if (size2 > 0)
-    {
-        std::memcpy (fifoLeft.data()  + start2, left  + size1, sizeof (float) * (size_t) size2);
-        std::memcpy (fifoRight.data() + start2, right + size1, sizeof (float) * (size_t) size2);
-    }
-
-    fifo.finishedWrite (size1 + size2);
 
     // Reference player / A-B. Analysis above always sees the dry input; only
     // the outgoing audio is replaced while the reference is audible.
@@ -541,7 +509,9 @@ void LudensScopeProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce:
         const bool mirror = referenceMirror.load (std::memory_order_relaxed);
         const bool hostPlaying = mirror && mirrorHostPlaying;
 
-        if (playing || audible || hostPlaying || referenceMix >= 1.0e-4f)
+        const bool monitoring = referenceMonitor.load (std::memory_order_relaxed);
+
+        if (playing || audible || monitoring || hostPlaying || referenceMix >= 1.0e-4f)
         {
             const auto length = (std::int64_t) audio->getNumSamples();
             const int refChannels = audio->getNumChannels();
@@ -560,7 +530,7 @@ void LudensScopeProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce:
 
             auto pos = referencePosition.load (std::memory_order_relaxed);
             bool stillPlaying = playing || hostPlaying;
-            float targetMix = (audible && (playing || hostPlaying)) ? 1.0f : 0.0f;
+            float targetMix = ((audible || monitoring) && (playing || hostPlaying)) ? 1.0f : 0.0f;
 
             for (int i = 0; i < numSamples; ++i)
             {
@@ -613,6 +583,39 @@ void LudensScopeProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce:
                 referencePlaying.store (mirrorHostPlaying, std::memory_order_relaxed);
         }
     }
+
+    std::uint32_t blockClips = 0;
+
+    for (int i = 0; i < numSamples; ++i)
+    {
+        if (std::abs (left[i]) >= 1.0f)  ++blockClips;
+        if (stereo && std::abs (right[i]) >= 1.0f) ++blockClips;
+    }
+
+    if (blockClips > 0)
+        clippedSamples.fetch_add (blockClips, std::memory_order_relaxed);
+
+    if (stereo)
+        loudness.process (left, right, numSamples);
+    else
+        loudness.processMono (left, numSamples);
+
+    int start1 = 0, size1 = 0, start2 = 0, size2 = 0;
+    fifo.prepareToWrite (numSamples, start1, size1, start2, size2);
+
+    if (size1 > 0)
+    {
+        std::memcpy (fifoLeft.data()  + start1, left,  sizeof (float) * (size_t) size1);
+        std::memcpy (fifoRight.data() + start1, right, sizeof (float) * (size_t) size1);
+    }
+
+    if (size2 > 0)
+    {
+        std::memcpy (fifoLeft.data()  + start2, left  + size1, sizeof (float) * (size_t) size2);
+        std::memcpy (fifoRight.data() + start2, right + size1, sizeof (float) * (size_t) size2);
+    }
+
+    fifo.finishedWrite (size1 + size2);
 
     // Band solo: a high-pass + low-pass pair on the outgoing audio only, so
     // the analysers above always see the untouched mix.

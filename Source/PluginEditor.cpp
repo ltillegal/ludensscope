@@ -230,9 +230,24 @@ LudensScopeEditor::LudensScopeEditor (LudensScopeProcessor& p)
         processor.setReferenceLoopRange (start, end);
     };
 
-    addAndMakeVisible (slotSwitch);
-    slotSwitch.setTooltip ("Reference slots A-D");
-    slotSwitch.onSelect = [this] (int slot) { selectReferenceSlot (slot); };
+    auto styleSourceButton = [this] (juce::TextButton& button)
+    {
+        button.setColour (juce::TextButton::buttonColourId, theme::panel);
+        button.setColour (juce::TextButton::buttonOnColourId, theme::accent);
+        button.setColour (juce::TextButton::textColourOffId, theme::textDim);
+        button.setColour (juce::TextButton::textColourOnId, theme::bg);
+        button.setClickingTogglesState (true);
+        button.setRadioGroupId (7001);
+        addAndMakeVisible (button);
+    };
+
+    styleSourceButton (origButton);
+    styleSourceButton (refButton);
+    origButton.setTooltip ("Analyse and play the DAW input");
+    refButton.setTooltip ("Analyse and play the loaded reference file");
+    origButton.setToggleState (true, juce::dontSendNotification);
+    origButton.onClick = [this] { selectSource (false); };
+    refButton.onClick = [this] { selectSource (true); };
 
     themeButton.setTooltip ("Interface colour theme");
     themeButton.onClick = [this] { showThemeMenu(); };
@@ -491,10 +506,14 @@ void LudensScopeEditor::resized()
         stack.removeFromTop (buttonGap);
     }
 
-    slotSwitch.setBounds (railBounds.getX() + juce::roundToInt (2.0f * uiScale),
-                          railBounds.getBottom() - refMargin - refRowHeight,
-                          railBounds.getWidth() - juce::roundToInt (4.0f * uiScale),
-                          refRowHeight);
+    auto sourceRow = juce::Rectangle<int> (railBounds.getX() + juce::roundToInt (2.0f * uiScale),
+                                           railBounds.getBottom() - refMargin - refRowHeight,
+                                           railBounds.getWidth() - juce::roundToInt (4.0f * uiScale),
+                                           refRowHeight);
+    const int sourceGap = juce::roundToInt (3.0f * uiScale);
+    origButton.setBounds (sourceRow.removeFromLeft ((sourceRow.getWidth() - sourceGap) / 2));
+    sourceRow.removeFromLeft (sourceGap);
+    refButton.setBounds (sourceRow);
 
     const int gap = juce::roundToInt (10.0f * uiScale);
     const int stripHeight = juce::jlimit (80, 120, juce::roundToInt (100.0f * uiScale));
@@ -631,11 +650,11 @@ void LudensScopeEditor::timerCallback()
     stripState.lufs = processor.referenceLufs();
     referenceStrip.setState (std::move (stripState));
 
-    slotSwitch.setState (processor.getActiveReferenceSlot(),
-                         processor.isReferenceSlotFilled (0),
-                         processor.isReferenceSlotFilled (1),
-                         processor.isReferenceSlotFilled (2),
-                         processor.isReferenceSlotFilled (3));
+    if (processor.isReferenceMonitoring() != refButton.getToggleState())
+    {
+        origButton.setToggleState (! processor.isReferenceMonitoring(), juce::dontSendNotification);
+        refButton.setToggleState (processor.isReferenceMonitoring(), juce::dontSendNotification);
+    }
 
     spectrumView.setReferenceModes (levelMatch, mirror);
 
@@ -1374,6 +1393,17 @@ void LudensScopeEditor::updateReferenceGain()
     processor.setReferenceGainDb (gainDb);
 }
 
+void LudensScopeEditor::selectSource (bool reference)
+{
+    processor.setReferenceMonitor (reference);
+
+    origButton.setToggleState (! reference, juce::dontSendNotification);
+    refButton.setToggleState (reference, juce::dontSendNotification);
+
+    if (reference && processor.hasReferenceAudio())
+        processor.setReferencePlaying (true);
+}
+
 void LudensScopeEditor::toggleReferencePlay()
 {
     if (! processor.hasReferenceAudio())
@@ -1890,11 +1920,6 @@ void LudensScopeEditor::selectReferenceSlot (int slot)
 
     processor.switchReferenceSlot (slot);
     applyReferenceSettings();
-    slotSwitch.setState (processor.getActiveReferenceSlot(),
-                         processor.isReferenceSlotFilled (0),
-                         processor.isReferenceSlotFilled (1),
-                         processor.isReferenceSlotFilled (2),
-                         processor.isReferenceSlotFilled (3));
 }
 
 void LudensScopeEditor::applyReferenceSettings()
