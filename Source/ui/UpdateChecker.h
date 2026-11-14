@@ -1,6 +1,9 @@
 #pragma once
 
 #include <juce_cryptography/juce_cryptography.h>
+
+#include <atomic>
+#include <thread>
 #include <juce_gui_basics/juce_gui_basics.h>
 
 // Fetches the latest GitHub release, compares it with the version the plugin
@@ -57,21 +60,38 @@ inline UpdateInfo performUpdateCheck()
     info.currentVersion = "0.2.9";
    #endif
 
-    const auto options = juce::URL::InputStreamOptions (juce::URL::ParameterHandling::inAddress)
-                             .withConnectionTimeoutMs (2000)
-                             .withExtraHeaders ("User-Agent: LudensScope\r\n"
-                                                "Accept: application/vnd.github+json");
+    juce::WebInputStream web (juce::URL ("https://api.github.com/repos/ltillegal/ludensscope/releases/latest"),
+                              false);
+    web.withConnectionTimeout (2000);
+    web.withExtraHeaders ("User-Agent: LudensScope\r\n"
+                          "Accept: application/vnd.github+json");
 
-    auto stream = juce::URL ("https://api.github.com/repos/ltillegal/ludensscope/releases/latest")
-                      .createInputStream (options);
-
-    if (stream == nullptr)
+    if (! web.connect (nullptr))
     {
         info.error = "Could not reach GitHub. Check your internet connection.";
         return info;
     }
 
-    const auto json = juce::JSON::parse (stream->readEntireStreamAsString());
+    // A server that accepts the connection and then goes silent must not
+    // leave the check thread hanging forever: cancel the read after 5 s.
+    std::atomic<bool> readFinished { false };
+    std::thread watchdog ([&web, &readFinished]
+    {
+        for (int i = 0; i < 50; ++i)
+        {
+            if (readFinished.load())
+                return;
+
+            juce::Thread::sleep (100);
+        }
+
+        web.cancel();
+    });
+
+    const auto json = juce::JSON::parse (web.readEntireStreamAsString());
+
+    readFinished.store (true);
+    watchdog.join();
 
     if (! json.isObject() || json["tag_name"].toString().isEmpty())
     {

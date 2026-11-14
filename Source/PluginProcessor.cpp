@@ -19,6 +19,27 @@ LudensScopeProcessor::LudensScopeProcessor()
     undoHistogram = std::make_unique<std::uint32_t[]> (LoudnessMeter::lraHistogramBins);
 }
 
+juce::int64 LudensScopeProcessor::referenceSlotBytes (int slot) const
+{
+    const auto index = (size_t) juce::jlimit (0, referenceSlotCount - 1, slot);
+    const auto& audio = referenceSlots[index].audio;
+
+    return audio != nullptr
+               ? (juce::int64) audio->getNumSamples() * audio->getNumChannels()
+                     * (juce::int64) sizeof (float)
+               : 0;
+}
+
+juce::int64 LudensScopeProcessor::referenceAudioBytes() const
+{
+    juce::int64 total = 0;
+
+    for (int slot = 0; slot < referenceSlotCount; ++slot)
+        total += referenceSlotBytes (slot);
+
+    return total;
+}
+
 bool LudensScopeProcessor::supportsMonoBuses() const
 {
     BusesLayout layout;
@@ -124,6 +145,8 @@ void LudensScopeProcessor::rebuildReferenceWaveform()
     {
         const int samples = audio->getNumSamples();
         const int channels = audio->getNumChannels();
+        const float* data0 = audio->getReadPointer (0);
+        const float* data1 = channels > 1 ? audio->getReadPointer (1) : nullptr;
 
         for (int c = 0; c < referenceWaveformColumns; ++c)
         {
@@ -132,12 +155,13 @@ void LudensScopeProcessor::rebuildReferenceWaveform()
 
             float low = 0.0f;
             float high = 0.0f;
+            const int stride = juce::jmax (1, (to - from) / 64);
 
-            for (int i = from; i < to; ++i)
+            for (int i = from; i < to; i += stride)
             {
-                const float value = channels > 1
-                    ? 0.5f * (audio->getSample (0, i) + audio->getSample (1, i))
-                    : audio->getSample (0, i);
+                const float value = data1 != nullptr
+                    ? 0.5f * (data0[i] + data1[i])
+                    : data0[i];
 
                 low = std::min (low, value);
                 high = std::max (high, value);
@@ -592,20 +616,46 @@ void LudensScopeProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce:
 
     // Band solo: a high-pass + low-pass pair on the outgoing audio only, so
     // the analysers above always see the untouched mix.
-    if (bandSoloActive.load (std::memory_order_relaxed))
+    bool soloActive = false;
+    BiquadCoefficients highPass, lowPass;
+    bool soloConsistent = false;
+
+    for (;;)
+    {
+        const auto version = soloVersion.load (std::memory_order_acquire);
+
+        if ((version & 1u) != 0u)
+            continue;
+
+        soloActive = bandSoloActive.load (std::memory_order_relaxed);
+
+        if (! soloActive)
+        {
+            soloConsistent = true;
+            break;
+        }
+
+        highPass = { soloHighPass[0].load(), soloHighPass[1].load(),
+                     soloHighPass[2].load(), soloHighPass[3].load(),
+                     soloHighPass[4].load() };
+        lowPass = { soloLowPass[0].load(), soloLowPass[1].load(),
+                    soloLowPass[2].load(), soloLowPass[3].load(),
+                    soloLowPass[4].load() };
+
+        if (soloVersion.load (std::memory_order_acquire) == version)
+        {
+            soloConsistent = true;
+            break;
+        }
+    }
+
+    if (soloConsistent && soloActive)
     {
         if (soloResetRequested.exchange (false, std::memory_order_relaxed))
         {
             for (auto& memory : soloHighPassMemory) memory = {};
             for (auto& memory : soloLowPassMemory) memory = {};
         }
-
-        const BiquadCoefficients highPass { soloHighPass[0].load(), soloHighPass[1].load(),
-                                            soloHighPass[2].load(), soloHighPass[3].load(),
-                                            soloHighPass[4].load() };
-        const BiquadCoefficients lowPass { soloLowPass[0].load(), soloLowPass[1].load(),
-                                           soloLowPass[2].load(), soloLowPass[3].load(),
-                                           soloLowPass[4].load() };
 
         auto* soloL = buffer.getWritePointer (0);
         auto* soloR = stereo ? buffer.getWritePointer (1) : soloL;
@@ -939,6 +989,8 @@ void LudensScopeProcessor::setStateInformation (const void* data, int sizeInByte
 
     clearUndo();
     snapshotGenerationValue.fetch_add (1);
+
+    stateRevisionValue.fetch_add (1, std::memory_order_relaxed);
 }
 
 LudensScopeProcessor::BiquadCoefficients LudensScopeProcessor::makeHighPass (
@@ -992,7 +1044,10 @@ void LudensScopeProcessor::setBandSolo (bool active, float lowHz, float highHz)
 {
     if (! active)
     {
+        const auto version = soloVersion.load (std::memory_order_relaxed);
+        soloVersion.store (version + 1, std::memory_order_relaxed);
         bandSoloActive.store (false, std::memory_order_relaxed);
+        soloVersion.store (version + 2, std::memory_order_relaxed);
         return;
     }
 
@@ -1008,6 +1063,9 @@ void LudensScopeProcessor::setBandSolo (bool active, float lowHz, float highHz)
     const float lowPassValues[5] = { lowPass.b0, lowPass.b1, lowPass.b2,
                                      lowPass.a1, lowPass.a2 };
 
+    const auto version = soloVersion.load (std::memory_order_relaxed);
+    soloVersion.store (version + 1, std::memory_order_relaxed); // odd = writing
+
     for (int i = 0; i < 5; ++i)
     {
         soloHighPass[i].store (highPassValues[i], std::memory_order_relaxed);
@@ -1016,6 +1074,8 @@ void LudensScopeProcessor::setBandSolo (bool active, float lowHz, float highHz)
 
     soloResetRequested.store (true, std::memory_order_relaxed);
     bandSoloActive.store (true, std::memory_order_relaxed);
+
+    soloVersion.store (version + 2, std::memory_order_relaxed); // even = stable
 }
 
 juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter()

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <juce_audio_formats/juce_audio_formats.h>
+#include <juce_dsp/juce_dsp.h>
 
 #include <array>
 #include <cmath>
@@ -74,8 +75,9 @@ inline ReferenceAnalysis analyzeReferenceFile (const juce::File& file,
 
     const int sourceChannels = juce::jlimit (1, 2, (int) reader->numChannels);
 
-    std::array<float, SpectrumAnalyzer::numBins> levelSum {};
+    std::array<double, SpectrumAnalyzer::numBins> powerSum {};
     int levelCount = 0;
+    const auto skipSamples = (juce::int64) analyzer->getFftSize();
 
     for (juce::int64 pos = 0; pos < totalSamples; pos += blockSize)
     {
@@ -108,19 +110,26 @@ inline ReferenceAnalysis analyzeReferenceFile (const juce::File& file,
         analyzer->push (mono.data(), mono.data(), n);
         analyzer->update();
 
-        // True mean over the whole file, not the live EMA of the analyser.
-        const auto& levels = analyzer->levels();
+        // Mean power after the analyser has warmed up, not the live EMA.
+        if (pos >= skipSamples)
+        {
+            const auto& levels = analyzer->levels();
 
-        for (int i = 0; i < SpectrumAnalyzer::numBins; ++i)
-            levelSum[(size_t) i] += levels[(size_t) i];
+            for (int i = 0; i < SpectrumAnalyzer::numBins; ++i)
+                powerSum[(size_t) i] += std::pow (10.0, (double) levels[(size_t) i] / 10.0);
 
-        ++levelCount;
+            ++levelCount;
+        }
     }
 
     if (levelCount > 0)
     {
         for (int i = 0; i < SpectrumAnalyzer::numBins; ++i)
-            result.levels[(size_t) i] = levelSum[(size_t) i] / (float) levelCount;
+        {
+            const double meanPower = powerSum[(size_t) i] / (double) levelCount;
+            result.levels[(size_t) i] = (float) (10.0 * std::log10 (
+                juce::jmax (meanPower, 1.0e-12)));
+        }
     }
     else
     {
@@ -134,7 +143,7 @@ inline ReferenceAnalysis analyzeReferenceFile (const juce::File& file,
 
 // Linear resampling of a decoded reference to the plugin's sample rate.
 inline std::unique_ptr<juce::AudioBuffer<float>> resampleReference (
-    const juce::AudioBuffer<float>& source, double sourceRate, double targetRate,
+    juce::AudioBuffer<float>& source, double sourceRate, double targetRate,
     std::function<bool()> shouldExit = {}, bool* truncated = nullptr)
 {
     if (sourceRate <= 0.0 || targetRate <= 0.0
@@ -143,6 +152,37 @@ inline std::unique_ptr<juce::AudioBuffer<float>> resampleReference (
     {
         return std::make_unique<juce::AudioBuffer<float>> (source);
     }
+
+    // Anti-alias before decimation: Lagrange interpolation does not filter.
+    if (targetRate < sourceRate * 0.999)
+    {
+        if (shouldExit && shouldExit())
+            return nullptr;
+
+        const auto cutoff = juce::jmin (0.45 * targetRate, sourceRate * 0.49);
+        auto coefficients = juce::dsp::IIR::Coefficients<float>::makeLowPass (
+            sourceRate, cutoff);
+
+        juce::dsp::AudioBlock<float> block (source);
+
+        for (size_t channel = 0; channel < (size_t) source.getNumChannels(); ++channel)
+        {
+            juce::dsp::IIR::Filter<float> filter (coefficients);
+            juce::dsp::ProcessSpec spec;
+            spec.sampleRate = sourceRate;
+            spec.maximumBlockSize = (juce::uint32) source.getNumSamples();
+            spec.numChannels = 1;
+            filter.prepare (spec);
+            filter.reset();
+
+            auto channelBlock = block.getSingleChannelBlock (channel);
+            juce::dsp::ProcessContextReplacing<float> context (channelBlock);
+            filter.process (context);
+        }
+    }
+
+    if (shouldExit && shouldExit())
+        return nullptr;
 
     const double ratio = sourceRate / targetRate;
     const int expectedOutput = (int) std::lround ((double) source.getNumSamples() / ratio);
