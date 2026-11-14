@@ -621,6 +621,20 @@ void LudensScopeEditor::timerCallback()
                                processor.referenceLoopStartSeconds(),
                                processor.referenceLoopEndSeconds());
 
+    if (processor.stateRevision() != lastStateRevision)
+    {
+        lastStateRevision = processor.stateRevision();
+        applyFftSettings (processor.getFftSettings());
+        applyViewSettings (processor.getViewSettings());
+        applyReferenceSettings();
+    }
+
+    if (processor.referenceGeneration() != lastReferenceGeneration)
+        applyReferenceSettings();
+
+    if (processor.snapshotGeneration() != snapshotGeneration)
+        syncSnapshots();
+
     if (frozen)
     {
         spectrumView.repaint();
@@ -689,20 +703,6 @@ void LudensScopeEditor::timerCallback()
                           correlation, truePeakHoldDb, processor.lraLu(), plr,
                           processor.clippedSampleCount(), truePeakOvers);
 
-
-    if (processor.stateRevision() != lastStateRevision)
-    {
-        lastStateRevision = processor.stateRevision();
-        applyFftSettings (processor.getFftSettings());
-        applyViewSettings (processor.getViewSettings());
-        applyReferenceSettings();
-    }
-
-    if (processor.referenceGeneration() != lastReferenceGeneration)
-        applyReferenceSettings();
-
-    if (processor.snapshotGeneration() != snapshotGeneration)
-        syncSnapshots();
 
     vectorScopeView.setData (scopeLeft.data() + (scopeSize - 1024),
                              scopeRight.data() + (scopeSize - 1024), 1024);
