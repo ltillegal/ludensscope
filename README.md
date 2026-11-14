@@ -2,7 +2,7 @@
 
 [![build](https://github.com/ltillegal/ludensscope/actions/workflows/build.yml/badge.svg)](https://github.com/ltillegal/ludensscope/actions/workflows/build.yml)
 
-**Русский** · [English](README.en.md)
+**Русский** · [English](README.en.md) · [❤ Donate](https://www.paypal.com/donate/?business=0eskimo0%40gmail.com&item_name=LudensScope&currency_code=USD)
 
 Минималистичный стерео-анализатор в форматах **VST3 и AU**: спектр, громкость
 по ITU-R BS.1770-4, true-peak, векторскоп, осциллограф и референс.
