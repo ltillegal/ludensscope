@@ -7,7 +7,7 @@
 #include <juce_gui_basics/juce_gui_basics.h>
 
 // Fetches the latest GitHub release, compares it with the version the plugin
-// was built as, and downloads the platform zip after verifying its SHA-256.
+// was built as, and downloads the platform installer after verifying its SHA-256.
 // The plugin never replaces its own binary (it is loaded by the host); the
 // package is saved to ~/Downloads and the user installs it after quitting.
 
@@ -150,7 +150,7 @@ inline UpdateInfo performUpdateCheck()
     info.available = isNewerVersion (info.latestVersion, info.currentVersion);
 
     if (info.available && (info.downloadUrl.isEmpty() || info.assetName.isEmpty()))
-        info.error = "No update package for this platform in the latest release.";
+        info.error = "No update installer for this platform in the latest release.";
 
     return info;
 }

@@ -36,7 +36,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libasound2-dev libx11-dev libxcomposite-dev libxcursor-dev \
             libxext-dev libxinerama-dev libxrandr-dev libxrender-dev libfreetype6-dev \
-            libfontconfig1-dev libgl1-mesa-dev libcurl4-openssl-dev zip
+            libfontconfig1-dev libgl1-mesa-dev libcurl4-openssl-dev
 
       - name: Version
         shell: bash
@@ -57,77 +57,83 @@ jobs:
       - name: Build
         run: cmake --build build --config Release --parallel 4
 
-      - name: Package (Linux)
+      - name: Package (Linux .deb)
         if: runner.os == 'Linux'
+        shell: bash
         run: |
-          cd build/LudensScope_artefacts/Release/VST3
-          zip -r "$GITHUB_WORKSPACE/LudensScope-linux.zip" LudensScope.vst3
-
-      # Komi Store (and most Linux users) prefer a real package over a zip.
-      - name: Package (Linux deb)
-        if: runner.os == 'Linux'
-        run: |
-          PKG="ludensscope_${LUDENSCOPE_VERSION}_amd64"
-          mkdir -p "deb/$PKG/DEBIAN" "deb/$PKG/usr/lib/vst3"
-          cp -R build/LudensScope_artefacts/Release/VST3/LudensScope.vst3 "deb/$PKG/usr/lib/vst3/"
-          cat > "deb/$PKG/DEBIAN/control" <<EOF
+          set -euo pipefail
+          cd "$GITHUB_WORKSPACE"
+          rm -rf pkgroot
+          mkdir -p pkgroot/DEBIAN pkgroot/usr/lib/vst3
+          cp -R build/LudensScope_artefacts/Release/VST3/LudensScope.vst3 pkgroot/usr/lib/vst3/
+          cat > pkgroot/DEBIAN/control <<EOF
           Package: ludensscope
           Version: ${LUDENSCOPE_VERSION}
-          Architecture: amd64
-          Maintainer: AlekLudens <0eskimo0@gmail.com>
           Section: sound
           Priority: optional
-          Description: LudensScope - stereo spectrum, loudness and scope analyser (VST3)
-           Minimalist stereo analyser: spectrum, loudness to ITU-R BS.1770-4,
-           true peak, vectorscope, oscilloscope and reference.
+          Architecture: amd64
+          Maintainer: ltillegal <0eskimo0@gmail.com>
+          Depends: libasound2 | libasound2t64, libcurl4 | libcurl4t64, libfreetype6, libx11-6, libxext6, libxinerama1, libxrandr2, libxrender1, libgl1
+          Description: Stereo audio analyzer VST3
+           Spectrum, BS.1770 loudness, true peak, reference A-D, gain staging and VU.
           EOF
-          dpkg-deb --build --root-owner-group "deb/$PKG" "$GITHUB_WORKSPACE/${PKG}.deb"
+          dpkg-deb --build --root-owner-group pkgroot LudensScope-linux.deb
 
-      - name: Package (macOS)
+      - name: Package (macOS .pkg)
         if: runner.os == 'macOS'
+        shell: bash
         run: |
+          set -euo pipefail
+          cd "$GITHUB_WORKSPACE"
           for bundle in build/LudensScope_artefacts/Release/VST3/LudensScope.vst3 \
                         build/LudensScope_artefacts/Release/AU/LudensScope.component; do
             codesign --force --deep --sign - "$bundle"
           done
-          mkdir -p dist
-          cp -R build/LudensScope_artefacts/Release/VST3/LudensScope.vst3 dist/
-          cp -R build/LudensScope_artefacts/Release/AU/LudensScope.component dist/
-          cd dist
-          zip -r "$GITHUB_WORKSPACE/LudensScope-macos.zip" LudensScope.vst3 LudensScope.component
+          rm -rf pkgroot
+          mkdir -p pkgroot/Library/Audio/Plug-Ins/VST3 pkgroot/Library/Audio/Plug-Ins/Components
+          cp -R build/LudensScope_artefacts/Release/VST3/LudensScope.vst3 pkgroot/Library/Audio/Plug-Ins/VST3/
+          cp -R build/LudensScope_artefacts/Release/AU/LudensScope.component pkgroot/Library/Audio/Plug-Ins/Components/
+          pkgbuild --root pkgroot --identifier com.ltillegal.ludensscope \
+                   --version "$LUDENSCOPE_VERSION" --install-location / LudensScope-macos.pkg
 
-      # Installable .pkg: drops VST3 + AU where every DAW looks for them.
-      - name: Package (macOS pkg)
-        if: runner.os == 'macOS'
-        run: |
-          pkgroot="$RUNNER_TEMP/pkgroot"
-          mkdir -p "$pkgroot/Library/Audio/Plug-Ins/VST3" \
-                   "$pkgroot/Library/Audio/Plug-Ins/Components"
-          cp -R build/LudensScope_artefacts/Release/VST3/LudensScope.vst3 \
-                "$pkgroot/Library/Audio/Plug-Ins/VST3/"
-          cp -R build/LudensScope_artefacts/Release/AU/LudensScope.component \
-                "$pkgroot/Library/Audio/Plug-Ins/Components/"
-          pkgbuild --root "$pkgroot" \
-            --identifier local.ludensscope.installer \
-            --version "$LUDENSCOPE_VERSION" \
-            --install-location / \
-            --ownership recommended \
-            "$GITHUB_WORKSPACE/LudensScope-${LUDENSCOPE_VERSION}-macos.pkg"
-
-      - name: Package (Windows)
+      - name: Package (Windows .exe)
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          Compress-Archive -Path build/LudensScope_artefacts/Release/VST3/LudensScope.vst3 `
-                           -DestinationPath LudensScope-windows.zip
+          choco install nsis -y --no-progress
+          $nsis = "C:\Program Files (x86)\NSIS\makensis.exe"
+          if (!(Test-Path $nsis)) { $nsis = "C:\Program Files\NSIS\makensis.exe" }
+          $script = @'
+          !include "MUI2.nsh"
+          Name "LudensScope"
+          OutFile "LudensScope-windows.exe"
+          InstallDir "$COMMONFILES64\VST3"
+          RequestExecutionLevel admin
+          Unicode true
+          !insertmacro MUI_PAGE_WELCOME
+          !insertmacro MUI_PAGE_DIRECTORY
+          !insertmacro MUI_PAGE_INSTFILES
+          !insertmacro MUI_PAGE_FINISH
+          !insertmacro MUI_LANGUAGE "English"
+          Section "LudensScope" SecMain
+            SetOutPath "$INSTDIR"
+            File /r "build\LudensScope_artefacts\Release\VST3\LudensScope.vst3"
+            WriteUninstaller "$INSTDIR\LudensScope-uninstall.exe"
+          SectionEnd
+          Section "Uninstall"
+            Delete "$INSTDIR\LudensScope-uninstall.exe"
+            RMDir /r "$INSTDIR\LudensScope.vst3"
+          SectionEnd
+          '@
+          Set-Content -Path installer.nsi -Value $script -Encoding UTF8
+          & $nsis installer.nsi
+          if (!(Test-Path LudensScope-windows.exe)) { exit 1 }
 
       - uses: actions/upload-artifact@v4
         with:
           name: package-${{ matrix.name }}
-          path: |
-            LudensScope-*.zip
-            LudensScope-*.pkg
-            ludensscope_*.deb
+          path: LudensScope-*
+          if-no-files-found: error
 
   release:
     needs: build
@@ -141,7 +147,8 @@ jobs:
       - name: Checksums
         run: |
           cd artifacts
-          sha256sum * > SHA256SUMS.txt
+          find . -maxdepth 1 -type f ! -name SHA256SUMS.txt -print0 \
+            | sort -z | xargs -0 sha256sum > SHA256SUMS.txt
           cat SHA256SUMS.txt
 
       - uses: softprops/action-gh-release@v2
@@ -149,7 +156,4 @@ jobs:
           tag_name: ${{ inputs.tag || github.ref_name }}
           generate_release_notes: true
           files: |
-            artifacts/LudensScope-*.zip
-            artifacts/LudensScope-*.pkg
-            artifacts/ludensscope_*.deb
-            artifacts/SHA256SUMS.txt
+            artifacts/*

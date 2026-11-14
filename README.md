@@ -168,16 +168,25 @@ VU соответствует IEC 60268-17 / ANSI C16.5: 0 VU = +4 dBu = 1.228 �
 −18 dBFS (EBU R68) или −20 dBFS (SMPTE RP 155); поэтому VU показывает
 среднюю громкость, а не пики — для пиков смотрите TRUE PEAK.
 
+## Установка из релиза
+
+- Linux: `sudo apt install ./LudensScope-linux.deb` — VST3 ставится в `/usr/lib/vst3`.
+- macOS: откройте `LudensScope-macos.pkg` — VST3 и AU ставятся в `/Library/Audio/Plug-Ins`.
+- Windows: запустите `LudensScope-windows.exe` — VST3 ставится в `C:\Program Files\Common Files\VST3`.
+- [Komi Store](https://komistore.app/) подхватывает релиз по installable assets
+  (`.deb` / `.pkg` / `.exe`) автоматически.
+
 ## Обновления
 
 Меню `FFT` → `Check for updates...` проверяет последний релиз на GitHub.
-Если версия новее, плагин скачивает пакет для текущей ОС в `~/Downloads`,
+Если версия новее, плагин скачивает установщик для текущей ОС в `~/Downloads`,
 сверяет SHA-256 с `SHA256SUMS.txt` из того же релиза и показывает папку.
-Сам плагин не подменяет загруженный хостом файл: закройте DAW, распакуйте
-архив и замените VST3/AU.
+Сам плагин не подменяет загруженный хостом файл: закройте DAW и запустите
+скачанный установщик.
 
 Релизы собирает `.github/workflows/release.yml` по тегу `vX.Y.Z`:
-macOS — VST3 + AU, Linux и Windows — VST3. Версия сборки передаётся через
+Linux — `.deb`, macOS — `.pkg` (VST3 + AU), Windows — `.exe`; плюс
+`SHA256SUMS.txt`. Zip-архивов в ассетах нет. Версия сборки передаётся через
 `-DLUDENSCOPE_VERSION`, поэтому тег и версия должны совпадать. Проверка
 обновлений делает сетевой запрос только по нажатию. Бинарники не подписаны
 и не нотаризованы — на macOS может понадобиться снять quarantine.

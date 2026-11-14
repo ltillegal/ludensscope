@@ -1722,7 +1722,7 @@ void LudensScopeEditor::handleDownloadFinished (bool succeeded, const juce::Stri
             .withIconType (juce::MessageBoxIconType::InfoIcon)
             .withTitle ("Update downloaded")
             .withMessage ("Saved to:\n" + message
-                          + "\n\nQuit the DAW, unzip the package and replace the installed VST3/AU.")
+                          + "\n\nQuit the DAW, run the downloaded installer and follow its steps.")
             .withButton ("Show in folder")
             .withButton ("OK"),
         [message] (int result)
