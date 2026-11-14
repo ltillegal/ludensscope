@@ -13,7 +13,11 @@
 class OscilloscopeView : public juce::Component
 {
 public:
-    OscilloscopeView() = default;
+    OscilloscopeView()
+    {
+        setOpaque (true);
+        setBufferedToImage (true);
+    }
 
     void setData (const float* leftSamples, const float* rightSamples,
                   int numSamples, bool frozen)

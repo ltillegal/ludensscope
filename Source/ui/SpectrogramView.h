@@ -14,6 +14,9 @@ class SpectrogramView : public juce::Component
 public:
     SpectrogramView()
     {
+        setOpaque (true);
+        setBufferedToImage (true);
+
         for (int i = 0; i < paletteSize; ++i)
             palette[(size_t) i] = heat ((float) i / (float) (paletteSize - 1));
 

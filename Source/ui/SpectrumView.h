@@ -14,7 +14,11 @@
 class SpectrumView : public juce::Component
 {
 public:
-    SpectrumView() = default;
+    SpectrumView()
+    {
+        setOpaque (true);
+        setBufferedToImage (true);
+    }
 
     static constexpr int numBins = 512;
     static constexpr int snapshotCount = 4;

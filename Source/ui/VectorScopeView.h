@@ -11,6 +11,13 @@
 class VectorScopeView : public juce::Component
 {
 public:
+    VectorScopeView()
+    {
+        setOpaque (true);
+        setBufferedToImage (true);
+    }
+
+public:
     void setData (const float* leftSamples, const float* rightSamples, int numSamples)
     {
         left.assign (leftSamples, leftSamples + numSamples);

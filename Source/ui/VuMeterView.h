@@ -16,7 +16,11 @@
 class VuMeterView : public juce::Component
 {
 public:
-    VuMeterView() = default;
+    VuMeterView()
+    {
+        setOpaque (true);
+        setBufferedToImage (true);
+    }
 
     // Puts both needles back on their mechanical rest stop (left, -20 VU).
     void setRest() noexcept
