@@ -405,6 +405,37 @@ int main (int argc, char** argv)
                      image.getWidth(), image.getHeight());
     }
 
+    // QA: render the two enlarged UI scales to catch layout overflow.
+    if (scopeEditor != nullptr)
+    {
+        const auto writeScale = [&] (int percent, int width, int height, const char* name)
+        {
+            scopeEditor->setUiScalePercent (percent);
+            editor->setSize (width, height);
+
+            for (auto* child : editor->getChildren())
+                if (auto* vu = dynamic_cast<VuMeterView*> (child))
+                    vu->setRest();
+
+            const auto qaImage = editor->createComponentSnapshot (editor->getLocalBounds(), true, 1.0f);
+            const auto qaFile = juce::File::getCurrentWorkingDirectory().getChildFile (name);
+            qaFile.deleteFile();
+
+            if (auto qaStream = std::unique_ptr<juce::FileOutputStream> (qaFile.createOutputStream()))
+            {
+                juce::PNGImageFormat png;
+                png.writeImageToStream (qaImage, *qaStream);
+                std::printf ("wrote %s (%dx%d)\n", qaFile.getFullPathName().toRawUTF8(),
+                             qaImage.getWidth(), qaImage.getHeight());
+            }
+        };
+
+        writeScale (125, 1325, 875, "docs/qa-125.png");
+        writeScale (150, 1590, 1050, "docs/qa-150.png");
+        scopeEditor->setUiScalePercent (0); // Auto
+        editor->setSize (1060, 700);
+    }
+
     // Mono buses and processing.
     const bool monoLayoutOk = processor.supportsMonoBuses();
 

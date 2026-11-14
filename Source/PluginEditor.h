@@ -62,6 +62,13 @@ public:
 
     bool isReferenceCurveVisible() const { return spectrumView.hasReferenceCurve(); }
 
+    // Test/QA hook: force the UI scale (0 = Auto, 100/125/150).
+    void setUiScalePercent (int percent)
+    {
+        uiScalePercent = juce::jlimit (0, 150, percent);
+        resized();
+    }
+
     void setInterfaceTheme (int index)
     {
         theme::setTheme (index);
