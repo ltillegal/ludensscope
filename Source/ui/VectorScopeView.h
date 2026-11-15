@@ -30,11 +30,11 @@ public:
 
         theme::drawPanel (g, bounds);
 
-        auto area = bounds.reduced (12.0f);
+        auto area = bounds.reduced (12.0f * theme::fontScale);
 
         g.setFont (theme::detailFont (10.5f));
         g.setColour (theme::textDim);
-        g.drawText ("STEREO IMAGE", area.removeFromTop (14.0f), juce::Justification::centredLeft);
+        g.drawText ("STEREO IMAGE", area.removeFromTop (14.0f * theme::fontScale), juce::Justification::centredLeft);
 
         const float side = juce::jmin (area.getWidth(), area.getHeight());
         const auto square = area.withSizeKeepingCentre (side, side);

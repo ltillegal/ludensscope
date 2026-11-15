@@ -120,8 +120,8 @@ public:
 
         theme::drawPanel (g, bounds);
 
-        auto area = bounds.reduced (12.0f);
-        auto titleRow = area.removeFromTop (14.0f);
+        auto area = bounds.reduced (12.0f * theme::fontScale);
+        auto titleRow = area.removeFromTop (14.0f * theme::fontScale);
 
         g.setFont (theme::detailFont (10.5f));
         g.setColour (theme::textDim);

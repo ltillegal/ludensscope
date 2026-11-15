@@ -419,6 +419,7 @@ int main (int argc, char** argv)
 
             const auto qaImage = editor->createComponentSnapshot (editor->getLocalBounds(), true, 1.0f);
             const auto qaFile = juce::File::getCurrentWorkingDirectory().getChildFile (name);
+            qaFile.getParentDirectory().createDirectory();
             qaFile.deleteFile();
 
             if (auto qaStream = std::unique_ptr<juce::FileOutputStream> (qaFile.createOutputStream()))
@@ -432,6 +433,8 @@ int main (int argc, char** argv)
 
         writeScale (125, 1325, 875, "docs/qa-125.png");
         writeScale (150, 1590, 1050, "docs/qa-150.png");
+        writeScale (125, 1060, 700, "docs/qa-125-small.png");
+        writeScale (150, 1060, 700, "docs/qa-150-small.png");
         scopeEditor->setUiScalePercent (0); // Auto
         editor->setSize (1060, 700);
     }

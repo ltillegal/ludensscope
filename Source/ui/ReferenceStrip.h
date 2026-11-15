@@ -79,7 +79,7 @@ private:
 
 inline void ReferenceStrip::resized()
 {
-    const float s = juce::jlimit (0.8f, 1.4f, (float) getHeight() / 100.0f);
+    const float s = juce::jlimit (0.8f, 1.5f, (float) getHeight() / 100.0f);
     auto b = getLocalBounds().toFloat().reduced (10.0f * s, 6.0f * s);
     auto right = b.removeFromRight (230.0f * s);
 
@@ -109,7 +109,7 @@ inline void ReferenceStrip::paint (juce::Graphics& g)
     const auto b = getLocalBounds().toFloat();
     theme::drawPanel (g, b);
 
-    const float s = juce::jlimit (0.8f, 1.4f, (float) getHeight() / 100.0f);
+    const float s = juce::jlimit (0.8f, 1.5f, (float) getHeight() / 100.0f);
     auto area = b.reduced (10.0f * s, 6.0f * s);
     auto right = area.removeFromRight (230.0f * s);
 
@@ -157,7 +157,7 @@ inline void ReferenceStrip::paint (juce::Graphics& g)
         g.setColour (theme::accent2);
         g.drawVerticalLine ((int) playX, waveArea.getY(), waveArea.getBottom());
 
-        g.setFont (theme::labelFont (7.0f));
+        g.setFont (theme::detailFont (7.0f));
         g.setColour (theme::textDim);
         g.drawText (formatTime (state.loopStart) + "-" + formatTime (state.loopEnd),
                     waveArea.withTrimmedBottom (-13.0f).withTrimmedTop (waveArea.getHeight() + 1.0f),
@@ -168,7 +168,7 @@ inline void ReferenceStrip::paint (juce::Graphics& g)
     }
     else
     {
-        g.setFont (theme::labelFont (8.5f));
+        g.setFont (theme::detailFont (8.5f));
         g.setColour (theme::textDim);
         g.drawText ("load a reference file to see its waveform and loop",
                     waveArea, juce::Justification::centred);
@@ -205,7 +205,7 @@ inline void ReferenceStrip::paint (juce::Graphics& g)
         g.fillRoundedRectangle (r, r.getHeight() * 0.5f);
         g.setColour (on ? theme::accent : theme::panelLine);
         g.drawRoundedRectangle (r.reduced (0.5f), r.getHeight() * 0.5f, 1.0f);
-        g.setFont (theme::labelFont (8.5f));
+        g.setFont (theme::detailFont (8.5f));
         g.setColour (on ? theme::accent : theme::textDim);
         g.drawText (text, r, juce::Justification::centred);
     };
@@ -216,14 +216,14 @@ inline void ReferenceStrip::paint (juce::Graphics& g)
     pill (mirrorArea, state.mirror, "MIRROR");
 
     right.removeFromTop (30.0f * s); // transport row, drawn from the areas above
-    g.setFont (theme::monoFont (8.0f));
+    g.setFont (theme::detailMonoFont (8.0f));
     g.setColour (theme::textDim);
     g.drawText (state.duration > 0.0
                     ? formatTime (state.position) + " / " + formatTime (state.duration)
                     : "--:--",
                 right.removeFromTop (12.0f * s), juce::Justification::centredRight);
 
-    g.setFont (theme::labelFont (8.0f));
+    g.setFont (theme::detailFont (8.0f));
     g.setColour (state.name.isNotEmpty() ? theme::text : theme::textDim);
     g.drawText (state.name.isEmpty() ? "no reference" : state.name,
                 right.removeFromTop (12.0f * s), juce::Justification::centredRight, true);
@@ -232,12 +232,12 @@ inline void ReferenceStrip::paint (juce::Graphics& g)
     g.fillRoundedRectangle (refFileArea, refFileArea.getHeight() * 0.5f);
     g.setColour (theme::panelLine);
     g.drawRoundedRectangle (refFileArea.reduced (0.5f), refFileArea.getHeight() * 0.5f, 1.0f);
-    g.setFont (theme::labelFont (8.0f));
+    g.setFont (theme::detailFont (8.0f));
     g.setColour (theme::textDim);
     g.drawText ("REF FILE", refFileArea, juce::Justification::centred);
 
     right.removeFromTop (14.0f * s);
-    g.setFont (theme::labelFont (7.5f));
+    g.setFont (theme::detailFont (7.5f));
     g.setColour (theme::textDim.withAlpha (0.85f));
     g.drawText (state.lufs > -99.0f
                     ? juce::String (state.lufs, 1) + " LUFS"

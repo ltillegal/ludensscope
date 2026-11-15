@@ -34,7 +34,7 @@ public:
     void drawButtonText (juce::Graphics& g, juce::TextButton& button,
                          bool, bool) override
     {
-        g.setFont (theme::labelFont (juce::jlimit (9.0f, 14.0f, button.getHeight() * 0.40f)));
+        g.setFont (theme::labelFont (juce::jlimit (9.0f, 14.0f * theme::fontScale, button.getHeight() * 0.40f)));
 
         g.setColour (button.getToggleState() ? theme::panelTop : theme::text);
         g.drawFittedText (button.getButtonText(), button.getLocalBounds(),
@@ -414,28 +414,23 @@ void LudensScopeEditor::paint (juce::Graphics& g)
         g.setColour (theme::panelLine.withAlpha (0.6f));
         g.drawRoundedRectangle (railBounds.toFloat().reduced (0.5f), 8.0f, 1.0f);
 
-        const int rowTop = railBounds.getBottom() - juce::roundToInt (8.0f * uiScale)
-                           - juce::roundToInt (26.0f * uiScale);
-        g.setColour (theme::panelLine.withAlpha (0.8f));
-        g.fillRect (railBounds.getX() + 12, rowTop - 10, railBounds.getWidth() - 24, 1);
-        g.setFont (theme::labelFont (juce::jlimit (7.0f, 10.0f, 8.0f * uiScale)));
-        g.setColour (theme::textDim);
-        g.drawText ("REF", railBounds.getX(), rowTop - 24, railBounds.getWidth(), 12,
-                    juce::Justification::centred);
     }
 
-    auto header = getLocalBounds().reduced (14).removeFromTop (36);
+    auto header = getLocalBounds().reduced (14)
+                      .removeFromTop (juce::roundToInt (36.0f * uiScale));
 
-    auto brand = header.removeFromLeft (196);
+    auto brand = header.removeFromLeft (juce::roundToInt (196.0f * uiScale));
 
-    auto logoArea = brand.removeFromLeft (36).withSizeKeepingCentre (32, 32);
+    const int logoSize = juce::roundToInt (32.0f * uiScale);
+    auto logoArea = brand.removeFromLeft (juce::roundToInt (36.0f * uiScale))
+                        .withSizeKeepingCentre (logoSize, logoSize);
 
     if (logoImage.isValid())
         g.drawImage (logoImage, logoArea.toFloat(), juce::RectanglePlacement::centred, false);
 
-    brand.removeFromLeft (8);
+    brand.removeFromLeft (juce::roundToInt (8.0f * uiScale));
 
-    g.setFont (theme::boldFont (19.0f));
+    g.setFont (theme::boldFont (19.0f * uiScale));
     g.setColour (theme::text);
     g.drawText ("LudensScope", brand, juce::Justification::centredLeft);
 
@@ -470,7 +465,7 @@ void LudensScopeEditor::resized()
     spectrumView.setUiScale (uiScale);
     meterPanel.setUiScale (uiScale);
 
-    auto header = r.removeFromTop (36);
+    auto header = r.removeFromTop (juce::roundToInt (36.0f * uiScale));
     const int themeWidth = juce::roundToInt (90.0f * uiScale);
     const int themeHeight = juce::jmin (34, juce::roundToInt (26.0f * uiScale));
     themeButton.setBounds (header.removeFromRight (themeWidth)
@@ -479,7 +474,7 @@ void LudensScopeEditor::resized()
 
     const int gap = juce::roundToInt (10.0f * uiScale);
     const int railWidth = juce::roundToInt (88.0f * uiScale);
-    const int stripHeight = juce::jlimit (80, 120, juce::roundToInt (100.0f * uiScale));
+    const int stripHeight = juce::jlimit (80, 160, juce::roundToInt (100.0f * uiScale));
 
     auto stripBand = r.removeFromBottom (stripHeight);
     auto sourceBand = stripBand.removeFromRight (railWidth);
@@ -540,6 +535,8 @@ void LudensScopeEditor::resized()
     spectrumView.setBounds (r);
     spectrogramView.setBounds (waterfall);
     meterPanel.setBounds (rightColumn);
+    meterPanel.setUiScale (juce::jmin (uiScale,
+        (float) rightColumn.getHeight() / 373.0f));
 
     auto vectorBounds = bottom.removeFromLeft (bottomHeight);
     bottom.removeFromLeft (gap);
@@ -766,6 +763,7 @@ void LudensScopeEditor::timerCallback()
         vuR = (float) std::sqrt (sumR / (double) numRead);
     }
 
+    vuMeterView.setUiScale (uiScale);
     vuMeterView.setLevels (vuL, vuR, (float) vuZeroDbfs, 1.0 / 30.0);
 
     vectorScopeView.setData (scopeLeft.data() + (scopeSize - 1024),
@@ -1783,6 +1781,14 @@ void LudensScopeEditor::showThemeMenu()
                         {
                             if (safe == nullptr)
                                 return;
+
+                            if (result >= 3100)
+                            {
+                                safe->setUiScalePercent (result - 3100);
+                                safe->saveViewSettings();
+                                safe->repaint();
+                                return;
+                            }
 
                             if (result >= 3000)
                             {

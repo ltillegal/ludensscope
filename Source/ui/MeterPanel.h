@@ -20,7 +20,7 @@ public:
 
     void setUiScale (float scale) noexcept
     {
-        const float newScale = juce::jlimit (0.85f, 1.40f, scale);
+        const float newScale = juce::jlimit (0.85f, 1.50f, scale);
 
         if (std::abs (newScale - uiScale) < 0.001f)
             return;
