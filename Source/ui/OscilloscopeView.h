@@ -119,7 +119,7 @@ public:
             : juce::String (milliseconds, milliseconds < 10.0 ? 2 : 1) + " ms";
 
         auto headerLeft = header.withTrimmedRight (110.0f * us);
-        const bool narrowHeader = header.getWidth() < 260.0f * us;
+        const bool narrowHeader = true;
 
         g.setFont (theme::detailFont (10.5f));
         g.setColour (theme::textDim);
@@ -273,17 +273,19 @@ public:
 
             const float lufs = momentaryLufs;
 
+            const auto statsMiddle = header.withTrimmedLeft (52.0f * us)
+                                           .withTrimmedRight (112.0f * us);
             const float statsScale = juce::jmin (us,
-                (plot.getWidth() - 16.0f * us) / 360.0f);
+                juce::jmax (0.55f, statsMiddle.getWidth() / 360.0f));
             const float statsFontScale = statsScale / juce::jmax (1.0e-3f, us);
 
-            const juce::Rectangle<float> stats (plot.getX() + 8.0f * us, plot.getY() + 6.0f * us,
-                                                360.0f * statsScale, 18.0f * statsScale);
+            const juce::Rectangle<float> stats (statsMiddle.getX(), header.getY(),
+                                                360.0f * statsScale, header.getHeight());
 
             g.setColour (theme::bg.withAlpha (0.66f));
-            g.fillRoundedRectangle (stats, 9.0f * statsScale);
+            g.fillRoundedRectangle (stats, 6.0f * statsScale);
             g.setColour (theme::panelLine);
-            g.drawRoundedRectangle (stats, 9.0f * statsScale, 1.0f);
+            g.drawRoundedRectangle (stats, 6.0f * statsScale, 1.0f);
 
             g.setFont (theme::detailFont (8.5f * statsFontScale));
             g.setColour (theme::textDim);
