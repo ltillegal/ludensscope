@@ -56,6 +56,13 @@ public:
     }
 
     // Measured integrated loudness target in LUFS; values below -90 disable it.
+    void clearHistory() noexcept
+    {
+        historyCount = 0;
+        historyWrite = 0;
+        repaint();
+    }
+
     void setTarget (float lufs) noexcept
     {
         targetEnabled = lufs > -90.0f;
@@ -85,10 +92,10 @@ public:
         g.drawText ("LOUDNESS", header, juce::Justification::centredLeft);
 
         g.setFont (theme::labelFont (9.0f));
-        g.drawText ("BS.1770-4", header.withTrimmedLeft (62.0f),
+        g.drawText (uiScale > 1.2f ? "BS.1770" : "BS.1770-4", header.withTrimmedLeft (62.0f),
                     juce::Justification::centredLeft);
 
-        auto resetRect = header.removeFromRight (44.0f);
+        auto resetRect = header.removeFromRight (30.0f);
         resetArea = resetRect.transformedBy (juce::AffineTransform::scale (uiScale))
                              .toNearestInt();
         g.setFont (theme::labelFont (7.5f));
@@ -130,7 +137,7 @@ public:
         auto peakRow = area.removeFromTop (30.0f);
         g.setFont (theme::monoFont (27.0f));
         g.setColour (theme::peakColour (truePeak));
-        g.drawText (juce::String (truePeak, 1),
+        g.drawText (truePeak > -99.0f ? juce::String (truePeak, 1) : juce::String ("--"),
                     peakRow.removeFromLeft (peakRow.getWidth() * 0.58f),
                     juce::Justification::centredLeft);
         g.setFont (theme::labelFont (11.0f));
@@ -252,9 +259,12 @@ private:
         const bool inTarget = withTarget && targetEnabled
                               && std::abs (value - targetLufs) <= 0.5f;
 
+        const bool hasValue = value > -99.0f;
+
         g.setFont (theme::monoFont (12.0f));
         g.setColour (inTarget ? theme::accent : theme::text);
-        g.drawText (juce::String (value, 1) + " LUFS", textRow, juce::Justification::centredRight);
+        g.drawText (hasValue ? juce::String (value, 1) + " LUFS" : juce::String ("--"),
+                    textRow, juce::Justification::centredRight);
 
         auto bar = row.removeFromTop (7.0f);
         g.setColour (theme::grid);
@@ -281,14 +291,17 @@ private:
             g.fillRect (juce::Rectangle<float> (x - 0.75f, bar.getY() - 2.0f,
                                                 1.5f, bar.getHeight() + 4.0f));
 
-            const float delta = value - targetLufs;
-            const juce::String deltaText = (delta >= 0.0f ? "+" : "")
-                                           + juce::String (delta, 1) + " LU";
+            if (hasValue)
+            {
+                const float delta = value - targetLufs;
+                const juce::String deltaText = (delta >= 0.0f ? "+" : "")
+                                               + juce::String (delta, 1) + " LU";
 
-            g.setFont (theme::monoFont (9.0f));
-            g.setColour (inTarget ? theme::accent : theme::textDim);
-            g.drawText (deltaText, row.removeFromTop (10.0f),
-                        juce::Justification::centredRight);
+                g.setFont (theme::monoFont (9.0f));
+                g.setColour (inTarget ? theme::accent : theme::textDim);
+                g.drawText (deltaText, row.removeFromTop (10.0f),
+                            juce::Justification::centredRight);
+            }
         }
     }
 
@@ -296,11 +309,6 @@ private:
     {
         g.setColour (theme::grid);
         g.fillRoundedRectangle (area, 4.0f);
-
-        g.setFont (theme::labelFont (7.5f));
-        g.setColour (theme::textDim);
-        g.drawText ("60 s", area.reduced (5.0f, 2.0f), juce::Justification::topLeft);
-        g.drawText ("-60.0", area.reduced (5.0f, 2.0f), juce::Justification::bottomRight);
 
         if (historyCount < 2)
             return;
@@ -352,6 +360,11 @@ private:
             g.setColour (theme::accent2.withAlpha (0.6f));
             g.drawHorizontalLine ((int) std::round (y), area.getX(), area.getRight());
         }
+
+        g.setFont (theme::labelFont (7.5f));
+        g.setColour (theme::textDim);
+        g.drawText ("60 s", area.reduced (5.0f, 2.0f), juce::Justification::topLeft);
+        g.drawText ("-60.0", area.reduced (5.0f, 2.0f), juce::Justification::bottomRight);
     }
 
     void drawInfoRow (juce::Graphics& g, juce::Rectangle<float> row,

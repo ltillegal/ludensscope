@@ -139,16 +139,6 @@ public:
 
         const auto plot = area;
 
-        // Time ruler under the plot (0 ... window).
-        {
-            const auto timeRow = plot.withTrimmedBottom (1.0f * us)
-                                     .removeFromBottom (9.0f * us);
-            g.setFont (theme::detailMonoFont (7.0f));
-            g.setColour (theme::textDim.withAlpha (0.7f));
-            g.drawText ("0", timeRow, juce::Justification::centredLeft);
-            g.drawText (windowText, timeRow, juce::Justification::centredRight);
-        }
-
         g.setColour (theme::grid);
         g.drawHorizontalLine ((int) plot.getCentreY(), plot.getX(), plot.getRight());
 
@@ -326,6 +316,14 @@ public:
             g.drawText (lufs > -70.0f ? juce::String (lufs, 1) : juce::String ("--"),
                         stats.withTrimmedLeft (282.0f * statsScale).withWidth (64.0f * statsScale),
                         juce::Justification::centredLeft);
+
+            // Time ruler under the plot, drawn last so the wave cannot cover it.
+            const auto timeRow = plot.withTrimmedBottom (1.0f * us)
+                                     .removeFromBottom (9.0f * us);
+            g.setFont (theme::detailMonoFont (7.0f));
+            g.setColour (theme::textDim.withAlpha (0.7f));
+            g.drawText ("0", timeRow, juce::Justification::centredLeft);
+            g.drawText (windowText, timeRow, juce::Justification::centredRight);
         }
     }
 

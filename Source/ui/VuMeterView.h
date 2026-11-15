@@ -9,9 +9,9 @@
 // Stereo volume-unit meter following IEC 60268-17 / ANSI C16.5:
 // - the pointer deflection is proportional to voltage, so the dB scale is
 //   non-linear (0 VU sits at ~68.5% of the -20..+3 arc)
-// - ballistics: 300 ms to 99% of a step with 1..1.5% overshoot, modelled
-//   as a second-order system in the voltage domain
-//   (zeta = 0.8, omega_n = 16.67 rad/s), not a one-pole in dB
+// - ballistics: 300 ms second-order system in the voltage domain
+//   (zeta = 0.8, omega_n = 16.67 rad/s) plus 40 ms input smoothing,
+//   ≈400 ms to 99% of a step, not a one-pole in dB
 // - 0 VU is the digital reference (default -18 dBFS, EBU)
 class VuMeterView : public juce::Component
 {
@@ -39,6 +39,7 @@ public:
         displayL = displayR = -20.0f;
         voltageL = voltageR = 0.1f;
         velocityL = velocityR = 0.0f;
+        levelL = levelR = -20.0f;
         numericL = numericR = -20.0f;
         repaint();
     }
@@ -64,7 +65,7 @@ public:
         const float rawR = rawVu (rmsRight);
 
         // Soften the 30 Hz RMS steps before the ballistic so needles don't jump.
-        const float levelCoeff = (float) (1.0 - std::exp (-juce::jmax (0.001, deltaSeconds) / 0.120));
+        const float levelCoeff = (float) (1.0 - std::exp (-juce::jmax (0.001, deltaSeconds) / 0.040));
         levelL += levelCoeff * (rawL - levelL);
         levelR += levelCoeff * (rawR - levelR);
 
@@ -145,7 +146,9 @@ private:
         g.drawText ("VU", top.removeFromLeft (18.0f * fs),
                     juce::Justification::centredLeft);
         g.drawText (label, top, juce::Justification::centredLeft);
-        g.drawText ((numeric >= 0.0f ? "+" : "") + juce::String (numeric, 1),
+        g.drawText (numeric > -99.0f
+                        ? (numeric >= 0.0f ? "+" : "") + juce::String (numeric, 1)
+                        : juce::String ("--"),
                     top, juce::Justification::centredRight);
 
         const float pivotX = inner.getCentreX();

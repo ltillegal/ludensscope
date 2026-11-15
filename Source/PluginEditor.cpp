@@ -301,7 +301,7 @@ LudensScopeEditor::LudensScopeEditor (LudensScopeProcessor& p)
     fftButton.onClick = [this] { showFftMenu(); };
     addAndMakeVisible (fftButton);
 
-    fftButton.setTooltip ("FFT size, window, ballistics, tilt, smoothing");
+    fftButton.setTooltip ("FFT size/window, ballistics, tilt, smoothing, overlap, note grid, CSV, updates");
     guidesButton.setTooltip ("Placement guides; Shift/Alt-click a zone to solo that band");
     spanButton.setTooltip ("Frequency span in octaves (wheel over the spectrum zooms)");
     monoButton.setTooltip ("Meters and scopes use the mono sum; the spectrum is always the mono sum");
@@ -1108,8 +1108,6 @@ void LudensScopeEditor::applyFftMenu (int result)
         analyzer.resetPeaks();
         analyzer.resetAverage();
         analyzer.update();
-
-        fftButton.setButtonText ("OPTIONS");
         spectrumView.setData (analyzer.levels().data(), analyzer.peaks().data());
         spectrumView.repaint();
         saveFftSettings();
@@ -1288,8 +1286,6 @@ void LudensScopeEditor::applyFftSettings (const LudensScopeProcessor::FftSetting
 
     showNoteGrid = settings.noteGrid != 0;
     spectrumView.setNoteGrid (showNoteGrid);
-
-    fftButton.setButtonText ("OPTIONS");
 }
 
 void LudensScopeEditor::saveFftSettings()
@@ -2102,6 +2098,7 @@ void LudensScopeEditor::undoReset()
 
 void LudensScopeEditor::resetDisplay()
 {
+    meterPanel.clearHistory();
     // Capture what the reset is about to clear.
     undoSnapshotValid = processor.isSnapshotFilled (snapshotSlot);
 
