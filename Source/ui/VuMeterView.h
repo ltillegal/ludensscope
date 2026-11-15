@@ -22,6 +22,12 @@ public:
         setBufferedToImage (true);
     }
 
+    void setUiScale (float scale) noexcept
+    {
+        uiScale = juce::jlimit (0.75f, 1.5f, scale);
+        repaint();
+    }
+
     // Puts both needles back on their mechanical rest stop (left, -20 VU).
     void setRest() noexcept
     {
@@ -87,7 +93,7 @@ public:
 
         theme::drawPanel (g, bounds);
 
-        const float scale = juce::jlimit (0.72f, 1.25f, (float) getHeight() / 165.0f);
+        const float scale = juce::jlimit (0.72f, 1.25f, (float) getHeight() / 165.0f) * uiScale;
         auto area = bounds.reduced (8.0f * scale);
 
         auto header = area.removeFromTop (13.0f * scale);
@@ -225,6 +231,7 @@ private:
     }
 
 private:
+    float uiScale = 1.0f;
     float zeroDbfs = -18.0f;
     float displayL = -20.0f, displayR = -20.0f;
     float voltageL = 0.1f, voltageR = 0.1f;   // -20 VU at rest
