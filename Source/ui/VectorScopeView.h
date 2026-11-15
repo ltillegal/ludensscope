@@ -34,7 +34,7 @@ public:
 
         g.setFont (theme::detailFont (10.5f));
         g.setColour (theme::textDim);
-        g.drawText ("STEREO IMAGE", area.removeFromTop (14.0f * theme::fontScale), juce::Justification::centredLeft);
+        g.drawFittedText ("STEREO IMAGE", area.removeFromTop (14.0f * theme::fontScale).toNearestInt(), juce::Justification::centredLeft, 1, 0.6f);
 
         const float side = juce::jmin (area.getWidth(), area.getHeight());
         const auto square = area.withSizeKeepingCentre (side, side);
