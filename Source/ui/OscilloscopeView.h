@@ -118,12 +118,14 @@ public:
             ? juce::String (milliseconds / 1000.0, 2) + " s"
             : juce::String (milliseconds, milliseconds < 10.0 ? 2 : 1) + " ms";
 
-        auto headerLeft = header.withTrimmedRight (150.0f * us);
+        auto headerLeft = header.withTrimmedRight (110.0f * us);
+        const bool narrowHeader = header.getWidth() < 420.0f * us;
 
         g.setFont (theme::detailFont (10.5f));
         g.setColour (theme::textDim);
-        g.drawFittedText ("OSCILLOSCOPE  " + windowText, headerLeft.toNearestInt(),
-                          juce::Justification::centredLeft, 1, 0.6f);
+        g.drawFittedText ((narrowHeader ? juce::String ("OSC  ")
+                                        : juce::String ("OSCILLOSCOPE  ")) + windowText,
+                          headerLeft.toNearestInt(), juce::Justification::centredLeft, 1, 0.6f);
 
         g.setFont (theme::detailFont (9.5f));
         g.setColour (theme::textDim);
