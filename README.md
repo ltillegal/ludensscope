@@ -182,7 +182,7 @@ alignment level −18 dBFS (EBU R68) или −20 dBFS (SMPTE RP 155); поэт�
   (`.deb` / `.pkg` / `.exe`) автоматически.
 
 AAX собирается для macOS и Windows, но в релизе он **без PACE-подписи**:
-Pro Tools загрузит только подписанный AAX (нужен Avid Developer/PACE). CLAP —
+Pro Tools загрузит только подписанный AAX (нужен Avid Developer/PACE); инструкция и скрипты — [docs/aax-signing.md](docs/aax-signing.md). CLAP —
 свободный формат (MIT-обёртка clap-juce-extensions), standalone — обычное приложение
 с тем же интерфейсом.
 
