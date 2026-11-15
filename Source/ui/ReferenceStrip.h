@@ -236,7 +236,7 @@ inline void ReferenceStrip::paint (juce::Graphics& g)
     g.setColour (theme::textDim);
     g.drawText ("REF FILE", refFileArea, juce::Justification::centred);
 
-    right.removeFromTop (8.0f * s);
+    right.removeFromTop (14.0f * s);
     g.setFont (theme::detailFont (7.5f));
     g.setColour (theme::textDim.withAlpha (0.85f));
     g.drawText (state.lufs > -99.0f

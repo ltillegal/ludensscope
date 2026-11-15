@@ -283,7 +283,8 @@ private:
 
         g.setFont (theme::labelFont (7.5f));
         g.setColour (theme::textDim);
-        g.drawText ("60 s", area.reduced (5.0f, 2.0f), juce::Justification::topRight);
+        g.drawText ("60 s", area.reduced (5.0f, 2.0f), juce::Justification::topLeft);
+        g.drawText ("-60.0", area.reduced (5.0f, 2.0f), juce::Justification::bottomRight);
 
         if (historyCount < 2)
             return;
