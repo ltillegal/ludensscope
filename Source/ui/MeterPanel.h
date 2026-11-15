@@ -65,6 +65,7 @@ public:
     float getTarget() const noexcept { return targetEnabled ? targetLufs : -100.0f; }
 
     std::function<void (float)> onTargetChange;
+    std::function<void()> onResetIntegrated;
 
     void paint (juce::Graphics& g) override
     {
@@ -86,6 +87,13 @@ public:
         g.setFont (theme::labelFont (9.0f));
         g.drawText ("BS.1770-4", header.withTrimmedLeft (62.0f),
                     juce::Justification::centredLeft);
+
+        auto resetRect = header.removeFromRight (44.0f);
+        resetArea = resetRect.transformedBy (juce::AffineTransform::scale (uiScale))
+                             .toNearestInt();
+        g.setFont (theme::labelFont (7.5f));
+        g.setColour (theme::textDim);
+        g.drawText ("RESET", resetRect, juce::Justification::centredRight);
 
         auto targetRect = header.removeFromRight (86.0f);
         targetArea = targetRect.transformedBy (juce::AffineTransform::scale (uiScale))
@@ -191,6 +199,14 @@ public:
 
     void mouseDown (const juce::MouseEvent& e) override
     {
+        if (resetArea.contains (e.getPosition()))
+        {
+            if (onResetIntegrated)
+                onResetIntegrated();
+
+            return;
+        }
+
         if (! targetArea.contains (e.getPosition()))
             return;
 
@@ -373,7 +389,7 @@ private:
     float targetLufs = -14.0f;
     float uiScale = 1.0f;
 
-    juce::Rectangle<int> targetArea;
+    juce::Rectangle<int> targetArea, resetArea;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (MeterPanel)
 };

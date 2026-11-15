@@ -1300,7 +1300,7 @@ private:
             case 0:  return theme::cold;
             case 1:  return theme::accent2;
             case 2:  return theme::hot;
-            default: return theme::accent.interpolatedWith (theme::cold, 0.5f);
+            default: return juce::Colour (0xff5fd06a); // SNAP D: green on every theme
         }
     }
 

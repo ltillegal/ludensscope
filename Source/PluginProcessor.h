@@ -52,6 +52,7 @@ public:
     int readSamples (float* left, float* right, int maxFrames) noexcept;
 
     void requestReset() noexcept { resetRequested.store (true, std::memory_order_relaxed); }
+    void requestIntegratedReset() noexcept { integratedResetRequested.store (true, std::memory_order_relaxed); }
 
     // Last-reset undo: the editor asks the audio thread to snapshot the
     // long-term loudness state before the reset is applied.
@@ -264,6 +265,7 @@ private:
     std::array<float, fifoSize> fifoRight {};
 
     std::atomic<bool> resetRequested { false };
+    std::atomic<bool> integratedResetRequested { false };
     std::atomic<bool> undoCaptureRequested { false };
     std::atomic<bool> undoRestoreRequested { false };
     std::atomic<bool> undoAvailable { false };

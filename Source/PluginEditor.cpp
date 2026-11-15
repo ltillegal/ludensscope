@@ -291,11 +291,12 @@ LudensScopeEditor::LudensScopeEditor (LudensScopeProcessor& p)
     spectrumView.onGuideSolo = [this] (int index) { toggleGuideSolo (index); };
 
     meterPanel.onTargetChange = [this] (float) { saveViewSettings(); };
+    meterPanel.onResetIntegrated = [this] { processor.requestIntegratedReset(); };
     oscilloscopeView.onSettingsChanged = [this] { saveViewSettings(); };
 
     spectrogramView.setPushDivider (waterfallHistory);
 
-    fftButton.setColour (juce::TextButton::buttonColourId, theme::panel);
+    fftButton.setColour (juce::TextButton::buttonColourId, theme::panel.darker (0.20f));
     fftButton.setColour (juce::TextButton::textColourOffId, theme::text);
     fftButton.onClick = [this] { showFftMenu(); };
     addAndMakeVisible (fftButton);
@@ -1108,7 +1109,7 @@ void LudensScopeEditor::applyFftMenu (int result)
         analyzer.resetAverage();
         analyzer.update();
 
-        fftButton.setButtonText ("FFT " + juce::String (size));
+        fftButton.setButtonText ("OPTIONS");
         spectrumView.setData (analyzer.levels().data(), analyzer.peaks().data());
         spectrumView.repaint();
         saveFftSettings();
@@ -1288,7 +1289,7 @@ void LudensScopeEditor::applyFftSettings (const LudensScopeProcessor::FftSetting
     showNoteGrid = settings.noteGrid != 0;
     spectrumView.setNoteGrid (showNoteGrid);
 
-    fftButton.setButtonText ("FFT " + juce::String (analyzer.getFftSize()));
+    fftButton.setButtonText ("OPTIONS");
 }
 
 void LudensScopeEditor::saveFftSettings()
