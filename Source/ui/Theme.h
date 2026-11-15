@@ -157,7 +157,7 @@ namespace theme
 
     inline juce::Font labelFont (float size)
     {
-        return juce::Font (juce::FontOptions (size));
+        return juce::Font (juce::FontOptions (size).withFallbackEnabled (true));
     }
 
     inline juce::Font boldFont (float size)
@@ -168,7 +168,8 @@ namespace theme
     inline juce::Font monoFont (float size)
     {
         return juce::Font (juce::FontOptions (juce::Font::getDefaultMonospacedFontName(),
-                                              size, juce::Font::plain));
+                                              size, juce::Font::plain)
+                               .withFallbackEnabled (true));
     }
 
     inline float fontScale = 1.0f;
