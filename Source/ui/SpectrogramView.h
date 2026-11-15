@@ -125,11 +125,13 @@ public:
 
         g.setFont (theme::detailFont (10.5f));
         g.setColour (theme::textDim);
-        g.drawText ("WATERFALL", titleRow, juce::Justification::centredLeft);
+        auto titleLeft = titleRow.removeFromLeft (titleRow.getWidth() * 0.55f);
+        g.drawFittedText ("WATERFALL", titleLeft.toNearestInt(),
+                          juce::Justification::centredLeft, 1, 0.65f);
 
         g.setFont (theme::detailFont (9.0f));
-        g.drawText ("older \xe2\x86\x91  " + juce::String (historySeconds(), 1) + " s",
-                    titleRow, juce::Justification::centredRight);
+        g.drawFittedText ("older \xe2\x86\x91  " + juce::String (historySeconds(), 1) + " s",
+                          titleRow.toNearestInt(), juce::Justification::centredRight, 1, 0.6f);
 
         const auto plot = plotBounds();
 

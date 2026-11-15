@@ -118,17 +118,22 @@ public:
             ? juce::String (milliseconds / 1000.0, 2) + " s"
             : juce::String (milliseconds, milliseconds < 10.0 ? 2 : 1) + " ms";
 
+        auto headerLeft = header.withTrimmedRight (150.0f * us);
+
         g.setFont (theme::detailFont (10.5f));
         g.setColour (theme::textDim);
-        g.drawText ("OSCILLOSCOPE  " + windowText, header, juce::Justification::centredLeft);
+        g.drawFittedText ("OSCILLOSCOPE  " + windowText, headerLeft.toNearestInt(),
+                          juce::Justification::centredLeft, 1, 0.6f);
 
         g.setFont (theme::detailFont (9.5f));
         g.setColour (theme::textDim);
-        g.drawText ("x" + juce::String (verticalGain, 2), header.withTrimmedRight (72.0f * us),
-                    juce::Justification::centredRight);
+        g.drawFittedText ("x" + juce::String (verticalGain, 2),
+                          header.withTrimmedRight (72.0f * us).toNearestInt(),
+                          juce::Justification::centredRight, 1, 0.7f);
 
         g.setColour (isFrozen ? theme::accent2 : theme::textDim);
-        g.drawText (isFrozen ? "FROZEN" : "TRIGGERED", header, juce::Justification::centredRight);
+        g.drawFittedText (isFrozen ? "FROZEN" : "TRIGGERED", header.toNearestInt(),
+                          juce::Justification::centredRight, 1, 0.6f);
 
         const auto plot = area;
 
