@@ -63,6 +63,11 @@ public:
         const float rawL = rawVu (rmsLeft);
         const float rawR = rawVu (rmsRight);
 
+        // Soften the 30 Hz RMS steps before the ballistic so needles don't jump.
+        const float levelCoeff = (float) (1.0 - std::exp (-juce::jmax (0.001, deltaSeconds) / 0.120));
+        levelL += levelCoeff * (rawL - levelL);
+        levelR += levelCoeff * (rawR - levelR);
+
         // VU ballistics in the voltage domain: 300 ms to 99%, 1.5% overshoot.
         constexpr float zeta = 0.8f;
         constexpr float omegaN = 16.67f; // rad/s -> 300 ms settling at zeta 0.8
@@ -81,8 +86,8 @@ public:
             v = juce::jlimit (0.07f, 1.6f, v); // mechanical stops
         };
 
-        step (voltageL, velocityL, targetVoltage (rawL));
-        step (voltageR, velocityR, targetVoltage (rawR));
+        step (voltageL, velocityL, targetVoltage (levelL));
+        step (voltageR, velocityR, targetVoltage (levelR));
 
         displayL = 20.0f * std::log10 (juce::jmax (voltageL, 1.0e-6f));
         displayR = 20.0f * std::log10 (juce::jmax (voltageR, 1.0e-6f));
@@ -237,6 +242,7 @@ private:
 
 private:
     float uiScale = 1.0f;
+    float levelL = -20.0f, levelR = -20.0f;
     float zeroDbfs = -18.0f;
     float displayL = -20.0f, displayR = -20.0f;
     float voltageL = 0.1f, voltageR = 0.1f;   // -20 VU at rest

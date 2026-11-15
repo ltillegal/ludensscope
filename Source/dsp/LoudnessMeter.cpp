@@ -80,6 +80,15 @@ void LoudnessMeter::reset() noexcept
     integratedValue.store (-100.0f, std::memory_order_relaxed);
 }
 
+void LoudnessMeter::resetIntegrated() noexcept
+{
+    integratedEnergy.fill (0.0f);
+    integratedWrite = 0;
+    integratedCount = 0;
+    clearLraHistogram();
+    integratedValue.store (-100.0f, std::memory_order_relaxed);
+}
+
 void LoudnessMeter::process (const float* left, const float* right, int numSamples) noexcept
 {
     if (monoMode)

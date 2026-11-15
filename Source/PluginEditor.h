@@ -167,7 +167,7 @@ private:
     juce::TextButton monoButton { "MONO" };
     juce::TextButton spanButton { "SPAN 10" };
     juce::TextButton guidesButton { "GUIDES" };
-    juce::TextButton fftButton { "FFT 4096" };
+    juce::TextButton fftButton { "OPTIONS" };
 
     int timingPreset = 1;
     int guidePreset = 0;

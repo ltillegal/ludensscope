@@ -16,6 +16,7 @@ class LoudnessMeter
 public:
     void prepare (double newSampleRate) noexcept;
     void reset() noexcept;
+    void resetIntegrated() noexcept;
     void process (const float* left, const float* right, int numSamples) noexcept;
     void processMono (const float* left, int numSamples) noexcept;
 
