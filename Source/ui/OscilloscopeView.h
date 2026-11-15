@@ -10,7 +10,8 @@
 #include "Theme.h"
 #include "dsp/LoudnessMeter.h"
 
-class OscilloscopeView : public juce::Component
+class OscilloscopeView : public juce::Component,
+                          public juce::SettableTooltipClient
 {
 public:
     OscilloscopeView()
