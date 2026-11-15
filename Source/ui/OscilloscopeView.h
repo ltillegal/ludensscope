@@ -90,7 +90,7 @@ public:
     void mouseDoubleClick (const juce::MouseEvent&) override
     {
         windowSamples = 0;
-        verticalGain = 1.0f;
+        verticalGain = 2.0f;
         repaint();
 
         if (onSettingsChanged)
@@ -246,7 +246,7 @@ private:
     std::vector<float> left, right;
     bool isFrozen = false;
     int windowSamples = 0;
-    float verticalGain = 1.0f;
+    float verticalGain = 2.0f;
     double sampleRate = 48000.0;
 
     std::vector<float> envelopeTops, envelopeBottoms;

@@ -209,7 +209,7 @@ public:
         float targetLufs = -14.0f;
         int waterfallHistory = 2;
         int oscWindow = 0;
-        float oscGain = 1.0f;
+        float oscGain = 2.0f;
         int differenceSource = 0;
         juce::String targetCurveName;
         int levelMatch = 1;
