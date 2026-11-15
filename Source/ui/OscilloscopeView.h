@@ -106,7 +106,6 @@ public:
         auto area = bounds.reduced (12.0f * theme::fontScale);
 
         const float us = juce::jmax (1.0f, theme::fontScale);
-        auto header = area.removeFromTop (14.0f * us);
 
         const int count = (int) juce::jmin (left.size(), right.size());
         const int window = windowSamples > 0
@@ -118,26 +117,14 @@ public:
             ? juce::String (milliseconds / 1000.0, 2) + " s"
             : juce::String (milliseconds, milliseconds < 10.0 ? 2 : 1) + " ms";
 
-        auto headerLeft = header.withTrimmedRight (110.0f * us);
-        const bool narrowHeader = true;
-
-        g.setFont (theme::detailFont (10.5f));
-        g.setColour (theme::textDim);
-        g.drawFittedText ((narrowHeader ? juce::String ("OSC  ")
-                                        : juce::String ("OSCILLOSCOPE  ")) + windowText,
-                          headerLeft.toNearestInt(), juce::Justification::centredLeft, 1, 0.6f);
-
-        g.setFont (theme::detailFont (9.5f));
-        g.setColour (theme::textDim);
-        g.drawFittedText ("x" + juce::String (verticalGain, 2),
-                          header.withTrimmedRight (72.0f * us).toNearestInt(),
-                          juce::Justification::centredRight, 1, 0.7f);
-
-        g.setColour (isFrozen ? theme::accent2 : theme::textDim);
-        g.drawFittedText (isFrozen ? "FROZEN" : "TRIGGERED", header.toNearestInt(),
-                          juce::Justification::centredRight, 1, 0.6f);
-
         const auto plot = area;
+
+        // Only the window length stays as a label; everything else is gone.
+        g.setFont (theme::detailMonoFont (7.0f));
+        g.setColour (theme::textDim.withAlpha (0.65f));
+        g.drawText (windowText, plot.withTrimmedRight (2.0f * us).withTrimmedTop (1.0f * us)
+                                    .removeFromTop (9.0f * us),
+                    juce::Justification::topRight);
 
         g.setColour (theme::grid);
         g.drawHorizontalLine ((int) plot.getCentreY(), plot.getX(), plot.getRight());
@@ -253,80 +240,6 @@ public:
         drawChannel (right, theme::cold);
         drawChannel (left, theme::accent);
 
-        if (drawCount >= 8)
-        {
-            double sumSquares = 0.0;
-            float peak = 0.0f;
-
-            for (int i = 0; i < drawCount; ++i)
-            {
-                const float l = left[(size_t) (start + i)];
-                const float r = right[(size_t) (start + i)];
-
-                sumSquares += (double) l * l + (double) r * r;
-                peak = juce::jmax (peak, juce::jmax (std::abs (l), std::abs (r)));
-            }
-
-            const float rms = (float) std::sqrt (sumSquares / (double) (2 * drawCount));
-            const float peakDb = 20.0f * std::log10 (juce::jmax (peak, 1.0e-5f));
-            const float rmsDb = 20.0f * std::log10 (juce::jmax (rms, 1.0e-5f));
-
-            const float lufs = momentaryLufs;
-
-            const auto statsMiddle = header.withTrimmedLeft (52.0f * us)
-                                           .withTrimmedRight (112.0f * us);
-            const float statsScale = juce::jmin (us,
-                juce::jmax (0.55f, statsMiddle.getWidth() / 360.0f));
-            const float statsFontScale = statsScale / juce::jmax (1.0e-3f, us);
-
-            const juce::Rectangle<float> stats (statsMiddle.getX(), header.getY(),
-                                                360.0f * statsScale, header.getHeight());
-
-            g.setColour (theme::bg.withAlpha (0.66f));
-            g.fillRoundedRectangle (stats, 6.0f * statsScale);
-            g.setColour (theme::panelLine);
-            g.drawRoundedRectangle (stats, 6.0f * statsScale, 1.0f);
-
-            g.setFont (theme::detailFont (8.5f * statsFontScale));
-            g.setColour (theme::textDim);
-            g.drawText ("PEAK", stats.withTrimmedLeft (9.0f * statsScale).withWidth (28.0f * statsScale),
-                        juce::Justification::centredLeft);
-            g.drawText ("RMS", stats.withTrimmedLeft (84.0f * statsScale).withWidth (26.0f * statsScale),
-                        juce::Justification::centredLeft);
-            g.drawText ("CREST", stats.withTrimmedLeft (160.0f * statsScale).withWidth (34.0f * statsScale),
-                        juce::Justification::centredLeft);
-
-            g.setFont (theme::detailMonoFont (9.5f * statsFontScale));
-            g.setColour (theme::accent);
-            g.drawText (juce::String (peakDb, 1), stats.withTrimmedLeft (36.0f * statsScale).withWidth (42.0f * statsScale),
-                        juce::Justification::centredLeft);
-            g.setColour (theme::cold);
-            g.drawText (juce::String (rmsDb, 1), stats.withTrimmedLeft (110.0f * statsScale).withWidth (42.0f * statsScale),
-                        juce::Justification::centredLeft);
-            g.setColour (theme::accent2);
-            g.drawText (juce::String (peakDb - rmsDb, 1) + " dB",
-                        stats.withTrimmedLeft (194.0f * statsScale).withWidth (86.0f * statsScale),
-                        juce::Justification::centredLeft);
-
-            g.setFont (theme::detailFont (8.5f * statsFontScale));
-            g.setColour (theme::textDim);
-            g.drawText ("LUFS", stats.withTrimmedLeft (250.0f * statsScale).withWidth (30.0f * statsScale),
-                        juce::Justification::centredLeft);
-
-            g.setFont (theme::detailMonoFont (9.5f * statsFontScale));
-            g.setColour (theme::text);
-            g.drawText (lufs > -70.0f ? juce::String (lufs, 1) : juce::String ("--"),
-                        stats.withTrimmedLeft (282.0f * statsScale).withWidth (64.0f * statsScale),
-                        juce::Justification::centredLeft);
-
-            // Time ruler under the plot, drawn last so the wave cannot cover it.
-            const auto timeRow = plot.withTrimmedBottom (1.0f * us)
-                                     .removeFromBottom (9.0f * us);
-            g.setFont (theme::detailMonoFont (7.0f));
-            g.setColour (theme::textDim.withAlpha (0.7f));
-            g.drawText ("0", timeRow, juce::Justification::centredLeft);
-            g.drawText (windowText, timeRow, juce::Justification::centredRight);
-        }
     }
 
 private:
