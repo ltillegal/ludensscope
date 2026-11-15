@@ -15,6 +15,7 @@ class OscilloscopeView : public juce::Component
 public:
     OscilloscopeView()
     {
+        setTooltip ("Wheel: time window (speed). Shift+wheel: amplitude. Double-click: reset.");
         setOpaque (true);
         setBufferedToImage (true);
     }
