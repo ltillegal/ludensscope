@@ -69,7 +69,6 @@ void LoudnessMeter::reset() noexcept
     blockWriteIndex = 0;
     blocksSeen = 0;
 
-    integratedEnergy.fill (0.0f);
     integratedWrite = 0;
     integratedCount = 0;
 
@@ -82,7 +81,6 @@ void LoudnessMeter::reset() noexcept
 
 void LoudnessMeter::resetIntegrated() noexcept
 {
-    integratedEnergy.fill (0.0f);
     integratedWrite = 0;
     integratedCount = 0;
     clearLraHistogram();

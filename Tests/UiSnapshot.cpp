@@ -73,9 +73,14 @@ int main (int argc, char** argv)
         referenceFile.deleteFile();
 
         juce::WavAudioFormat wavFormat;
+        std::unique_ptr<juce::OutputStream> referenceStream =
+            std::make_unique<juce::FileOutputStream> (referenceFile);
         std::unique_ptr<juce::AudioFormatWriter> writer (
-            wavFormat.createWriterFor (new juce::FileOutputStream (referenceFile),
-                                       48000.0, 2, 16, juce::StringPairArray(), 0));
+            wavFormat.createWriterFor (referenceStream,
+                                       juce::AudioFormatWriterOptions{}
+                                           .withSampleRate (48000.0)
+                                           .withNumChannels (2)
+                                           .withBitsPerSample (16)));
 
         if (writer != nullptr)
         {
@@ -100,9 +105,14 @@ int main (int argc, char** argv)
 
     {
         juce::WavAudioFormat wavFormat;
+        std::unique_ptr<juce::OutputStream> displayStream =
+            std::make_unique<juce::FileOutputStream> (displayReferenceFile);
         std::unique_ptr<juce::AudioFormatWriter> writer (
-            wavFormat.createWriterFor (new juce::FileOutputStream (displayReferenceFile),
-                                       48000.0, 2, 16, juce::StringPairArray(), 0));
+            wavFormat.createWriterFor (displayStream,
+                                       juce::AudioFormatWriterOptions{}
+                                           .withSampleRate (48000.0)
+                                           .withNumChannels (2)
+                                           .withBitsPerSample (16)));
 
         if (writer != nullptr)
         {
@@ -164,9 +174,14 @@ int main (int argc, char** argv)
 
     {
         juce::WavAudioFormat wavFormat;
+        std::unique_ptr<juce::OutputStream> monoStream =
+            std::make_unique<juce::FileOutputStream> (monoReferenceFile);
         std::unique_ptr<juce::AudioFormatWriter> writer (
-            wavFormat.createWriterFor (new juce::FileOutputStream (monoReferenceFile),
-                                       48000.0, 1, 16, juce::StringPairArray(), 0));
+            wavFormat.createWriterFor (monoStream,
+                                       juce::AudioFormatWriterOptions{}
+                                           .withSampleRate (48000.0)
+                                           .withNumChannels (1)
+                                           .withBitsPerSample (16)));
 
         if (writer != nullptr)
         {
@@ -541,6 +556,23 @@ int main (int argc, char** argv)
     std::printf ("reset undo: %.2f -> %.2f -> %.2f (%s)\n",
                  loudnessBeforeReset, loudnessAfterReset, loudnessAfterUndo,
                  undoOk ? "ok" : "FAIL");
+
+    // Small RESET: clears integrated/LRA but keeps momentary/short-term.
+    const float momentaryBeforeIntegratedReset = processor.momentaryLufs();
+    processor.requestIntegratedReset();
+
+    {
+        juce::AudioBuffer<float> integratedBlock (2, 512);
+        integratedBlock.clear();
+        processor.processBlock (integratedBlock, midi);
+    }
+
+    const bool integratedResetOk = processor.integratedLufs() < -90.0f
+        && processor.lraLu() < 0.0f
+        && std::abs (processor.momentaryLufs() - momentaryBeforeIntegratedReset) < 0.2f;
+    std::printf ("integrated reset: %.2f / %.2f (%s)\n",
+                 processor.integratedLufs(), processor.lraLu(),
+                 integratedResetOk ? "ok" : "FAIL");
 
     // The reference player should output the loaded file instead of silence.
     // The editor's continuous loudness match ran during the message loop; reset

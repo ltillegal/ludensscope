@@ -435,9 +435,6 @@ void LudensScopeProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce:
     if (buffer.getNumChannels() < 1 || numSamples <= 0)
         return;
 
-    if (integratedResetRequested.exchange (false, std::memory_order_relaxed))
-        loudness.resetIntegrated();
-
     const bool stereo = buffer.getNumChannels() > 1;
     const float* left = buffer.getReadPointer (0);
     const float* right = stereo ? buffer.getReadPointer (1) : left;
@@ -458,6 +455,9 @@ void LudensScopeProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce:
             undoAvailable.store (false, std::memory_order_relaxed);
         }
     }
+
+    if (integratedResetRequested.exchange (false, std::memory_order_relaxed))
+        loudness.resetIntegrated();
 
     if (resetRequested.exchange (false, std::memory_order_relaxed))
     {

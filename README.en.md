@@ -167,7 +167,7 @@ The VU follows IEC 60268-17 / ANSI C16.5: 0 VU = +4 dBu = 1.228 V RMS at
 1 kHz, -20..+3 VU scale. The pointer deflection is proportional to the
 **voltage**, so the scale is non-linear: 0 VU sits at ~68.5% of the arc and
 the 0..+3 zone is red. Ballistics are second-order in the voltage domain:
-300 ms to 99% of a step with 1-1.5% overshoot (zeta ~0.8, omega_n ~16.7 rad/s).
+300 ms second-order + 40 ms input smoothing (≈400 ms to 99%, zeta ~0.8, omega_n ~16.7 rad/s).
 In the digital domain 0 VU is the alignment level -18 dBFS (EBU R68) or
 -20 dBFS (SMPTE RP 155); the VU reads average loudness, not peaks - use
 TRUE PEAK for peaks.

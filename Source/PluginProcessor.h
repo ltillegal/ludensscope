@@ -236,8 +236,17 @@ public:
 
     float momentaryLufs()  const noexcept { return loudness.momentaryLufs(); }
     float shortTermLufs()  const noexcept { return loudness.shortTermLufs(); }
-    float integratedLufs() const noexcept { return loudness.integratedLufs(); }
-    float lraLu()          const noexcept { return loudness.lraLu(); }
+    float integratedLufs() const noexcept
+    {
+        return integratedResetRequested.load (std::memory_order_relaxed)
+                   ? -100.0f : loudness.integratedLufs();
+    }
+
+    float lraLu() const noexcept
+    {
+        return integratedResetRequested.load (std::memory_order_relaxed)
+                   ? -1.0f : loudness.lraLu();
+    }
 
 private:
     bool isBusesLayoutSupported (const BusesLayout& layouts) const override;
