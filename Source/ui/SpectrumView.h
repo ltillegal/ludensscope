@@ -152,7 +152,7 @@ public:
 
     void setUiScale (float scale) noexcept
     {
-        uiScale = juce::jlimit (0.85f, 1.4f, scale);
+        uiScale = juce::jlimit (0.85f, 1.5f, scale);
     }
 
     void setGainStaging (bool enabled, float zeroDbfs) noexcept

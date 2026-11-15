@@ -439,7 +439,7 @@ void LudensScopeEditor::paint (juce::Graphics& g)
     g.drawText ("STEREO ANALYZER", header, juce::Justification::centredLeft);
 
     g.setColour (theme::panelLine.withAlpha (0.6f));
-    g.fillRect (14, 53, getWidth() - 28, 1);
+    g.fillRect (14, 14 + juce::roundToInt (36.0f * uiScale) + 3, getWidth() - 28, 1);
 
     if (fileDragActive)
     {
@@ -463,7 +463,7 @@ void LudensScopeEditor::resized()
     uiScale = juce::jlimit (0.75f, 1.5f, requestedScale);
     theme::fontScale = uiScale;
     spectrumView.setUiScale (uiScale);
-    meterPanel.setUiScale (uiScale);
+    vuMeterView.setUiScale (uiScale);
 
     auto header = r.removeFromTop (juce::roundToInt (36.0f * uiScale));
     const int themeWidth = juce::roundToInt (90.0f * uiScale);

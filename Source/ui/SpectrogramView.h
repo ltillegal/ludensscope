@@ -159,9 +159,13 @@ public:
 
         g.setFont (theme::detailMonoFont (7.5f));
         g.setColour (theme::textDim);
-        g.drawText ("0", juce::Rectangle<float> (legendX + 9.0f, plot.getY(), 18.0f, 10.0f),
+        const float legendScale = theme::fontScale;
+        g.drawText ("0", juce::Rectangle<float> (legendX + 9.0f * legendScale, plot.getY(),
+                                                 18.0f * legendScale, 10.0f * legendScale),
                     juce::Justification::centredLeft);
-        g.drawText ("-96", juce::Rectangle<float> (legendX + 9.0f, plot.getBottom() - 10.0f, 18.0f, 10.0f),
+        g.drawText ("-96", juce::Rectangle<float> (legendX + 9.0f * legendScale,
+                                                    plot.getBottom() - 10.0f * legendScale,
+                                                    18.0f * legendScale, 10.0f * legendScale),
                     juce::Justification::centredLeft);
     }
 
@@ -176,9 +180,9 @@ private:
     juce::Rectangle<float> plotBounds() const
     {
         return getLocalBounds().toFloat()
-            .reduced (12.0f)
-            .withTrimmedTop (16.0f)
-            .withTrimmedRight (30.0f);
+            .reduced (12.0f * theme::fontScale)
+            .withTrimmedTop (16.0f * theme::fontScale)
+            .withTrimmedRight (30.0f * theme::fontScale);
     }
 
     static juce::Colour heat (float t)

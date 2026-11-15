@@ -103,7 +103,7 @@ public:
 
         theme::drawPanel (g, bounds);
 
-        auto area = bounds.reduced (12.0f);
+        auto area = bounds.reduced (12.0f * theme::fontScale);
 
         const float us = juce::jmax (1.0f, theme::fontScale);
         auto header = area.removeFromTop (14.0f * us);
@@ -119,7 +119,7 @@ public:
             : juce::String (milliseconds, milliseconds < 10.0 ? 2 : 1) + " ms";
 
         auto headerLeft = header.withTrimmedRight (110.0f * us);
-        const bool narrowHeader = header.getWidth() < 420.0f * us;
+        const bool narrowHeader = header.getWidth() < 260.0f * us;
 
         g.setFont (theme::detailFont (10.5f));
         g.setColour (theme::textDim);
@@ -190,8 +190,8 @@ public:
                 g.setFont (theme::detailFont (7.0f));
                 g.setColour (zero ? theme::accent2 : theme::textDim);
                 g.drawText (zero ? "0 VU" : juce::String ((int) level) + " dB",
-                            juce::Rectangle<float> (plot.getX() + 4.0f, y - 9.0f,
-                                                    56.0f, 9.0f),
+                            juce::Rectangle<float> (plot.getX() + 4.0f * us, y - 9.0f * us,
+                                                    56.0f * us, 9.0f * us),
                             juce::Justification::centredLeft);
             }
         }
