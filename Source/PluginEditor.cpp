@@ -1934,7 +1934,7 @@ void LudensScopeEditor::applyReferenceSettings()
         referencePath.clear();
         spectrumView.setReference (nullptr, false);
         spectrumView.setReferenceWaveform ({});
-        spectrumView.setReferencePlaceholder ("REF EMPTY — USE REF FILE");
+        spectrumView.setReferencePlaceholder ("REF EMPTY - USE REF FILE");
         return;
     }
 
