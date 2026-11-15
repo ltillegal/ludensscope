@@ -123,10 +123,13 @@ inline UpdateInfo performUpdateCheck()
 
    #if JUCE_MAC
     const juce::String platform = "macos";
+    const juce::String extension = ".pkg";
    #elif JUCE_WINDOWS
     const juce::String platform = "windows";
+    const juce::String extension = ".exe";
    #else
     const juce::String platform = "linux";
+    const juce::String extension = ".deb";
    #endif
 
     if (auto* assets = json["assets"].getArray())
@@ -139,7 +142,7 @@ inline UpdateInfo performUpdateCheck()
             {
                 info.checksumUrl = asset["browser_download_url"].toString();
             }
-            else if (name.containsIgnoreCase (platform) && name.endsWithIgnoreCase (".zip"))
+            else if (name.containsIgnoreCase (platform) && name.endsWithIgnoreCase (extension))
             {
                 info.assetName = name;
                 info.downloadUrl = asset["browser_download_url"].toString();
