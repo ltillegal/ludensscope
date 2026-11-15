@@ -137,7 +137,6 @@ public:
         g.drawFittedText (isFrozen ? "FROZEN" : "TRIGGERED", header.toNearestInt(),
                           juce::Justification::centredRight, 1, 0.6f);
 
-        auto statsRow = area.removeFromTop (20.0f * us);
         const auto plot = area;
 
         g.setColour (theme::grid);
@@ -278,7 +277,7 @@ public:
                 (plot.getWidth() - 16.0f * us) / 360.0f);
             const float statsFontScale = statsScale / juce::jmax (1.0e-3f, us);
 
-            const juce::Rectangle<float> stats (statsRow.getX() + 8.0f * us, statsRow.getY(),
+            const juce::Rectangle<float> stats (plot.getX() + 8.0f * us, plot.getY() + 6.0f * us,
                                                 360.0f * statsScale, 18.0f * statsScale);
 
             g.setColour (theme::bg.withAlpha (0.66f));
