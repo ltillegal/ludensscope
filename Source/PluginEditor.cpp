@@ -267,7 +267,7 @@ LudensScopeEditor::LudensScopeEditor (LudensScopeProcessor& p)
     donateButton.setTooltip ("Donate via PayPal");
     donateButton.onClick = []
     {
-        juce::URL ("https://www.paypal.com/ncp/payment/MAMKZM5TTVN5U").launchInDefaultBrowser();
+        juce::URL ("https://www.paypal.com/ncp/payment/MAMKZM5TTVN5U?locale.x=en_US&country.x=US").launchInDefaultBrowser();
     };
     addAndMakeVisible (donateButton);
 
