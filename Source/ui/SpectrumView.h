@@ -11,13 +11,15 @@
 #include "GuidePresets.h"
 #include "Theme.h"
 
-class SpectrumView : public juce::Component
+class SpectrumView : public juce::Component,
+                     public juce::SettableTooltipClient
 {
 public:
     SpectrumView()
     {
         setOpaque (true);
         setBufferedToImage (true);
+        setTooltip ("Wheel: zoom. Double-click: reset. Shift/Alt-click: solo a guide zone.");
     }
 
     static constexpr int numBins = 512;
@@ -144,27 +146,26 @@ public:
         repaint();
     }
 
-    void setReferenceModes (bool levelMatch, bool mirrorMode) noexcept
-    {
-        referenceLevelMatch = levelMatch;
-        referenceMirror = mirrorMode;
-    }
-
     void setUiScale (float scale) noexcept
     {
-        uiScale = juce::jlimit (0.85f, 1.5f, scale);
+        const float next = juce::jlimit (0.75f, 1.5f, scale);
+
+        if (std::abs (next - uiScale) < 0.001f)
+            return;
+
+        uiScale = next;
+        updateSnapshotAreas();
+        repaint();
     }
+
+    float getUiScale() const noexcept { return uiScale; }
+
+    void resized() override { updateSnapshotAreas(); }
 
     void setGainStaging (bool enabled, float zeroDbfs) noexcept
     {
         gainStaging = enabled;
         vuZeroDbfs = zeroDbfs;
-    }
-
-    void setReferenceWaveform (const std::vector<float>& waveform)
-    {
-        referenceWaveform = waveform;
-        repaint();
     }
 
     void setTargetCurve (const float* curveDb, bool active, const juce::String& name)
@@ -177,94 +178,53 @@ public:
         repaint();
     }
 
-    void setTransport (bool enabled, bool playing, bool looping, bool audible,
-                       double positionSeconds, double lengthSeconds,
-                       double loopStartSeconds, double loopEndSeconds) noexcept
-    {
-        transportEnabled = enabled;
-        transportPlaying = playing;
-        transportLooping = looping;
-        transportAudible = audible;
-        transportPosition = positionSeconds;
-        transportLength = lengthSeconds;
-        transportLoopStart = loopStartSeconds;
-        transportLoopEnd = loopEndSeconds;
-    }
-
-    std::function<void()> onPlayToggle;
-    std::function<void()> onLoopToggle;
-    std::function<void()> onAbToggle;
-    std::function<void()> onLevelMatchToggle;
-    std::function<void()> onMirrorToggle;
     std::function<void (int)> onSnapshotSelect;
-    std::function<void (double)> onReferenceSeek;
-    std::function<void (double, double)> onLoopRangeChange;
 
     // Emitted when the user zooms with the wheel; the editor applies the range
     // to the waterfall as well so both views stay aligned.
     std::function<void (float, float)> onRangeChange;
     std::function<void()> onRangeReset;
 
-    void mouseDrag (const juce::MouseEvent& e) override
-    {
-        if (! transportEnabled || transportLength <= 0.0 || loopDrag == LoopDrag::none)
-            return;
-
-        const double time = timeAtX (e.position.x);
-
-        if (loopDrag == LoopDrag::selecting)
-        {
-            loopPreviewStart = juce::jmin (loopAnchor, time);
-            loopPreviewEnd = juce::jmax (loopAnchor, time);
-            repaint();
-            return;
-        }
-
-        if (loopDrag == LoopDrag::startHandle)
-        {
-            const double start = juce::jlimit (0.0, juce::jmax (0.0, transportLoopEnd - 0.02), time);
-
-            if (onLoopRangeChange)
-                onLoopRangeChange (start, transportLoopEnd);
-        }
-        else if (loopDrag == LoopDrag::endHandle)
-        {
-            const double end = juce::jlimit (transportLoopStart + 0.02, transportLength, time);
-
-            if (onLoopRangeChange)
-                onLoopRangeChange (transportLoopStart, end);
-        }
-    }
-
-    void mouseUp (const juce::MouseEvent&) override
-    {
-        if (loopDrag == LoopDrag::selecting)
-        {
-            if (loopPreviewEnd - loopPreviewStart > 0.05)
-            {
-                if (onLoopRangeChange)
-                    onLoopRangeChange (loopPreviewStart, loopPreviewEnd);
-            }
-            else if (onReferenceSeek)
-            {
-                onReferenceSeek (loopAnchor);
-            }
-        }
-
-        loopDrag = LoopDrag::none;
-        repaint();
-    }
-
     void mouseMove (const juce::MouseEvent& e) override
     {
         cursorActive = true;
         cursorPosition = e.position;
+
+        bool overSnapshot = false;
+
+        for (int i = 0; i < snapshotCount; ++i)
+        {
+            if (snapshotLetterAreas[(size_t) i].contains (e.position))
+            {
+                overSnapshot = true;
+                setTooltip ("Snapshot " + juce::String::charToString (
+                    (juce::juce_wchar) ('A' + i)) + ": click to show it on the spectrum");
+                break;
+            }
+        }
+
+        if (overSnapshot)
+        {
+            setMouseCursor (juce::MouseCursor::PointingHandCursor);
+        }
+        else if (plotArea().contains (e.position))
+        {
+            setMouseCursor (juce::MouseCursor::CrosshairCursor);
+            setTooltip ("Wheel: zoom. Double-click: reset. Shift/Alt-click: solo a guide zone.");
+        }
+        else
+        {
+            setMouseCursor (juce::MouseCursor::NormalCursor);
+            setTooltip (juce::String());
+        }
+
         repaint();
     }
 
     void mouseExit (const juce::MouseEvent&) override
     {
         cursorActive = false;
+        setMouseCursor (juce::MouseCursor::NormalCursor);
         repaint();
     }
 
@@ -322,34 +282,6 @@ public:
             }
         }
 
-        if (transportEnabled && transportLength > 0.0
-            && loopBar.expanded (0.0f, 4.0f).contains (e.position))
-        {
-            const float startX = loopBar.getX() + loopBar.getWidth()
-                                 * (float) (transportLoopStart / transportLength);
-            const float endX = loopBar.getX() + loopBar.getWidth()
-                               * (float) (transportLoopEnd / transportLength);
-
-            if (std::abs (e.position.x - startX) <= 4.0f)
-            {
-                loopDrag = LoopDrag::startHandle;
-            }
-            else if (std::abs (e.position.x - endX) <= 4.0f)
-            {
-                loopDrag = LoopDrag::endHandle;
-            }
-            else
-            {
-                loopDrag = LoopDrag::selecting;
-                loopAnchor = timeAtX (e.position.x);
-                loopPreviewStart = loopAnchor;
-                loopPreviewEnd = loopAnchor;
-            }
-
-            repaint();
-            return;
-        }
-
         const bool guideModifier = e.mods.isShiftDown() || e.mods.isAltDown();
 
         auto triggerGuide = [this, guideModifier] (juce::Point<float> pos)
@@ -374,41 +306,7 @@ public:
             }
         };
 
-        if (! transportEnabled)
-        {
-            triggerGuide (e.position);
-            return;
-        }
-
-        if (playArea.contains (e.position))
-        {
-            if (onPlayToggle)
-                onPlayToggle();
-        }
-        else if (loopArea.contains (e.position))
-        {
-            if (onLoopToggle)
-                onLoopToggle();
-        }
-        else if (abArea.contains (e.position))
-        {
-            if (onAbToggle)
-                onAbToggle();
-        }
-        else if (matchArea.contains (e.position))
-        {
-            if (onLevelMatchToggle)
-                onLevelMatchToggle();
-        }
-        else if (mirrorArea.contains (e.position))
-        {
-            if (onMirrorToggle)
-                onMirrorToggle();
-        }
-        else if (showGuides && plotArea().contains (e.position))
-        {
-            triggerGuide (e.position);
-        }
+        triggerGuide (e.position);
     }
 
     void paint (juce::Graphics& g) override
@@ -420,11 +318,11 @@ public:
         auto area = bounds.reduced (12.0f);
         auto titleRow = area.removeFromTop (16.0f);
 
-        g.setFont (theme::detailFont (10.5f));
+        g.setFont (theme::detailFont (10.5f, uiScale));
         g.setColour (theme::textDim);
         g.drawText ("SPECTRUM  " + rangeText(), titleRow, juce::Justification::centredLeft);
 
-        // Snapshot slots A-D, scaled with the rest of the transport UI.
+        // Snapshot slots A-D, scaled with the rest of the UI.
         const float snapScale = uiScale;
         const juce::Rectangle<float> snapArea (titleRow.getRight() - 44.0f * snapScale
                                                    - 112.0f * snapScale,
@@ -437,12 +335,7 @@ public:
 
         for (int i = 0; i < snapshotCount; ++i)
         {
-            const juce::Rectangle<float> letter (snapArea.getX() + 36.0f * snapScale
-                                                     + (float) i * 18.0f * snapScale,
-                                                 titleRow.getY() + 2.0f * snapScale,
-                                                 15.0f * snapScale,
-                                                 titleRow.getHeight() - 4.0f * snapScale);
-            snapshotLetterAreas[(size_t) i] = letter;
+            const auto& letter = snapshotLetterAreas[(size_t) i];
 
             if (i == selectedSnapshot)
             {
@@ -477,7 +370,7 @@ public:
             return plot.getBottom() - plot.getHeight() * t;
         };
 
-        g.setFont (theme::detailMonoFont (9.0f));
+        g.setFont (theme::detailMonoFont (9.0f, uiScale));
 
         // Note grid: octave C markers for tonal checks.
         if (showNoteGrid)
@@ -526,7 +419,7 @@ public:
                 if (soloed)
                     g.drawVerticalLine ((int) std::round (x1), plot.getY(), plot.getBottom());
 
-                g.setFont (theme::detailFont (9.0f));
+                g.setFont (theme::detailFont (9.0f, uiScale));
                 g.setColour (soloed ? theme::accent : theme::textDim.withAlpha (0.9f));
                 g.drawText (zone.name,
                             juce::Rectangle<float> (x0, plot.getBottom() - 12.0f, x1 - x0, 11.0f),
@@ -656,12 +549,12 @@ public:
             g.setColour (theme::panelLine);
             g.drawRoundedRectangle (box.reduced (0.5f), 5.0f, 1.0f);
 
-            g.setFont (theme::detailFont (8.0f));
+            g.setFont (theme::detailFont (8.0f, uiScale));
             g.setColour (theme::accent2);
             g.drawText ("REF MATCH  (mix vs reference)", box.reduced (7.0f, 0.0f).removeFromTop (13.0f),
                         juce::Justification::centredLeft);
 
-            g.setFont (theme::detailFont (8.0f));
+            g.setFont (theme::detailFont (8.0f, uiScale));
 
             for (int i = 0; i < count; ++i)
             {
@@ -726,7 +619,7 @@ public:
             g.setColour (theme::panel.withAlpha (0.55f));
             g.fillRoundedRectangle (hint, 5.0f);
             g.setColour (theme::textDim);
-            g.setFont (theme::detailFont (8.5f));
+            g.setFont (theme::detailFont (8.5f, uiScale));
             g.drawText (referencePlaceholder, hint, juce::Justification::centred);
         }
 
@@ -756,7 +649,7 @@ public:
             g.setColour (theme::panel.withAlpha (0.85f));
             g.fillRoundedRectangle (chip, 4.0f);
             g.setColour (theme::accent2);
-            g.setFont (theme::detailFont (8.5f));
+            g.setFont (theme::detailFont (8.5f, uiScale));
             g.drawText ("TARGET  " + targetCurveName.substring (0, 24), chip,
                         juce::Justification::centred);
         }
@@ -912,7 +805,7 @@ public:
                 g.fillRoundedRectangle (x - 18.0f, labelY, 36.0f, 12.0f, 3.0f);
 
                 g.setColour (theme::accent2);
-                g.setFont (theme::detailMonoFont (8.5f));
+                g.setFont (theme::detailMonoFont (8.5f, uiScale));
                 g.drawText (label, juce::Rectangle<float> (x - 18.0f, labelY, 36.0f, 12.0f),
                             juce::Justification::centred);
             }
@@ -939,151 +832,39 @@ public:
                 const char* labels[] = { "LOW", "MID", "HIGH" };
                 const juce::Colour colours[] = { theme::cold, theme::accent, theme::accent2 };
 
-                constexpr float pillWidth = 74.0f;
-                constexpr float pillHeight = 16.0f;
-                constexpr float pillGap = 4.0f;
+                const float ps = uiScale;
+                const float pillWidth = 74.0f * ps;
+                const float pillHeight = 16.0f * ps;
+                const float pillGap = 4.0f * ps;
 
-                float x = plot.getX() + 8.0f;
-                const float y = plot.getY() + 6.0f;
+                float x = plot.getX() + 8.0f * ps;
+                const float y = plot.getY() + 6.0f * ps;
 
                 for (int band = 0; band < 3; ++band)
                 {
                     const juce::Rectangle<float> pill (x, y, pillWidth, pillHeight);
 
                     g.setColour (theme::bg.withAlpha (0.62f));
-                    g.fillRoundedRectangle (pill, 7.0f);
+                    g.fillRoundedRectangle (pill, 7.0f * ps);
                     g.setColour (theme::panelLine.withAlpha (0.9f));
-                    g.drawRoundedRectangle (pill, 7.0f, 1.0f);
+                    g.drawRoundedRectangle (pill, 7.0f * ps, 1.0f);
 
                     g.setColour (colours[band]);
-                    g.fillEllipse (pill.getX() + 7.0f, pill.getCentreY() - 1.5f, 3.0f, 3.0f);
+                    g.fillEllipse (pill.getX() + 7.0f * ps, pill.getCentreY() - 1.5f * ps,
+                                   3.0f * ps, 3.0f * ps);
 
-                    g.setFont (theme::detailFont (8.5f));
+                    g.setFont (theme::detailFont (8.5f, uiScale));
                     g.setColour (theme::textDim);
-                    g.drawText (labels[band], pill.withTrimmedLeft (14.0f),
+                    g.drawText (labels[band], pill.withTrimmedLeft (14.0f * ps),
                                 juce::Justification::centredLeft);
 
-                    g.setFont (theme::detailMonoFont (9.0f));
+                    g.setFont (theme::detailMonoFont (9.0f, uiScale));
                     g.setColour (theme::text);
                     g.drawText (juce::String (juce::roundToInt (100.0f * bandPower[band] / total)) + "%",
-                                pill.withTrimmedRight (7.0f), juce::Justification::centredRight);
+                                pill.withTrimmedRight (7.0f * ps), juce::Justification::centredRight);
 
                     x += pillWidth + pillGap;
                 }
-            }
-        }
-
-        // Reference transport, only when a reference is loaded.
-        if (transportEnabled)
-        {
-            const float s = uiScale;
-            const juce::Rectangle<float> bar (plot.getRight() - 348.0f * s,
-                                              plot.getY() + 6.0f * s,
-                                              348.0f * s, 18.0f * s);
-
-            g.setColour (theme::bg.withAlpha (0.66f));
-            g.fillRoundedRectangle (bar, 9.0f * s);
-            g.setColour (theme::panelLine);
-            g.drawRoundedRectangle (bar, 9.0f * s, 1.0f);
-
-            playArea = { bar.getX() + 4.0f * s, bar.getY(), 24.0f * s, bar.getHeight() };
-            loopArea = { bar.getX() + 34.0f * s, bar.getY(), 44.0f * s, bar.getHeight() };
-            abArea = { bar.getX() + 86.0f * s, bar.getY(), 42.0f * s, bar.getHeight() };
-            matchArea = { bar.getX() + 132.0f * s, bar.getY(), 48.0f * s, bar.getHeight() };
-            mirrorArea = { bar.getX() + 186.0f * s, bar.getY(), 54.0f * s, bar.getHeight() };
-
-            g.setColour (transportPlaying ? theme::accent2 : theme::accent);
-
-            if (transportPlaying)
-            {
-                g.fillRect (playArea.getCentreX() - 3.0f * s, playArea.getCentreY() - 3.0f * s,
-                            6.0f * s, 6.0f * s);
-            }
-            else
-            {
-                juce::Path triangle;
-                triangle.addTriangle (playArea.getCentreX() - 3.0f * s, playArea.getCentreY() - 4.0f * s,
-                                      playArea.getCentreX() - 3.0f * s, playArea.getCentreY() + 4.0f * s,
-                                      playArea.getCentreX() + 4.0f * s, playArea.getCentreY());
-                g.fillPath (triangle);
-            }
-
-            g.setFont (theme::labelFont (8.5f * s));
-            g.setColour (transportLooping ? theme::accent2 : theme::textDim);
-            g.drawText ("LOOP", loopArea, juce::Justification::centred);
-
-            g.setColour (transportAudible ? theme::accent : theme::textDim);
-            g.drawText (transportAudible ? "REF" : "MIX", abArea, juce::Justification::centred);
-
-            g.setFont (theme::labelFont (8.5f * s));
-            g.setColour (referenceLevelMatch ? theme::accent2 : theme::textDim);
-            g.drawText ("MATCH", matchArea, juce::Justification::centred);
-
-            g.setColour (referenceMirror ? theme::accent : theme::textDim);
-            g.drawText ("MIRROR", mirrorArea, juce::Justification::centred);
-
-            g.setFont (theme::monoFont (9.0f * s));
-            g.setColour (theme::textDim);
-            g.drawText (formatTime (transportPosition) + " / " + formatTime (transportLength),
-                        bar.withTrimmedLeft (246.0f * s).withTrimmedRight (8.0f * s),
-                        juce::Justification::centredRight);
-
-            loopBar = { bar.getX(), bar.getBottom() + 4.0f * s, bar.getWidth(), 20.0f * s };
-
-            g.setColour (theme::panelLine);
-            g.fillRoundedRectangle (loopBar, 4.0f * s);
-
-            const bool selectingLoop = loopDrag == LoopDrag::selecting;
-            const double regionStart = selectingLoop ? loopPreviewStart : transportLoopStart;
-            const double regionEnd = selectingLoop ? loopPreviewEnd : transportLoopEnd;
-
-            if (transportLength > 0.0)
-            {
-                const float startF = (float) juce::jlimit (0.0, 1.0,
-                                                           regionStart / transportLength);
-                const float endF = (float) juce::jlimit (0.0, 1.0,
-                                                         regionEnd / transportLength);
-
-                juce::Rectangle<float> region (loopBar.getX() + loopBar.getWidth() * startF,
-                                               loopBar.getY(),
-                                               loopBar.getWidth() * (endF - startF),
-                                               loopBar.getHeight());
-
-                g.setColour (theme::accent.withAlpha (0.30f));
-                g.fillRect (region);
-
-                if (! referenceWaveform.empty())
-                {
-                    const int columns = (int) referenceWaveform.size() / 2;
-
-                    g.setColour (theme::textDim.withAlpha (0.55f));
-
-                    for (int c = 0; c < columns; ++c)
-                    {
-                        const float x = loopBar.getX()
-                                        + loopBar.getWidth() * (float) c / (float) (columns - 1);
-                        const float low = referenceWaveform[(size_t) (c * 2)];
-                        const float high = referenceWaveform[(size_t) (c * 2 + 1)];
-                        const float y1 = loopBar.getCentreY() - high * loopBar.getHeight() * 0.46f;
-                        const float y2 = loopBar.getCentreY() - low * loopBar.getHeight() * 0.46f;
-
-                        g.drawVerticalLine ((int) std::round (x),
-                                            juce::jmin (y1, y2), juce::jmax (y1, y2));
-                    }
-                }
-
-                g.setColour (theme::accent);
-                g.fillRect (region.getX() - 1.0f, loopBar.getY() - 1.0f,
-                            2.0f, loopBar.getHeight() + 2.0f);
-                g.fillRect (region.getRight() - 1.0f, loopBar.getY() - 1.0f,
-                            2.0f, loopBar.getHeight() + 2.0f);
-
-                const float posF = (float) juce::jlimit (0.0, 1.0,
-                                                         transportPosition / transportLength);
-
-                g.setColour (theme::text);
-                g.fillRect (loopBar.getX() + loopBar.getWidth() * posF - 0.5f,
-                            loopBar.getY() - 2.0f, 1.0f, loopBar.getHeight() + 4.0f);
             }
         }
 
@@ -1202,7 +983,7 @@ public:
 
             auto textArea = box.reduced (7.0f, 4.0f);
 
-            g.setFont (theme::detailMonoFont (10.0f));
+            g.setFont (theme::detailMonoFont (10.0f, uiScale));
             g.setColour (theme::text);
             g.drawText (line1, textArea.removeFromTop (12.0f), juce::Justification::centredLeft);
 
@@ -1233,6 +1014,26 @@ private:
             .withTrimmedTop (16.0f)
             .withTrimmedBottom (14.0f)
             .withTrimmedRight (30.0f);
+    }
+
+    // Hit areas must be valid before the first paint, otherwise the first
+    // click on a SNAP letter is swallowed.
+    void updateSnapshotAreas()
+    {
+        const auto titleRow = getLocalBounds().toFloat()
+                                  .reduced (12.0f)
+                                  .removeFromTop (16.0f);
+        const float s = uiScale;
+        const float snapX = titleRow.getRight() - (44.0f + 112.0f) * s;
+
+        for (int i = 0; i < snapshotCount; ++i)
+        {
+            snapshotLetterAreas[(size_t) i] = juce::Rectangle<float> (
+                snapX + 36.0f * s + (float) i * 18.0f * s,
+                titleRow.getY() + 2.0f * s,
+                15.0f * s,
+                titleRow.getHeight() - 4.0f * s);
+        }
     }
 
     float frequencyForFraction (float fraction) const noexcept
@@ -1283,16 +1084,6 @@ private:
         return juce::String ((int) std::lround (hz)) + " Hz";
     }
 
-    double timeAtX (float x) const noexcept
-    {
-        if (loopBar.getWidth() <= 0.0f || transportLength <= 0.0)
-            return 0.0;
-
-        return juce::jlimit (0.0, 1.0,
-                             (double) ((x - loopBar.getX()) / loopBar.getWidth()))
-               * transportLength;
-    }
-
     static juce::Colour snapshotColour (int slot)
     {
         switch (slot)
@@ -1300,14 +1091,8 @@ private:
             case 0:  return theme::cold;
             case 1:  return theme::accent2;
             case 2:  return theme::hot;
-            default: return juce::Colour (0xff5fd06a); // SNAP D: green on every theme
+            default: return theme::accent; // SNAP D follows the palette like A-C
         }
-    }
-
-    static juce::String formatTime (double seconds)
-    {
-        const int total = juce::jmax (0, (int) seconds);
-        return juce::String (total / 60) + ":" + juce::String (total % 60).paddedLeft ('0', 2);
     }
 
     juce::String rangeText() const
@@ -1332,7 +1117,6 @@ private:
     std::array<float, numBins> targetCurve {};
     std::array<float, numBins> sideLevels {};
     std::array<float, numBins> sidePeaks {};
-    std::vector<float> referenceWaveform;
     bool hasSide = false;
     bool showSide = false;
 
@@ -1350,12 +1134,6 @@ private:
     std::vector<GuideZone> guideZones;
     int soloZone = -1;
 
-    bool transportEnabled = false;
-    bool transportPlaying = false;
-    bool transportLooping = true;
-    bool transportAudible = false;
-    bool referenceLevelMatch = true;
-    bool referenceMirror = false;
     bool gainStaging = false;
     float vuZeroDbfs = -18.0f;
     bool hasReferenceBand = false;
@@ -1364,24 +1142,10 @@ private:
     bool showMatch = false;
     juce::StringArray matchLines;
     float uiScale = 1.0f;
-    double transportPosition = 0.0;
-    double transportLength = 0.0;
-    double transportLoopStart = 0.0;
-    double transportLoopEnd = 0.0;
     bool showPeakMarkers = true;
     bool showDifference = false;
     int differenceSource = 0;
     bool showNoteGrid = false;
-
-    juce::Rectangle<float> loopBar;
-
-    enum class LoopDrag { none, startHandle, endHandle, selecting };
-    LoopDrag loopDrag = LoopDrag::none;
-    double loopAnchor = 0.0;
-    double loopPreviewStart = 0.0;
-    double loopPreviewEnd = 0.0;
-
-    juce::Rectangle<float> playArea, loopArea, abArea, matchArea, mirrorArea;
 
     juce::Point<float> cursorPosition;
 

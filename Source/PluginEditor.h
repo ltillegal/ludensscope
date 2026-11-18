@@ -62,12 +62,18 @@ public:
 
     bool isReferenceCurveVisible() const { return spectrumView.hasReferenceCurve(); }
 
-    // Test/QA hook: force the UI scale (0 = Auto, 100/125/150).
+    // Test/QA hook: force the UI scale (0 = Auto, 100/125/150) even when the
+    // window is too small to hold it, so layout overflow stays reproducible.
     void setUiScalePercent (int percent)
     {
         uiScalePercent = juce::jlimit (0, 150, percent);
+        forceUiScale = uiScalePercent > 0;
         resized();
     }
+
+    // User-facing scale change: grows the window when the requested scale does
+    // not fit, so the layout never has to shrink individual panels.
+    void applyUiScalePercent (int percent);
 
     void setInterfaceTheme (int index)
     {
@@ -185,6 +191,7 @@ private:
     juce::StringArray matchLines;
     int matchTick = 0;
     int uiScalePercent = 0;
+    bool forceUiScale = false;
     bool showNoteGrid = false;
     int smoothingPreset = 0;
     int overlapPreset = 0;

@@ -45,6 +45,19 @@ public:
     int getWindowSamples() const noexcept { return windowSamples; }
     float getVerticalGain() const noexcept { return verticalGain; }
 
+    void setUiScale (float scale) noexcept
+    {
+        const float next = juce::jlimit (0.75f, 1.5f, scale);
+
+        if (std::abs (next - uiScale) < 0.001f)
+            return;
+
+        uiScale = next;
+        repaint();
+    }
+
+    float getUiScale() const noexcept { return uiScale; }
+
     void setWindowSamples (int samples) noexcept
     {
         windowSamples = juce::jlimit (0, 1 << 20, samples);
@@ -105,9 +118,9 @@ public:
 
         theme::drawPanel (g, bounds);
 
-        auto area = bounds.reduced (12.0f * theme::fontScale);
+        auto area = bounds.reduced (12.0f * uiScale);
 
-        const float us = juce::jmax (1.0f, theme::fontScale);
+        const float us = juce::jmax (1.0f, uiScale);
 
         const int count = (int) juce::jmin (left.size(), right.size());
         const int window = windowSamples > 0
@@ -122,7 +135,7 @@ public:
         const auto plot = area;
 
         // Only the window length stays as a label; everything else is gone.
-        g.setFont (theme::detailMonoFont (7.0f));
+        g.setFont (theme::detailMonoFont (8.0f, uiScale));
         g.setColour (theme::textDim.withAlpha (0.65f));
         g.drawText (windowText, plot.withTrimmedRight (2.0f * us).withTrimmedTop (1.0f * us)
                                     .removeFromTop (9.0f * us),
@@ -176,10 +189,15 @@ public:
                                   : theme::textDim.withAlpha (0.25f));
                 g.drawHorizontalLine ((int) std::round (y), plot.getX(), plot.getRight());
 
-                g.setFont (theme::detailFont (7.0f));
+                g.setFont (theme::detailFont (8.0f, uiScale));
                 g.setColour (zero ? theme::accent2 : theme::textDim);
+                // At the top reference line there is no room above: put the
+                // label below it instead of spilling into the panel padding.
+                const float labelY = y - 9.0f * us >= plot.getY()
+                                         ? y - 9.0f * us
+                                         : y + 1.0f * us;
                 g.drawText (zero ? "0 VU" : juce::String ((int) level) + " dB",
-                            juce::Rectangle<float> (plot.getX() + 4.0f * us, y - 9.0f * us,
+                            juce::Rectangle<float> (plot.getX() + 4.0f * us, labelY,
                                                     56.0f * us, 9.0f * us),
                             juce::Justification::centredLeft);
             }
@@ -252,6 +270,7 @@ private:
     double sampleRate = 48000.0;
 
     std::vector<float> envelopeTops, envelopeBottoms;
+    float uiScale = 1.0f;
     float momentaryLufs = -100.0f;
     bool gainStaging = false;
     float vuZeroDbfs = -18.0f;

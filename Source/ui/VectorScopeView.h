@@ -24,17 +24,30 @@ public:
         right.assign (rightSamples, rightSamples + numSamples);
     }
 
+    void setUiScale (float scale) noexcept
+    {
+        const float next = juce::jlimit (0.75f, 1.5f, scale);
+
+        if (std::abs (next - uiScale) < 0.001f)
+            return;
+
+        uiScale = next;
+        repaint();
+    }
+
+    float getUiScale() const noexcept { return uiScale; }
+
     void paint (juce::Graphics& g) override
     {
         const auto bounds = getLocalBounds().toFloat();
 
         theme::drawPanel (g, bounds);
 
-        auto area = bounds.reduced (12.0f * theme::fontScale);
+        auto area = bounds.reduced (12.0f * uiScale);
 
-        g.setFont (theme::detailFont (10.5f));
+        g.setFont (theme::detailFont (10.5f, uiScale));
         g.setColour (theme::textDim);
-        g.drawFittedText ("STEREO IMAGE", area.removeFromTop (14.0f * theme::fontScale).toNearestInt(), juce::Justification::centredLeft, 1, 0.6f);
+        g.drawFittedText ("STEREO IMAGE", area.removeFromTop (14.0f * uiScale).toNearestInt(), juce::Justification::centredLeft, 1, 0.6f);
 
         const float side = juce::jmin (area.getWidth(), area.getHeight());
         const auto square = area.withSizeKeepingCentre (side, side);
@@ -112,7 +125,7 @@ public:
             g.fillRect (x - 0.75f, y - 0.75f, 1.5f, 1.5f);
         }
 
-        g.setFont (theme::detailFont (9.0f));
+        g.setFont (theme::detailFont (9.0f, uiScale));
         g.setColour (theme::textDim);
         g.drawText ("L", juce::Rectangle<float> (centre.x - radius - 12.0f, centre.y - 6.0f, 9.0f, 12.0f),
                     juce::Justification::centredRight);
@@ -123,4 +136,5 @@ public:
 private:
     std::vector<float> left, right;
     juce::Image trail;
+    float uiScale = 1.0f;
 };

@@ -28,10 +28,10 @@ namespace theme
             { c(0xff07080a), c(0xff0c0f14), c(0xff0e1116), c(0xff141922), c(0xff1f262f),
               c(0xff161b21), c(0xff2a313a), c(0xffc3ccd6), c(0xff6e7884), c(0xff5ee1cf),
               c(0xfff0b45e), c(0xfff2705f), c(0xff6ea8ff) },
-            // 2: Light
+            // 2: Light — all semantic colours reach WCAG AA (4.5:1) on bg.
             { c(0xffdfe6ea), c(0xffeef3f6), c(0xfff7f9fb), c(0xffffffff), c(0xff8ea2ac),
-              c(0xff9aabb4), c(0xff7d909a), c(0xff17262e), c(0xff5a707c), c(0xff0b7f96),
-              c(0xffa86600), c(0xffc0392b), c(0xff2f62c9) },
+              c(0xff9aabb4), c(0xff7d909a), c(0xff17262e), c(0xff4f626d), c(0xff076b7f),
+              c(0xff8c5500), c(0xffb53327), c(0xff2b5bbd) },
             // 3: Magenta
             { c(0xff1a0a15), c(0xff240d1c), c(0xff33132a), c(0xff421a36), c(0xff5a2448),
               c(0xff2a1022), c(0xff6b2c55), c(0xfff6d9ea), c(0xffb07f9b), c(0xffff5fbf),
@@ -172,11 +172,11 @@ namespace theme
                                .withFallbackEnabled (true));
     }
 
-    inline float fontScale = 1.0f;
-
-    inline juce::Font detailFont (float size) { return labelFont (size * fontScale); }
-    inline juce::Font detailBoldFont (float size) { return boldFont (size * fontScale); }
-    inline juce::Font detailMonoFont (float size) { return monoFont (size * fontScale); }
+    // Scale is always passed in by the owning view: a global multiplier would
+    // make the last resized editor win when several instances are open.
+    inline juce::Font detailFont (float size, float scale) { return labelFont (size * scale); }
+    inline juce::Font detailBoldFont (float size, float scale) { return boldFont (size * scale); }
+    inline juce::Font detailMonoFont (float size, float scale) { return monoFont (size * scale); }
 
     inline juce::Colour levelColour (float lufs)
     {

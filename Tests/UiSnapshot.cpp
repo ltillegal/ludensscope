@@ -3,6 +3,7 @@
 #include "dsp/ReferenceAnalysis.h"
 #include "PluginProcessor.h"
 
+#include <algorithm>
 #include <cmath>
 #include <cstdio>
 #include <vector>
@@ -52,6 +53,26 @@ namespace
         juce::MidiBuffer& midi;
         int blockIndex = 400;
     };
+
+    double relativeLuminance (juce::Colour colour)
+    {
+        const auto linear = [] (juce::uint8 value)
+        {
+            const double c = (double) value / 255.0;
+            return c <= 0.04045 ? c / 12.92 : std::pow ((c + 0.055) / 1.055, 2.4);
+        };
+
+        return 0.2126 * linear (colour.getRed())
+             + 0.7152 * linear (colour.getGreen())
+             + 0.0722 * linear (colour.getBlue());
+    }
+
+    double contrastRatio (juce::Colour a, juce::Colour b)
+    {
+        const double la = relativeLuminance (a);
+        const double lb = relativeLuminance (b);
+        return (std::max (la, lb) + 0.05) / (std::min (la, lb) + 0.05);
+    }
 }
 
 int main (int argc, char** argv)
@@ -452,6 +473,101 @@ int main (int argc, char** argv)
         writeScale (150, 1060, 700, "docs/qa-150-small.png");
         scopeEditor->setUiScalePercent (0); // Auto
         editor->setSize (1060, 700);
+
+        // The user-facing scale change grows the window instead of squeezing
+        // the layout, so 150% always has room for the full-size panels.
+        scopeEditor->applyUiScalePercent (150);
+        const int scaledW = editor->getWidth();
+        const int scaledH = editor->getHeight();
+        std::printf ("ui scale 150%%: window %dx%d (%s)\n", scaledW, scaledH,
+                     (scaledW >= 1590 && scaledH >= 990) ? "ok" : "FAIL");
+        scopeEditor->applyUiScalePercent (0);
+        editor->setSize (1060, 700);
+
+        // The Waterfall speed menu labels come from the live panel height, so
+        // verify the three options really scale with the divider.
+        for (auto* child : editor->getChildren())
+        {
+            if (auto* waterfall = dynamic_cast<SpectrogramView*> (child))
+            {
+                const double fast = waterfall->historySecondsFor (1);
+                const double medium = waterfall->historySecondsFor (2);
+                const double slow = waterfall->historySecondsFor (4);
+                const bool sane = fast > 0.5
+                                  && std::abs (medium - 2.0 * fast) < 0.05
+                                  && std::abs (slow - 4.0 * fast) < 0.05;
+                std::printf ("waterfall history: %.1f / %.1f / %.1f s (%s)\n",
+                             fast, medium, slow, sane ? "ok" : "FAIL");
+            }
+        }
+
+        // A second editor resized at 150% must not change the first editor's
+        // fonts or insets: the scale now lives in every view, not in Theme.
+        {
+            LudensScopeProcessor otherProcessor;
+            otherProcessor.setPlayConfigDetails (2, 2, 48000.0, 512);
+            otherProcessor.prepareToPlay (48000.0, 512);
+            std::unique_ptr<juce::AudioProcessorEditor> otherEditor (otherProcessor.createEditor());
+            auto* otherScope = dynamic_cast<LudensScopeEditor*> (otherEditor.get());
+
+            scopeEditor->setUiScalePercent (100);
+            editor->setSize (1060, 700);
+
+            if (otherScope != nullptr)
+            {
+                otherScope->setUiScalePercent (150);
+                otherEditor->setSize (1060, 700);
+            }
+
+            const auto scalesMatch = [] (juce::AudioProcessorEditor* e, float expected)
+            {
+                bool checked = false;
+                bool ok = true;
+                const auto check = [&] (float actual)
+                {
+                    checked = true;
+                    ok = ok && std::abs (actual - expected) < 0.001f;
+                };
+
+                for (auto* child : e->getChildren())
+                {
+                    if (auto* v = dynamic_cast<SpectrumView*> (child))     check (v->getUiScale());
+                    if (auto* v = dynamic_cast<SpectrogramView*> (child))  check (v->getUiScale());
+                    if (auto* v = dynamic_cast<VectorScopeView*> (child))  check (v->getUiScale());
+                    if (auto* v = dynamic_cast<OscilloscopeView*> (child)) check (v->getUiScale());
+                    if (auto* v = dynamic_cast<ReferenceStrip*> (child))   check (v->getUiScale());
+                }
+
+                return checked && ok;
+            };
+
+            const bool independent = otherScope != nullptr
+                                     && scalesMatch (editor.get(), 1.0f)
+                                     && scalesMatch (otherEditor.get(), 1.5f);
+            std::printf ("multi-instance ui scale: %s\n", independent ? "ok" : "FAIL");
+
+            if (otherScope != nullptr)
+                otherScope->setUiScalePercent (0);
+
+            scopeEditor->setUiScalePercent (0); // Auto
+            editor->setSize (1060, 700);
+        }
+    }
+
+    // QA: the light palette must stay readable on its own background.
+    {
+        const auto& light = theme::palettes()[(size_t) 2];
+        const double text = contrastRatio (light.text, light.bg);
+        const double dim = contrastRatio (light.textDim, light.bg);
+        const double accent = contrastRatio (light.accent, light.bg);
+        const double accent2 = contrastRatio (light.accent2, light.bg);
+        const double hot = contrastRatio (light.hot, light.bg);
+        const double cold = contrastRatio (light.cold, light.bg);
+        const bool lightOk = text >= 4.5 && dim >= 4.5 && accent >= 4.5
+                             && accent2 >= 4.5 && hot >= 4.5 && cold >= 4.5;
+
+        std::printf ("light theme contrast: %.1f / %.1f / %.1f / %.1f / %.1f / %.1f (%s)\n",
+                     text, dim, accent, accent2, hot, cold, lightOk ? "ok" : "FAIL");
     }
 
     // Mono buses and processing.

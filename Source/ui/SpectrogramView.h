@@ -28,8 +28,8 @@ public:
         if (! image.isValid() || numBins <= 0)
             return;
 
-        // Two editor ticks per row: the panel then covers about six seconds,
-        // which is easier to read than the raw 30 Hz scroll.
+        // Two editor ticks per row by default: the panel covers less history
+        // than the raw 30 Hz scroll, which is easier to read.
         if ((pushCounter++ % pushDivider) != 0)
             return;
 
@@ -69,6 +69,33 @@ public:
         pushDivider = juce::jlimit (1, 8, divider);
         pushCounter = 0;
         repaint();
+    }
+
+    void setUiScale (float scale) noexcept
+    {
+        const float next = juce::jlimit (0.75f, 1.5f, scale);
+
+        if (std::abs (next - uiScale) < 0.001f)
+            return;
+
+        uiScale = next;
+
+        // The image covers the plot area, which itself depends on the scale.
+        if (getWidth() > 0 && getHeight() > 0)
+            resized();
+
+        repaint();
+    }
+
+    float getUiScale() const noexcept { return uiScale; }
+
+    // How much time the visible panel covers when only every `divider`-th
+    // editor tick becomes a row. Uses the current panel height, so menu labels
+    // match what the waterfall actually shows.
+    double historySecondsFor (int divider) const noexcept
+    {
+        return height > 0 ? (double) height * (double) juce::jlimit (1, 8, divider) / 30.0
+                          : 0.0;
     }
 
     void clear()
@@ -114,22 +141,22 @@ public:
 
     void paint (juce::Graphics& g) override
     {
-                refreshThemePalette();
+        refreshThemePalette();
 
         const auto bounds = getLocalBounds().toFloat();
 
         theme::drawPanel (g, bounds);
 
-        auto area = bounds.reduced (12.0f * theme::fontScale);
-        auto titleRow = area.removeFromTop (14.0f * theme::fontScale);
+        auto area = bounds.reduced (12.0f * uiScale);
+        auto titleRow = area.removeFromTop (14.0f * uiScale);
 
-        g.setFont (theme::detailFont (10.5f));
+        g.setFont (theme::detailFont (10.5f, uiScale));
         g.setColour (theme::textDim);
         auto titleLeft = titleRow.removeFromLeft (titleRow.getWidth() * 0.55f);
         g.drawFittedText ("WATERFALL", titleLeft.toNearestInt(),
                           juce::Justification::centredLeft, 1, 0.65f);
 
-        g.setFont (theme::detailFont (9.0f));
+        g.setFont (theme::detailFont (9.0f, uiScale));
         g.drawFittedText ("older \xe2\x86\x91  " + juce::String (historySeconds(), 1) + " s",
                           titleRow.toNearestInt(), juce::Justification::centredRight, 1, 0.6f);
 
@@ -157,9 +184,9 @@ public:
         g.setGradientFill (scale);
         g.fillRect (legend);
 
-        g.setFont (theme::detailMonoFont (7.5f));
+        g.setFont (theme::detailMonoFont (8.0f, uiScale));
         g.setColour (theme::textDim);
-        const float legendScale = theme::fontScale;
+        const float legendScale = uiScale;
         g.drawText ("0", juce::Rectangle<float> (legendX + 9.0f * legendScale, plot.getY(),
                                                  18.0f * legendScale, 10.0f * legendScale),
                     juce::Justification::centredLeft);
@@ -172,17 +199,15 @@ public:
 private:
     double historySeconds() const noexcept
     {
-        // The editor pushes at 30 Hz but only every pushDivider-th tick
-        // becomes a row.
-        return height > 0 ? (double) height / (30.0 / (double) pushDivider) : 0.0;
+        return historySecondsFor (pushDivider);
     }
 
     juce::Rectangle<float> plotBounds() const
     {
         return getLocalBounds().toFloat()
-            .reduced (12.0f * theme::fontScale)
-            .withTrimmedTop (16.0f * theme::fontScale)
-            .withTrimmedRight (30.0f * theme::fontScale);
+            .reduced (12.0f * uiScale)
+            .withTrimmedTop (16.0f * uiScale)
+            .withTrimmedRight (30.0f * uiScale);
     }
 
     static juce::Colour heat (float t)
@@ -242,6 +267,7 @@ private:
     int pushDivider = 2;
     int paletteTheme = -1;
 
+    float uiScale = 1.0f;
     float rangeLow = 20.0f;
     float rangeHigh = 20000.0f;
 

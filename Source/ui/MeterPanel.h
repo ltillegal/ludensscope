@@ -9,7 +9,8 @@
 
 #include "Theme.h"
 
-class MeterPanel : public juce::Component
+class MeterPanel : public juce::Component,
+                   public juce::SettableTooltipClient
 {
 public:
     MeterPanel()
@@ -74,6 +75,31 @@ public:
     std::function<void (float)> onTargetChange;
     std::function<void()> onResetIntegrated;
 
+    void mouseMove (const juce::MouseEvent& e) override
+    {
+        if (resetArea.contains (e.getPosition()))
+        {
+            setMouseCursor (juce::MouseCursor::PointingHandCursor);
+            setTooltip ("Reset the integrated loudness and the 60 s history");
+        }
+        else if (targetArea.contains (e.getPosition()))
+        {
+            setMouseCursor (juce::MouseCursor::PointingHandCursor);
+            setTooltip ("Integrated loudness target");
+        }
+        else
+        {
+            setMouseCursor (juce::MouseCursor::NormalCursor);
+            setTooltip (juce::String());
+        }
+    }
+
+    void mouseExit (const juce::MouseEvent&) override
+    {
+        setMouseCursor (juce::MouseCursor::NormalCursor);
+        setTooltip (juce::String());
+    }
+
     void paint (juce::Graphics& g) override
     {
         juce::Graphics::ScopedSaveState saved (g);
@@ -92,13 +118,13 @@ public:
         g.drawText ("LOUDNESS", header, juce::Justification::centredLeft);
 
         g.setFont (theme::labelFont (9.0f));
-        g.drawText (uiScale > 1.2f ? "BS.1770" : "BS.1770-4", header.withTrimmedLeft (62.0f),
+        g.drawText ("BS.1770-4", header.withTrimmedLeft (62.0f),
                     juce::Justification::centredLeft);
 
         auto resetRect = header.removeFromRight (30.0f);
         resetArea = resetRect.transformedBy (juce::AffineTransform::scale (uiScale))
                              .toNearestInt();
-        g.setFont (theme::labelFont (7.5f));
+        g.setFont (theme::labelFont (8.0f));
         g.setColour (theme::textDim);
         g.drawText ("RESET", resetRect, juce::Justification::centredRight);
 
@@ -146,7 +172,8 @@ public:
 
         g.setFont (theme::monoFont (9.5f));
         g.setColour (theme::textDim);
-        g.drawText ("max " + juce::String (truePeakHold, 1),
+        g.drawText (truePeakHold > -99.0f ? "max " + juce::String (truePeakHold, 1)
+                                          : juce::String ("max --"),
                     area.removeFromTop (12.0f), juce::Justification::centredRight);
 
         auto sampleRow = area.removeFromTop (16.0f);
@@ -155,7 +182,9 @@ public:
         g.drawText ("SAMPLE PEAK", sampleRow, juce::Justification::centredLeft);
         g.setFont (theme::monoFont (11.0f));
         g.setColour (theme::text);
-        g.drawText (juce::String (samplePeak, 1) + " dBFS", sampleRow, juce::Justification::centredRight);
+        g.drawText (samplePeak > -99.0f ? juce::String (samplePeak, 1) + " dBFS"
+                                        : juce::String ("-- dBFS"),
+                    sampleRow, juce::Justification::centredRight);
 
         area.removeFromTop (6.0f);
         drawInfoRow (g, area.removeFromTop (15.0f), "LRA",
@@ -361,7 +390,7 @@ private:
             g.drawHorizontalLine ((int) std::round (y), area.getX(), area.getRight());
         }
 
-        g.setFont (theme::labelFont (7.5f));
+        g.setFont (theme::labelFont (8.0f));
         g.setColour (theme::textDim);
         g.drawText ("60 s", area.reduced (5.0f, 2.0f), juce::Justification::topLeft);
         g.drawText ("-60.0", area.reduced (5.0f, 2.0f), juce::Justification::bottomRight);

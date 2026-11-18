@@ -10,7 +10,8 @@
 #include "Theme.h"
 
 // Full-width reference strip: waveform, loop, transport and A-D slots.
-class ReferenceStrip : public juce::Component
+class ReferenceStrip : public juce::Component,
+                       public juce::SettableTooltipClient
 {
 public:
     struct State
@@ -33,6 +34,19 @@ public:
 
     void setState (State s) { state = std::move (s); repaint(); }
 
+    void setUiScale (float scale) noexcept
+    {
+        const float next = juce::jlimit (0.75f, 1.5f, scale);
+
+        if (std::abs (next - uiScale) < 0.001f)
+            return;
+
+        uiScale = next;
+        repaint();
+    }
+
+    float getUiScale() const noexcept { return uiScale; }
+
     std::function<void()> onPlay, onLoop, onAb, onMatch, onMirror, onRefFile;
     std::function<void (double)> onSeek;
     std::function<void (double, double)> onLoopRange;
@@ -43,6 +57,8 @@ public:
     void mouseDrag (const juce::MouseEvent&) override;
     void mouseUp (const juce::MouseEvent&) override;
     void mouseDoubleClick (const juce::MouseEvent&) override;
+    void mouseMove (const juce::MouseEvent&) override;
+    void mouseExit (const juce::MouseEvent&) override;
 
 private:
     static juce::String formatTime (double seconds)
@@ -70,6 +86,7 @@ private:
     }
 
     State state;
+    float uiScale = 1.0f;
     juce::Rectangle<float> waveArea, playArea, loopArea, abArea, matchArea, mirrorArea;
     juce::Rectangle<float> refFileArea, nameArea;
 
@@ -157,7 +174,7 @@ inline void ReferenceStrip::paint (juce::Graphics& g)
         g.setColour (theme::accent2);
         g.drawVerticalLine ((int) playX, waveArea.getY(), waveArea.getBottom());
 
-        g.setFont (theme::detailFont (7.0f));
+        g.setFont (theme::detailFont (8.0f, uiScale));
         g.setColour (theme::textDim);
         g.drawText (formatTime (state.loopStart) + "-" + formatTime (state.loopEnd),
                     waveArea.withTrimmedBottom (-13.0f).withTrimmedTop (waveArea.getHeight() + 1.0f),
@@ -168,7 +185,7 @@ inline void ReferenceStrip::paint (juce::Graphics& g)
     }
     else
     {
-        g.setFont (theme::detailFont (8.5f));
+        g.setFont (theme::detailFont (8.5f, uiScale));
         g.setColour (theme::textDim);
         g.drawText ("load a reference file to see its waveform and loop",
                     waveArea, juce::Justification::centred);
@@ -205,7 +222,7 @@ inline void ReferenceStrip::paint (juce::Graphics& g)
         g.fillRoundedRectangle (r, r.getHeight() * 0.5f);
         g.setColour (on ? theme::accent : theme::panelLine);
         g.drawRoundedRectangle (r.reduced (0.5f), r.getHeight() * 0.5f, 1.0f);
-        g.setFont (theme::detailFont (8.5f));
+        g.setFont (theme::detailFont (8.5f, uiScale));
         g.setColour (on ? theme::accent : theme::textDim);
         g.drawText (text, r, juce::Justification::centred);
     };
@@ -216,14 +233,14 @@ inline void ReferenceStrip::paint (juce::Graphics& g)
     pill (mirrorArea, state.mirror, "MIRROR");
 
     right.removeFromTop (30.0f * s); // transport row, drawn from the areas above
-    g.setFont (theme::detailMonoFont (8.0f));
+    g.setFont (theme::detailMonoFont (8.0f, uiScale));
     g.setColour (theme::textDim);
     g.drawText (state.duration > 0.0
                     ? formatTime (state.position) + " / " + formatTime (state.duration)
                     : "--:--",
                 right.removeFromTop (12.0f * s), juce::Justification::centredRight);
 
-    g.setFont (theme::detailFont (8.0f));
+    g.setFont (theme::detailFont (8.0f, uiScale));
     g.setColour (state.name.isNotEmpty() ? theme::text : theme::textDim);
     g.drawText (state.name.isEmpty() ? "no reference" : state.name,
                 right.removeFromTop (12.0f * s), juce::Justification::centredRight, true);
@@ -232,19 +249,19 @@ inline void ReferenceStrip::paint (juce::Graphics& g)
     g.fillRoundedRectangle (refFileArea, refFileArea.getHeight() * 0.5f);
     g.setColour (theme::panelLine);
     g.drawRoundedRectangle (refFileArea.reduced (0.5f), refFileArea.getHeight() * 0.5f, 1.0f);
-    g.setFont (theme::detailFont (8.0f));
+    g.setFont (theme::detailFont (8.0f, uiScale));
     g.setColour (theme::textDim);
     g.drawText ("REF FILE", refFileArea, juce::Justification::centred);
 
     right.removeFromTop (14.0f * s);
-    g.setFont (theme::detailFont (7.5f));
+    g.setFont (theme::detailFont (8.0f, uiScale));
     g.setColour (theme::textDim.withAlpha (0.85f));
     g.drawText (state.lufs > -99.0f
                     ? juce::String (state.lufs, 1) + " LUFS"
                     : "-inf LUFS",
                 right.removeFromTop (10.0f * s), juce::Justification::centredRight);
 
-    g.setFont (theme::detailFont (9.0f));
+    g.setFont (theme::detailFont (9.0f, uiScale));
     g.setColour (theme::textDim.withAlpha (0.7f));
     g.drawText ("REFERENCE", right.removeFromTop (10.0f * s), juce::Justification::centredRight);
 }
@@ -317,4 +334,44 @@ inline void ReferenceStrip::mouseDoubleClick (const juce::MouseEvent& e)
 {
     if (waveArea.contains (e.position) && state.duration > 0.0 && onLoopRange)
         onLoopRange (0.0, state.duration);
+}
+
+inline void ReferenceStrip::mouseMove (const juce::MouseEvent& e)
+{
+    const auto p = e.position;
+
+    const auto setHand = [this] (const juce::String& tip)
+    {
+        setMouseCursor (juce::MouseCursor::PointingHandCursor);
+        setTooltip (tip);
+    };
+
+    if (refFileArea.contains (p))
+        setHand ("Load a reference file");
+    else if (playArea.contains (p))
+        setHand ("Play or pause the reference");
+    else if (loopArea.contains (p))
+        setHand ("Loop the reference");
+    else if (abArea.contains (p))
+        setHand ("Hear the reference or the mix");
+    else if (matchArea.contains (p))
+        setHand ("Level-match the reference");
+    else if (mirrorArea.contains (p))
+        setHand ("Mirror the reference curve");
+    else if (waveArea.contains (p) && state.duration > 0.0)
+    {
+        setMouseCursor (juce::MouseCursor::CrosshairCursor);
+        setTooltip ("Click: seek. Drag: loop range. Double-click: full loop.");
+    }
+    else
+    {
+        setMouseCursor (juce::MouseCursor::NormalCursor);
+        setTooltip (juce::String());
+    }
+}
+
+inline void ReferenceStrip::mouseExit (const juce::MouseEvent&)
+{
+    setMouseCursor (juce::MouseCursor::NormalCursor);
+    setTooltip (juce::String());
 }
