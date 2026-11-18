@@ -11,6 +11,8 @@
 class ScopeLookAndFeel final : public juce::LookAndFeel_V4
 {
 public:
+    void setUiScale (float scale) noexcept { uiScale = juce::jlimit (0.75f, 1.5f, scale); }
+
     void drawButtonBackground (juce::Graphics& g, juce::Button& button,
                                const juce::Colour&, bool isHighlighted, bool isDown) override
     {
@@ -29,17 +31,26 @@ public:
 
         g.setColour (on ? theme::accent : theme::panelLine.brighter (0.10f));
         g.drawRoundedRectangle (bounds, corner, 1.0f);
+
+        if (button.hasKeyboardFocus (true))
+        {
+            g.setColour (theme::accent.withAlpha (0.9f));
+            g.drawRoundedRectangle (bounds.reduced (2.0f), corner, 1.5f);
+        }
     }
 
     void drawButtonText (juce::Graphics& g, juce::TextButton& button,
                          bool, bool) override
     {
-        g.setFont (theme::labelFont (juce::jlimit (9.0f, 14.0f * theme::fontScale, button.getHeight() * 0.40f)));
+        g.setFont (theme::labelFont (juce::jlimit (9.0f, 14.0f * uiScale, button.getHeight() * 0.40f)));
 
         g.setColour (button.getToggleState() ? theme::panelTop : theme::text);
         g.drawFittedText (button.getButtonText(), button.getLocalBounds(),
                           juce::Justification::centred, 1, 0.9f);
     }
+
+private:
+    float uiScale = 1.0f;
 };
 
 static juce::Image tintLogo (const juce::Image& source, juce::Colour colour)
@@ -344,7 +355,12 @@ LudensScopeEditor::LudensScopeEditor (LudensScopeProcessor& p)
     applyReferenceSettings();
     lastStateRevision = processor.stateRevision();
 
-    setSize (1060, 700);
+    // Restore the saved UI scale together with a window that can hold it.
+    if (uiScalePercent > 0)
+        applyUiScalePercent (uiScalePercent);
+    else
+        setSize (1060, 700);
+
     startTimerHz (30);
     openEditors().add (this);
 }
@@ -435,7 +451,7 @@ void LudensScopeEditor::paint (juce::Graphics& g)
     g.setColour (theme::text);
     g.drawText ("LudensScope", brand, juce::Justification::centredLeft);
 
-    g.setFont (theme::detailFont (9.5f));
+    g.setFont (theme::detailFont (9.5f, uiScale));
     g.setColour (theme::textDim);
     g.drawText ("STEREO ANALYZER", header, juce::Justification::centredLeft);
 
@@ -448,7 +464,7 @@ void LudensScopeEditor::paint (juce::Graphics& g)
         g.fillRect (getLocalBounds());
         g.setColour (theme::accent);
         g.drawRect (getLocalBounds().reduced (3), 2);
-        g.setFont (theme::detailFont (15.0f));
+        g.setFont (theme::detailFont (15.0f, uiScale));
         g.drawText ("DROP REFERENCE AUDIO", getLocalBounds(), juce::Justification::centred);
     }
 }
@@ -462,13 +478,27 @@ void LudensScopeEditor::resized()
     const float autoScale = juce::jlimit (0.9f, 1.35f, juce::jmin (scaleW, scaleH));
     const float requestedScale = uiScalePercent > 0 ? (float) uiScalePercent / 100.0f : autoScale;
     uiScale = juce::jlimit (0.75f, 1.5f, requestedScale);
-    theme::fontScale = uiScale;
+
+    // A forced scale that the window cannot hold would squeeze individual
+    // panels, so fall back to the largest scale the window actually fits.
+    if (! forceUiScale)
+        uiScale = juce::jmax (0.75f,
+                              juce::jmin (uiScale,
+                                          (float) getWidth() / 1060.0f,
+                                          (float) getHeight() / 660.0f));
+
+    // Every view owns its scale; nothing global leaks between editor instances.
+    lookAndFeel->setUiScale (uiScale);
     spectrumView.setUiScale (uiScale);
+    spectrogramView.setUiScale (uiScale);
+    vectorScopeView.setUiScale (uiScale);
+    oscilloscopeView.setUiScale (uiScale);
+    referenceStrip.setUiScale (uiScale);
     vuMeterView.setUiScale (uiScale);
 
     auto header = r.removeFromTop (juce::roundToInt (36.0f * uiScale));
     const int themeWidth = juce::roundToInt (90.0f * uiScale);
-    const int themeHeight = juce::jmin (34, juce::roundToInt (26.0f * uiScale));
+    const int themeHeight = juce::jlimit (24, 42, juce::roundToInt (26.0f * uiScale));
     themeButton.setBounds (header.removeFromRight (themeWidth)
                                .withSizeKeepingCentre (themeWidth, themeHeight));
     r.removeFromTop (8);
@@ -507,8 +537,11 @@ void LudensScopeEditor::resized()
     }
 
     // ORIG/REF take their own band beside the waveform strip, never above it.
-    auto sourceRow = sourceBand.reduced (juce::roundToInt (2.0f * uiScale),
-                                        juce::roundToInt (6.0f * uiScale));
+    // The source tiles are buttons, not full-height slabs: keep them centred
+    // in the strip band instead of stretching them over the waveform row.
+    auto sourceRow = sourceBand.withSizeKeepingCentre (
+                         sourceBand.getWidth(), juce::roundToInt (30.0f * uiScale))
+                         .reduced (juce::roundToInt (2.0f * uiScale), 0);
     const int sourceGap = juce::roundToInt (3.0f * uiScale);
     origButton.setBounds (sourceRow.removeFromLeft ((sourceRow.getWidth() - sourceGap) / 2));
     sourceRow.removeFromLeft (sourceGap);
@@ -544,7 +577,11 @@ void LudensScopeEditor::resized()
 
     vectorScopeView.setBounds (vectorBounds);
 
-    const int vuWidth = juce::jlimit (320, 480, juce::roundToInt (400.0f * uiScale));
+    // The VU meter has a natural width of 400 px at 100%; never take more than
+    // half of the bottom row, so the oscilloscope keeps a usable share.
+    const int vuWidth = juce::jlimit (240, 480,
+                                      juce::jmin (juce::roundToInt (400.0f * uiScale),
+                                                  juce::roundToInt (bottom.getWidth() * 0.50f)));
     auto vuBounds = bottom.removeFromLeft (vuWidth);
     bottom.removeFromLeft (gap);
 
@@ -651,8 +688,6 @@ void LudensScopeEditor::timerCallback()
         origButton.setToggleState (! processor.isReferenceMonitoring(), juce::dontSendNotification);
         refButton.setToggleState (processor.isReferenceMonitoring(), juce::dontSendNotification);
     }
-
-    spectrumView.setReferenceModes (levelMatch, mirror);
 
     if (levelMatch && processor.hasReferenceAudio())
         updateReferenceGain();
@@ -959,81 +994,86 @@ void LudensScopeEditor::showFftMenu()
 {
     juce::PopupMenu menu;
 
+    const auto waterfallLabel = [this] (const juce::String& name, int divider)
+    {
+        const double seconds = spectrogramView.historySecondsFor (divider);
+        return seconds > 0.0 ? name + " (~" + juce::String (seconds, 1) + " s)" : name;
+    };
+
+    // Item IDs stay exactly as before: applyFftMenu() is independent of the
+    // grouping, so moving an entry between submenus cannot change its action.
+    juce::PopupMenu fftMenu;
     const int sizes[] = { 2048, 4096, 8192, 16384 };
 
-    menu.addSectionHeader ("FFT size");
+    fftMenu.addSectionHeader ("FFT size");
 
     for (int i = 0; i < 4; ++i)
-        menu.addItem (100 + i, juce::String (sizes[i]), true, analyzer.getFftSize() == sizes[i]);
+        fftMenu.addItem (100 + i, juce::String (sizes[i]), true, analyzer.getFftSize() == sizes[i]);
 
-    menu.addSeparator();
-    menu.addSectionHeader ("Window");
+    fftMenu.addSeparator();
+    fftMenu.addSectionHeader ("Window");
 
     const char* windows[] = { "Hann", "Blackman-Harris", "Flat-top" };
 
     for (int i = 0; i < 3; ++i)
-        menu.addItem (400 + i, windows[i], true, (int) analyzer.getWindow() == i);
+        fftMenu.addItem (400 + i, windows[i], true, (int) analyzer.getWindow() == i);
 
-    menu.addSeparator();
-    menu.addSectionHeader ("Speed");
-    menu.addItem (200, "Fast", true, timingPreset == 0);
-    menu.addItem (201, "Medium", true, timingPreset == 1);
-    menu.addItem (202, "Slow", true, timingPreset == 2);
+    fftMenu.addSeparator();
+    fftMenu.addSectionHeader ("Speed");
+    fftMenu.addItem (200, "Fast", true, timingPreset == 0);
+    fftMenu.addItem (201, "Medium", true, timingPreset == 1);
+    fftMenu.addItem (202, "Slow", true, timingPreset == 2);
 
-    menu.addSeparator();
-    menu.addSectionHeader ("Tilt");
-    menu.addItem (300, "Off", true, analyzer.getTilt() == 0.0f);
-    menu.addItem (301, "+3 dB/oct", true, analyzer.getTilt() == 3.0f);
-    menu.addItem (302, "+4.5 dB/oct", true, analyzer.getTilt() == 4.5f);
+    fftMenu.addSeparator();
+    fftMenu.addSectionHeader ("Tilt");
+    fftMenu.addItem (300, "Off", true, analyzer.getTilt() == 0.0f);
+    fftMenu.addItem (301, "+3 dB/oct", true, analyzer.getTilt() == 3.0f);
+    fftMenu.addItem (302, "+4.5 dB/oct", true, analyzer.getTilt() == 4.5f);
 
-    menu.addSeparator();
-    menu.addSectionHeader ("Smoothing");
+    fftMenu.addSeparator();
+    fftMenu.addSectionHeader ("Smoothing");
 
     const char* smoothing[] = { "Off", "1/1 octave", "1/3 octave", "1/6 octave" };
 
     for (int i = 0; i < 4; ++i)
-        menu.addItem (800 + i, smoothing[i], true, smoothingPreset == i);
+        fftMenu.addItem (800 + i, smoothing[i], true, smoothingPreset == i);
 
-    menu.addSeparator();
-    menu.addSectionHeader ("Waterfall");
-    menu.addItem (700, "Fast (~3 s)", true, waterfallHistory == 1);
-    menu.addItem (701, "Medium (~7 s)", true, waterfallHistory == 2);
-    menu.addItem (702, "Slow (~14 s)", true, waterfallHistory == 4);
+    fftMenu.addSeparator();
+    fftMenu.addSectionHeader ("FFT overlap");
+    fftMenu.addItem (900, "Off", true, overlapPreset == 0);
+    fftMenu.addItem (901, "2x (50%)", true, overlapPreset == 1);
+    fftMenu.addItem (902, "4x (75%)", true, overlapPreset == 2);
 
-    menu.addSeparator();
-    menu.addSectionHeader ("FFT overlap");
-    menu.addItem (900, "Off", true, overlapPreset == 0);
-    menu.addItem (901, "2x (50%)", true, overlapPreset == 1);
-    menu.addItem (902, "4x (75%)", true, overlapPreset == 2);
+    menu.addSubMenu ("FFT", fftMenu);
 
-    menu.addSeparator();
-    menu.addItem (601, "Difference shading", true, showDifference);
-    menu.addItem (610, "  vs snapshot", true, differenceSource == 0);
-    menu.addItem (611, "  vs REF FILE", true, differenceSource == 1);
-    menu.addItem (612, "  vs live", true, differenceSource == 2);
-    menu.addItem (600, "Peak markers", true, showPeakMarkers);
-    menu.addItem (602, "Side (M/S) curve", true, showSide);
-    menu.addItem (603, "Note grid", true, showNoteGrid);
+    juce::PopupMenu displayMenu;
+    displayMenu.addSectionHeader ("Waterfall");
+    displayMenu.addItem (700, waterfallLabel ("Fast", 1), true, waterfallHistory == 1);
+    displayMenu.addItem (701, waterfallLabel ("Medium", 2), true, waterfallHistory == 2);
+    displayMenu.addItem (702, waterfallLabel ("Slow", 4), true, waterfallHistory == 4);
 
-    menu.addSeparator();
-    menu.addSectionHeader ("Gain staging");
-    menu.addItem (720, "Reference lines (FFT)", true, gainStaging);
-    menu.addItem (721, "0 VU = -18 dBFS (EBU)", true, vuZeroDbfs == -18);
-    menu.addItem (722, "0 VU = -20 dBFS (SMPTE)", true, vuZeroDbfs == -20);
-    menu.addItem (730, "Suggested EQ (REF)", hasReference, showMatch);
+    displayMenu.addSeparator();
+    displayMenu.addItem (601, "Difference shading", true, showDifference);
+    displayMenu.addItem (610, "  vs snapshot", true, differenceSource == 0);
+    displayMenu.addItem (611, "  vs REF FILE", true, differenceSource == 1);
+    displayMenu.addItem (612, "  vs live", true, differenceSource == 2);
+    displayMenu.addItem (600, "Peak markers", true, showPeakMarkers);
+    displayMenu.addItem (602, "Side (M/S) curve", true, showSide);
+    displayMenu.addItem (603, "Note grid", true, showNoteGrid);
 
-    bool anySnapshot = false;
+    displayMenu.addSeparator();
+    displayMenu.addSectionHeader ("Gain staging");
+    displayMenu.addItem (720, "Reference lines (FFT)", true, gainStaging);
+    displayMenu.addItem (721, "0 VU = -18 dBFS (EBU)", true, vuZeroDbfs == -18);
+    displayMenu.addItem (722, "0 VU = -20 dBFS (SMPTE)", true, vuZeroDbfs == -20);
 
-    for (int slot = 0; slot < LudensScopeProcessor::snapshotSlots; ++slot)
-        anySnapshot = anySnapshot || processor.isSnapshotFilled (slot);
+    menu.addSubMenu ("Display", displayMenu);
 
-    menu.addSeparator();
-    menu.addItem (500, "Export snapshots (CSV)...", anySnapshot);
-    menu.addItem (501, "Export view (PNG)...", true);
-
-    menu.addSeparator();
-    menu.addSectionHeader ("Curve presets");
-    menu.addItem (1000, "Save current curve...", true, false);
+    juce::PopupMenu referenceMenu;
+    referenceMenu.addItem (730, "Suggested EQ (REF)", hasReference, showMatch);
+    referenceMenu.addSeparator();
+    referenceMenu.addSectionHeader ("Curve presets");
+    referenceMenu.addItem (1000, "Save current curve...", true, false);
 
     const auto& curves = curvePresets.getPresets();
 
@@ -1049,12 +1089,24 @@ void LudensScopeEditor::showFftMenu()
             deleteMenu.addItem (1200 + i, curves[(size_t) i].name, true, false);
         }
 
-        menu.addSubMenu ("Load curve", loadMenu);
-        menu.addSubMenu ("Delete curve", deleteMenu);
+        referenceMenu.addSubMenu ("Load curve", loadMenu);
+        referenceMenu.addSubMenu ("Delete curve", deleteMenu);
     }
 
     if (targetCurveActive)
-        menu.addItem (1001, "Clear target", true, false);
+        referenceMenu.addItem (1001, "Clear target", true, false);
+
+    menu.addSubMenu ("Reference", referenceMenu);
+
+    bool anySnapshot = false;
+
+    for (int slot = 0; slot < LudensScopeProcessor::snapshotSlots; ++slot)
+        anySnapshot = anySnapshot || processor.isSnapshotFilled (slot);
+
+    juce::PopupMenu exportMenu;
+    exportMenu.addItem (500, "Export snapshots (CSV)...", anySnapshot);
+    exportMenu.addItem (501, "Export view (PNG)...", true);
+    menu.addSubMenu ("Export", exportMenu);
 
     menu.addSeparator();
     menu.addItem (630, "Check for updates...", true, false);
@@ -1443,6 +1495,30 @@ void LudensScopeEditor::toggleReferenceAb()
     processor.setReferenceAudible (toReference);
 }
 
+void LudensScopeEditor::applyUiScalePercent (int percent)
+{
+    uiScalePercent = juce::jlimit (0, 150, percent);
+    forceUiScale = false;
+
+    if (uiScalePercent == 0)
+    {
+        setResizeLimits (1060, 660, 2400, 1500);
+        resized();
+        return;
+    }
+
+    // The design is 1060x660 at 100%. A larger scale needs a larger window,
+    // otherwise individual panels would have to shrink instead of the layout.
+    const float scale = (float) uiScalePercent / 100.0f;
+    const int minWidth = juce::roundToInt (1060.0f * scale);
+    const int minHeight = juce::roundToInt (660.0f * scale);
+
+    setResizeLimits (minWidth, minHeight,
+                     juce::jmax (2400, minWidth), juce::jmax (1500, minHeight));
+    setSize (juce::jmax (getWidth(), minWidth), juce::jmax (getHeight(), minHeight));
+    resized();
+}
+
 void LudensScopeEditor::applyViewSettings (const LudensScopeProcessor::ViewSettings& settings)
 {
     applyingSettings = true;
@@ -1463,6 +1539,7 @@ void LudensScopeEditor::applyViewSettings (const LudensScopeProcessor::ViewSetti
     spectrumView.setShowMatch (showMatch);
 
     uiScalePercent = settings.uiScalePercent;
+    forceUiScale = false;
     resized();
 
 
@@ -1482,7 +1559,6 @@ void LudensScopeEditor::applyViewSettings (const LudensScopeProcessor::ViewSetti
     levelMatch = settings.levelMatch != 0;
     mirror = settings.mirror != 0;
     processor.setReferenceMirror (mirror);
-    spectrumView.setReferenceModes (levelMatch, mirror);
 
     spanIndex = juce::jlimit (0, 5, settings.spanIndex);
     applyRange (juce::jlimit (20.0f, 20000.0f, settings.rangeLow),
@@ -1781,7 +1857,8 @@ void LudensScopeEditor::showThemeMenu()
 
                             if (result >= 3100)
                             {
-                                safe->setUiScalePercent (result - 3100);
+                                static const int percents[] = { 0, 100, 125, 150 };
+                                safe->applyUiScalePercent (percents[juce::jlimit (0, 3, result - 3100)]);
                                 safe->saveViewSettings();
                                 safe->repaint();
                                 return;
@@ -1898,7 +1975,6 @@ void LudensScopeEditor::toggleLevelMatch()
     else
         updateReferenceGain();
 
-    spectrumView.setReferenceModes (levelMatch, mirror);
     saveViewSettings();
 }
 
@@ -1910,7 +1986,6 @@ void LudensScopeEditor::toggleMirror()
     if (mirror)
         processor.setReferenceLoop (false);
 
-    spectrumView.setReferenceModes (levelMatch, mirror);
     saveViewSettings();
 }
 
@@ -1933,7 +2008,6 @@ void LudensScopeEditor::applyReferenceSettings()
         hasReference = false;
         referencePath.clear();
         spectrumView.setReference (nullptr, false);
-        spectrumView.setReferenceWaveform ({});
         spectrumView.setReferencePlaceholder ("REF EMPTY - USE REF FILE");
         return;
     }
@@ -1974,7 +2048,6 @@ void LudensScopeEditor::applyReferenceSettings()
         if (processor.hasReferenceAudio())
             processor.unloadReferenceAudio();
 
-        spectrumView.setReferenceWaveform ({});
     }
 }
 
@@ -2084,7 +2157,6 @@ void LudensScopeEditor::undoReset()
         hasReference = true;
         referenceDb = undoReferenceDb;
         spectrumView.setReference (referenceDb.data(), true);
-        spectrumView.setReferenceWaveform (processor.referenceWaveform());
     }
 
     analyzer.restoreAverage (undoAverage.data());
@@ -2153,8 +2225,6 @@ void LudensScopeEditor::resetDisplay()
     syncSnapshots();
 
     processor.clearReferenceAudio();
-    spectrumView.setReferenceWaveform ({});
-    spectrumView.setTransport (false, false, true, false, 0.0, 0.0, 0.0, 0.0);
 
     clearGuideSolo();
 

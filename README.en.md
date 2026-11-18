@@ -77,8 +77,9 @@ cmake --build --preset dev -j$(nproc)
    Shift/Alt-click a zone to solo that band (only the band reaches the
    output; the analysers still see the full mix); repeat to turn it off.
 
-   The `FFT` button opens the analyser settings: window size 2048–16384, window
-   function (Hann / Blackman-Harris / Flat-top), smoothing speed (Fast / Medium /
+   The `OPTIONS` button opens a menu with `FFT`, `Display`, `Reference` and
+   `Export` submenus: window size 2048–16384, window function
+   (Hann / Blackman-Harris / Flat-top), smoothing speed (Fast / Medium /
    Slow), tilt +3 or +4.5 dB/oct, 1/1, 1/3 or 1/6 octave smoothing, FFT overlap
    2x/4x and the C1–C8 note grid. The three strongest peaks are labelled
    automatically; turn them off with Peak markers. The same menu has the
@@ -123,7 +124,7 @@ cmake --build --preset dev -j$(nproc)
    `FREEZE` stops the frame; `RESET` clears peaks, loudness, the selected
    snapshot, the reference and the counters; `UNDO` restores the state from
    before the last reset (integrated loudness, LRA, snapshot, reference and
-   counters). The `FFT` menu also exports snapshots to CSV (bin, frequency,
+   counters). `OPTIONS → Export` also exports snapshots to CSV (bin, frequency,
    levels A–D).
 
    The project state stores the snapshots, all FFT settings, the view (guide
@@ -152,14 +153,14 @@ fraction of a dB of difference from the BS.1770-4 Annex 2 reference filter.
 
 ### Gain staging and VU
 
-`FFT → Gain staging` shows horizontal reference lines in the spectrum and
+`OPTIONS → Display → Gain staging` shows horizontal reference lines in the spectrum and
 oscilloscope: 0 dBFS, -6, -12 and 0 VU; the 0 VU line is highlighted. The
 calibration switches between **0 VU = -18 dBFS (EBU)** and **-20 dBFS
 (SMPTE)**. The bottom row carries an 80s cassette-deck style stereo VU: two
 separate L/R needle indicators in a rectangular window; needles rest left.
 
 The REF curve shows the power average plus a **p10-p90** band (the
-reference's variation over time); `FFT → Suggested EQ (REF)` lists up to
+reference's variation over time); `OPTIONS → Reference → Suggested EQ (REF)` lists up to
 four broad `CUT/BOOST` hints from the difference of the average spectra
 (read-only, no processing).
 
