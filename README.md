@@ -2,263 +2,265 @@
 
 [![build](https://github.com/ltillegal/ludensscope/actions/workflows/build.yml/badge.svg)](https://github.com/ltillegal/ludensscope/actions/workflows/build.yml)
 
-**Русский** · [English](README.en.md) · [❤ Donate](https://www.paypal.com/ncp/payment/MAMKZM5TTVN5U?locale.x=en_US&country.x=US)
+[Русский](README.ru.md) · **English** · [❤ Donate](https://www.paypal.com/ncp/payment/MAMKZM5TTVN5U?locale.x=en_US&country.x=US)
 
-Минималистичный стерео-анализатор в форматах **VST3, AU, AAX, CLAP** и standalone: спектр, громкость
-по ITU-R BS.1770-4, true-peak, векторскоп, осциллограф и референс.
+A minimalist stereo analyser in **VST3, AU, AAX, CLAP** and standalone formats: spectrum, loudness
+to ITU-R BS.1770-4, true peak, vectorscope, oscilloscope and reference.
 
-Бесплатно, без подписок, без телеметрии. В состоянии проекта сохраняются
-снапшоты FFT, настройки анализатора, вид интерфейса и метаданные референса.
-Пользовательских пресетов плагина нет — только именованные target-кривые.
+Free, no subscriptions, no telemetry. The project state stores FFT snapshots,
+analyser settings, the UI state and the reference metadata. There are no
+general plugin presets — only named target curves.
 
-## Что внутри
+## What's inside
 
-| Модуль | Файлы |
+| Module | Files |
 |---|---|
-| LUFS (M/S/I, гейтинг), K-weighting, LRA | `Source/dsp/LoudnessMeter.*` |
-| Спектр: FFT 2048–16384, Hann / Blackman-Harris / flat-top, лог-шкала 20 Гц – 20 кГц, инспектор, усреднение, target-кривые | `Source/dsp/SpectrumAnalyzer.*`, `Source/ui/SpectrumView.h` |
-| True-peak: 4x oversampling, polyphase FIR | `Source/dsp/TruePeakDetector.h` |
-| PLR и счётчик клиппинга | `Source/PluginProcessor.*`, `Source/PluginEditor.cpp` |
-| UI: спектр, водопад, метры, гониометр, осциллограф, guides | `Source/ui/*` |
-| Референс: загрузка, анализ, один файл, ORIG/REF, плеер, перетаскивание | `Source/dsp/ReferenceAnalysis.h`, `Source/PluginProcessor.*` |
-| Проверка обновлений | `Source/ui/UpdateChecker.h` |
+| LUFS (M/S/I, gating), K-weighting, LRA | `Source/dsp/LoudnessMeter.*` |
+| Spectrum: FFT 2048–16384, Hann / Blackman-Harris / flat-top, log scale 20 Hz – 20 kHz, inspector, averaging, target curves | `Source/dsp/SpectrumAnalyzer.*`, `Source/ui/SpectrumView.h` |
+| True peak: 4x oversampling, polyphase FIR | `Source/dsp/TruePeakDetector.h` |
+| PLR and clip counter | `Source/PluginProcessor.*`, `Source/PluginEditor.cpp` |
+| UI: spectrum, waterfall, meters, goniometer, oscilloscope, guides | `Source/ui/*` |
+| Reference: loading, analysis, one file, ORIG/REF, player, drag and drop | `Source/dsp/ReferenceAnalysis.h`, `Source/PluginProcessor.*` |
+| Update check | `Source/ui/UpdateChecker.h` |
 
-Аудио-поток только фильтрует и считает энергию; FFT и отрисовка идут в
-UI-потоке (данные передаются через lock-free `AbstractFifo`). Никаких
-блокировок в `processBlock`.
+The audio thread only filters and measures energy; FFT and drawing run on the
+UI thread (data goes through a lock-free `AbstractFifo`). No locks in
+`processBlock`.
 
-## Сборка (Linux)
+## Building (Linux)
 
 ```bash
 cmake --preset default
 cmake --build --preset default -j$(nproc)
 ```
 
-или без пресетов:
+or without presets:
 
 ```bash
 cmake -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build -j$(nproc)
 ```
 
-JUCE (8.0.15) подтягивается автоматически через `FetchContent`. Готовый VST3
-копируется в `~/.vst3/LudensScope.vst3`.
+JUCE (8.0.15) is fetched automatically with `FetchContent`. The built VST3 is
+copied to `~/.vst3/LudensScope.vst3`.
 
-Проверка калибровки (опционально):
+Optional calibration checks:
 
 ```bash
 cmake --preset dev
 cmake --build --preset dev -j$(nproc)
 
-# LUFS (BS.1770-4) + true-peak + LRA: 13 проверок
+# LUFS (BS.1770-4) + true peak + LRA: 13 checks
 ./build/LudensScopeLoudnessCalibration
 
-# калибровка спектра: синус -6 dBFS должен читаться около -6 dBFS
+# spectrum calibration: a -6 dBFS sine should read about -6 dBFS
 ./build/LudensScopeCalibration_artefacts/Release/LudensScopeCalibration
 
-# рендер UI в PNG без DAW (проверка, что редактор не падает)
+# render the UI to PNG without a DAW (editor smoke test)
 ./build/LudensScopeUiSnapshot_artefacts/Release/LudensScopeUiSnapshot
-# -> docs/ui-preview.png (или путь из первого аргумента)
+# -> docs/ui-preview.png (or the path passed as the first argument)
 ```
 
-## Использование
+## Usage
 
-1. Поставь плагин на мастер-шину или на группу.
-2. Спектр: лог-ось, шкала dBFS, жёлтая линия — peak hold. Колесо мыши над
-   спектром — зум в октавах вокруг курсора, двойной клик — полный диапазон
-   (20 Гц – 20 кГц). Кнопка `SPAN` переключает 10/8/6/4/2/1 октавы, водопад
-   следует за выбранным диапазоном. Наведи курсор — под ним частота, нота,
-   уровень, peak и добротность Q ближайшего пика (по ширине на −3 дБ). Ниже —
-   водопад (история ~3/7/14 секунд), его останавливает `FREEZE`. Высоту
-   водопада можно менять, перетаскивая разделитель; двойной клик возвращает
-   норму. Вверху спектра — HUD-пилюли с балансом LOW/MID/HIGH в процентах
-   энергии. `GUIDES` открывает меню — Off или жанровый набор зон (General /
-   EDM / Hip-Hop / Rock / Acoustic / Pop / Metal / Jazz / Orchestral / Lo-Fi /
-   R&B): подсказка, где обычно живут инструменты. Клик по зоне включает соло
-   этой полосы — на выходе остаётся только она (анализаторы при этом
-   по-прежнему видят полный микс); повторный клик выключает.
+1. Put the plugin on the master bus or a group.
+2. Spectrum: log axis, dBFS scale, the yellow line is peak hold. Mouse wheel
+   over the spectrum zooms octaves around the cursor; double-click resets to
+   the full range (20 Hz – 20 kHz). The `SPAN` button cycles 10/8/6/4/2/1
+   octaves; the waterfall follows the visible range. Hover to read frequency,
+   note, level, peak and the Q of the nearest peak (from its −3 dB width).
+   Below is the waterfall (~3/7/14 s of history); `FREEZE` stops it. Drag the
+   divider to resize the waterfall, double-click to reset. The HUD pills at the
+   top show the LOW/MID/HIGH energy balance. `GUIDES` opens a menu — Off or a
+   genre zone set (General / EDM / Hip-Hop / Rock / Acoustic / Pop / Metal /
+   Jazz / Orchestral / Lo-Fi / R&B): a hint of where instruments usually live.
+   Shift/Alt-click a zone to solo that band (only the band reaches the
+   output; the analysers still see the full mix); repeat to turn it off.
 
-   Кнопка `OPTIONS` открывает меню с разделами `FFT`, `Display`, `Reference` и
-   `Export`: размер окна 2048–16384,
-   оконная функция (Hann / Blackman-Harris / Flat-top), скорость сглаживания
-   (Fast / Medium / Slow), наклон +3 или +4.5 дБ/окт, сглаживание 1/1, 1/3 или
-   1/6 октавы, FFT-перекрытие 2x/4x, нотная сетка C1–C8. На спектре
-   автоматически подписываются три самых сильных пика; маркеры отключаются
-   пунктом Peak markers. Там же — разностная заливка с выбором второй кривой
-   (следующий снапшот, REF FILE или живая), кривая сайд-канала M/S и экспорт
-   вида в PNG. Пресеты кривых: `Save current curve` сохраняет усреднённый
-   спектр как именованную target-кривую (глобально, в
-   `~/.config/LudensScope/curve-presets.json`), `Load curve` рисует её янтарным
-   пунктиром с подписью TARGET, `Delete curve` удаляет. Выбранная target-кривая
-   сохраняется в проекте.
-3. LOUDNESS: momentary (400 мс), short-term (3 с), integrated (с гейтингом
-   −70 LUFS / −10 LU). Клик по `TGT` в шапке выбирает цель (−14/−16/−18/−23),
-   на полосе integrated появляется метка, под ней — отклонение в LU. Ниже —
-   история short-term за последние 60 секунд с линией цели.
-4. TRUE PEAK — 4x передискретизация, dBTP. Красный при > −1 dBTP.
-   LRA — диапазон громкости (EBU 3342), PLR — peak-to-loudness, CLIP — число
-   сэмплов ≥ 0 dBFS и intersample-оверов.
-5. STEREO IMAGE — гониометр со шлейфом, OSCILLOSCOPE — с триггером по переходу
-   через ноль. Колесо над осциллографом меняет окно времени (до ~2.7 с),
-   Shift+колесо — вертикальный масштаб, двойной клик — сброс. В плашке —
-   PEAK / RMS / CREST / LUFS по видимому окну. `MONO` — анализ суммы каналов
-   для проверки моно-совместимости.
-6. Снапшоты FFT: клик по букве `A`–`D` в шапке спектра выбирает слот, `CAPTURE`
-   записывает в него усреднённый спектр. Заполненные слоты рисуются цветными
-   пунктирами, инспектор показывает уровень и дельту к выбранному слоту.
+   The `OPTIONS` button opens a menu with `FFT`, `Display`, `Reference` and
+   `Export` submenus: window size 2048–16384, window function
+   (Hann / Blackman-Harris / Flat-top), smoothing speed (Fast / Medium /
+   Slow), tilt +3 or +4.5 dB/oct, 1/1, 1/3 or 1/6 octave smoothing, FFT overlap
+   2x/4x and the C1–C8 note grid. The three strongest peaks are labelled
+   automatically; turn them off with Peak markers. The same menu has the
+   difference shading with a selectable second curve (next snapshot, REF FILE or
+   live), the M/S side curve and PNG export of the whole view. Curve presets:
+   `Save current curve` stores the averaged spectrum as a named target curve
+   (globally, in `~/.config/LudensScope/curve-presets.json`), `Load curve` draws
+   it as an amber dashed line with a TARGET chip, `Delete curve` removes it. The
+   selected target curve is stored in the project.
+3. LOUDNESS: momentary (400 ms), short-term (3 s), integrated (gated at
+   −70 LUFS / −10 LU). Click `TGT` in the header to choose a target
+   (−14/−16/−18/−23); a mark appears on the integrated bar with the deviation in
+   LU below it. The short-term history for the last 60 seconds is drawn with the
+   target line.
+4. TRUE PEAK — 4x oversampling, dBTP. Red above −1 dBTP. LRA — loudness range
+   (EBU 3342), PLR — peak-to-loudness, CLIP — the number of samples ≥ 0 dBFS
+   plus intersample overs.
+5. STEREO IMAGE — goniometer with a trail; OSCILLOSCOPE — zero-crossing
+   triggered. Mouse wheel over the scope changes the time window (up to ~2.7 s),
+   Shift+wheel the vertical gain, double-click resets. The badge shows PEAK /
+   RMS / CREST / LUFS over the visible window. `MONO` analyses the channel sum
+   to check mono compatibility.
+6. FFT snapshots: click the `A`–`D` letter in the spectrum header to select a
+   slot; `CAPTURE` stores the averaged spectrum in it. Filled slots are drawn as
+   coloured dashed lines; the inspector shows the level and the delta to the
+   selected slot.
 
-   Референс: `REF FILE` — загрузить wav/aiff/flac (или перетащить файл на окно
-   плагина). Усреднённая кривая рисуется серым; внизу — полноширинная полоса
-   reference: waveform, loop-регион (тянуть по волне задаёт диапазон, края
-   двигаются отдельно, двойной клик — весь файл), playhead, play/`LOOP`/
-   `REF-MIX`/`MATCH`/`MIRROR`, время, имя и LUFS. Референс теперь **один**
-   (один файл). Вместо слотов A–D — переключатель источника **ORIG / REF**:
-   `ORIG` — звук и все индикаторы с DAW, `REF` — звук и все индикаторы
-   (спектр, LUFS, true peak, VU, осциллограф, waterfall, корреляция) с
-   reference-плеера. `MATCH` — непрерывный level match по LUFS; `MIRROR` —
-   референс следует за транспортом DAW. Путь, кривая, LUFS и петля хранятся в
-   проекте; при открытии файл подгружается заново, а если не найден — остаётся
-   кривая для сравнения. Файлы длиннее 10 минут обрезаются.
+   Reference: `REF FILE` loads wav/aiff/flac (or drop a file onto the plugin
+   window). The averaged curve is drawn in grey; a full-width reference strip at
+   the bottom holds the waveform, the loop region (drag the wave to select, drag
+   its edges separately, double-click for the whole file), the playhead,
+   play/`LOOP`/`REF-MIX`/`MATCH`/`MIRROR`, time, name and LUFS. There is now
+   **one reference file**. The A–D slots became an **ORIG / REF** source switch:
+   `ORIG` feeds the sound and every indicator from the DAW, `REF` feeds them
+   (spectrum, LUFS, true peak, VU, oscilloscope, waterfall, correlation) from the
+   reference player. `MATCH` continuously level-matches the reference to the
+   mix's integrated LUFS; `MIRROR` makes the reference follow the DAW transport.
+   The path, curve, LUFS and loop are stored in the project; on project open the
+   file is reloaded, and if it is missing the curve remains for comparison.
+   Files longer than 10 minutes are truncated.
 
-   `FREEZE` — стопор кадров, `RESET` — сброс пиков, громкости, выбранного
-   снапшота, референса и счётчиков; `UNDO` возвращает состояние до последнего
-   сброса (интегрированную громкость, LRA, снапшот, референс и счётчики).
-   Маленькая `RESET` слева от `TGT` сбрасывает только Integrated LUFS/LRA.
-   В меню `OPTIONS → Export` есть экспорт снапшотов в CSV (бин, частота, уровни A–D).
+   `FREEZE` stops the frame; `RESET` clears peaks, loudness, the selected
+   snapshot, the reference and the counters; `UNDO` restores the state from
+   before the last reset (integrated loudness, LRA, snapshot, reference and
+   counters). `OPTIONS → Export` also exports snapshots to CSV (bin, frequency,
+   levels A–D).
 
-   В состоянии проекта сохраняются снапшоты, все настройки FFT, вид (жанр и
-   включённость guides, M/S-кривая, маркеры пиков, разностная заливка, цель
-   LUFS, SPAN/диапазон, скорость водопада, окно/усиление осциллографа,
-   target-кривая) и метаданные референса.
+   The project state stores the snapshots, all FFT settings, the view (guide
+   genre and visibility, M/S curve, peak markers, difference shading, LUFS
+   target, SPAN range, waterfall speed, scope window/gain, target curve) and the
+   reference metadata.
 
-Горячие клавиши: `A` — REF/MIX, `F` — freeze, `Esc` — снять соло полосы.
-Гайды: `Shift`/`Alt` + клик по зоне включает band solo; обычный клик по
-графику выход хоста не фильтрует. Пробел не перехватывается — он принадлежит
-транспорту хоста. Плагин работает и на моно-треках (bus mono/mono): LUFS и
-метринг считаются по одному каналу, дублирование используется только для
-спектра/вектороскопа.
+Hotkeys: `A` — REF/MIX, `F` — freeze, `Esc` — clear the band solo.
+Guides: `Shift`/`Alt` + click on a zone toggles band solo; a plain click on
+the graph never filters the host output. Space is not intercepted — it belongs
+to the host transport. The plugin also
+works on mono tracks (mono/mono bus): loudness and metering use one channel;
+duplication is only for the spectrum/vector analysis.
 
-Кнопка `THEME` в правом верхнем углу переключает семь тем интерфейса:
-**Blue** (текущая), **Dark**, **Light**, **Magenta**, **Green**, **Red**,
-**Orange**. Выбор глобальный: сохраняется в настройках LudensScope и применяется
-ко всем открытым инстансам; в светлой теме логотип и кривые
-автоматически перекрашиваются, водопад следует палитре. Кнопки правой
-колонки, `THEME`, ORIG/REF и транспорт масштабируются вместе с окном
-(примерно 0.9–1.35×). В меню `THEME` также есть **UI scale**: Auto / 100 % /
-125 % / 150 % — масштабирует шрифты, контролы и окно целиком.
+The `THEME` button in the top-right switches seven interface palettes:
+**Blue** (current), **Dark**, **Light**, **Magenta**, **Green**, **Red**,
+**Orange**. The choice is global: it is stored in LudensScope's settings and
+applied to every open instance; the light theme re-tints the
+logo and curves automatically, and the waterfall follows the palette. The
+right-rail buttons, `THEME`, ORIG/REF and the transport scale with the
+window (about 0.9–1.35×). The `THEME` menu also offers **UI scale**:
+Auto / 100% / 125% / 150%, scaling fonts, controls and the window.
 
-True peak измеряется приближённым детектором (12-отводный windowed-sinc),
-возможны десятые доли дБ расхождения с эталонным фильтром BS.1770-4 Annex 2.
+True peak uses an approximate detector (12-tap windowed sinc); expect a
+fraction of a dB of difference from the BS.1770-4 Annex 2 reference filter.
 
-### Gain staging и VU
+### Gain staging and VU
 
-В меню `OPTIONS → Display → Gain staging` включаются горизонтальные опорные линии в
-спектре и осциллографе: 0 dBFS, −6, −12 и 0 VU; линия 0 VU подсвечена.
-Калибровка переключается: **0 VU = −18 dBFS (EBU)** или **−20 dBFS (SMPTE)**.
-В нижнем ряду — стерео VU в стиле кассетных дек 80-х: два отдельных
-стрелочных индикатора L/R в прямоугольном окне; в покое стрелки слева.
+`OPTIONS → Display → Gain staging` shows horizontal reference lines in the spectrum and
+oscilloscope: 0 dBFS, -6, -12 and 0 VU; the 0 VU line is highlighted. The
+calibration switches between **0 VU = -18 dBFS (EBU)** and **-20 dBFS
+(SMPTE)**. The bottom row carries an 80s cassette-deck style stereo VU: two
+separate L/R needle indicators in a rectangular window; needles rest left.
 
-REF-кривая показывает среднее по мощности и полосу **p10–p90** (разброс
-референса по времени); `OPTIONS → Reference → Suggested EQ (REF)` выводит до четырёх
-широких подсказок `CUT/BOOST` по разнице средних спектров (только чтение,
-без обработки).
+The REF curve shows the power average plus a **p10-p90** band (the
+reference's variation over time); `OPTIONS → Reference → Suggested EQ (REF)` lists up to
+four broad `CUT/BOOST` hints from the difference of the average spectra
+(read-only, no processing).
 
-VU соответствует IEC 60268-17 / ANSI C16.5: 0 VU = +4 dBu = 1.228 В RMS на
-1 кГц, шкала −20…+3 VU. Отклонение стрелки пропорционально **напряжению**,
-поэтому шкала нелинейная: 0 VU стоит примерно на 68.5 % дуги, а зона 0…+3
-красная. Баллистика — second-order в вольт-домене: 300 мс + 40 мс входного
-сглаживания (≈400 мс до 99 % шага),
-overshoot 1–1.5 % (ζ ≈ 0.8, ωn ≈ 16.7 рад/с). В цифровой области 0 VU — это
-alignment level −18 dBFS (EBU R68) или −20 dBFS (SMPTE RP 155); поэтому VU
-показывает среднюю громкость, а не пики — для пиков смотрите TRUE PEAK.
+The VU follows IEC 60268-17 / ANSI C16.5: 0 VU = +4 dBu = 1.228 V RMS at
+1 kHz, -20..+3 VU scale. The pointer deflection is proportional to the
+**voltage**, so the scale is non-linear: 0 VU sits at ~68.5% of the arc and
+the 0..+3 zone is red. Ballistics are second-order in the voltage domain:
+300 ms second-order + 40 ms input smoothing (≈400 ms to 99%, zeta ~0.8, omega_n ~16.7 rad/s).
+In the digital domain 0 VU is the alignment level -18 dBFS (EBU R68) or
+-20 dBFS (SMPTE RP 155); the VU reads average loudness, not peaks - use
+TRUE PEAK for peaks.
 
-## Установка из релиза
+## Install from a release
 
-- Linux: `sudo apt install ./LudensScope-linux.deb` — VST3 в `/usr/lib/vst3`,
-  CLAP в `/usr/lib/clap`, standalone в меню приложений (`ludensscope`).
-- macOS: `LudensScope-macos.pkg` — VST3/AU/CLAP в `/Library/Audio/Plug-Ins`,
-  AAX в `/Library/Application Support/Avid/Audio/Plug-Ins`, приложение в `/Applications`.
-- Windows: `LudensScope-windows.exe` — VST3 в `Common Files\VST3`, CLAP в
-  `Common Files\CLAP`, AAX в `Common Files\Avid\Audio\Plug-Ins`, standalone в
-  `Program Files\LudensScope`.
-- [Komi Store](https://komistore.app/) подхватывает релиз по installable assets
-  (`.deb` / `.pkg` / `.exe`) автоматически.
+- Linux: `sudo apt install ./LudensScope-linux.deb` — VST3 to `/usr/lib/vst3`,
+  CLAP to `/usr/lib/clap`, standalone app in the menu (`ludensscope`).
+- macOS: `LudensScope-macos.pkg` — VST3/AU/CLAP to `/Library/Audio/Plug-Ins`,
+  AAX to `/Library/Application Support/Avid/Audio/Plug-Ins`, the app to `/Applications`.
+- Windows: `LudensScope-windows.exe` — VST3 to `Common Files\VST3`, CLAP to
+  `Common Files\CLAP`, AAX to `Common Files\Avid\Audio\Plug-Ins`, the standalone
+  app to `Program Files\LudensScope`.
+- [Komi Store](https://komistore.app/) picks the release up from the installable
+  assets (`.deb` / `.pkg` / `.exe`) automatically.
 
-AAX собирается для macOS и Windows, но в релизе он **без PACE-подписи**:
-Pro Tools загрузит только подписанный AAX (нужен Avid Developer/PACE); инструкция и скрипты — [docs/aax-signing.md](docs/aax-signing.md). CLAP —
-свободный формат (MIT-обёртка clap-juce-extensions), standalone — обычное приложение
-с тем же интерфейсом.
+AAX is built for macOS and Windows but ships **unsigned by PACE**: Pro Tools
+only loads a signed AAX (Avid Developer/PACE required). CLAP is an open format
+(MIT clap-juce-extensions wrapper); the standalone is a regular app with the
+same interface.
 
-## Обновления
+## Updates
 
-Меню `OPTIONS` → `Check for updates...` проверяет последний релиз на GitHub.
-Если версия новее, плагин скачивает установщик для текущей ОС в `~/Downloads`,
-сверяет SHA-256 с `SHA256SUMS.txt` из того же релиза и показывает папку.
-Сам плагин не подменяет загруженный хостом файл: закройте DAW и запустите
-скачанный установщик.
+`FFT` → `Check for updates...` queries the latest GitHub release. If a newer
+version exists, the plugin downloads the installer for the current OS to
+`~/Downloads`, verifies its SHA-256 against `SHA256SUMS.txt` from the same
+release and reveals the folder. The plugin never replaces its own loaded binary:
+quit the DAW and run the downloaded installer.
 
-Релизы собирает `.github/workflows/release.yml` по тегу `vX.Y.Z`:
-Linux — `.deb`, macOS — `.pkg` (VST3 + AU), Windows — `.exe`; плюс
-`SHA256SUMS.txt`. Zip-архивов в ассетах нет. Версия сборки передаётся через
-`-DLUDENSCOPE_VERSION`, поэтому тег и версия должны совпадать. Проверка
-обновлений делает сетевой запрос только по нажатию. Бинарники не подписаны
-и не нотаризованы — на macOS может понадобиться снять quarantine.
+Releases are built by `.github/workflows/release.yml` from a `vX.Y.Z` tag:
+Linux — `.deb`, macOS — `.pkg` (VST3 + AU), Windows — `.exe`, plus
+`SHA256SUMS.txt`. There are no zip assets. The build version comes from
+`-DLUDENSCOPE_VERSION`, so the tag and the version must match. The update check
+only makes a network request when you ask for it. The binaries are unsigned and
+not notarised — on macOS you may need to clear the quarantine flag.
 
 ## macOS + Cubase / Logic
 
-VST3 подходит для Cubase, AU — для Logic и GarageBand; оба формата собираются
-на Intel и Apple Silicon. Собрать плагин нужно **на macOS** — кросс-компиляция
-с Linux не поддерживается. Исходники платформонезависимые (чистый C++ + JUCE),
-Linux-специфичного кода нет.
+VST3 works in Cubase, AU in Logic and GarageBand; both are built for Intel and
+Apple Silicon. The plugin must be built **on macOS** — cross-compiling from
+Linux is not supported. The sources are platform-independent (plain C++ + JUCE);
+there is no Linux-specific code.
 
 ```bash
-xcode-select --install   # если ещё нет Command Line Tools
+xcode-select --install   # if the Command Line Tools are missing
 
-# всё сразу: configure + build + ad-hoc подпись + установка
+# everything: configure + build + ad-hoc signing + install
 ./scripts/build-macos.sh
 ```
 
-Вручную:
+Manually:
 
 ```bash
 cmake --preset macos-universal
 cmake --build --preset macos-universal -j$(sysctl -n hw.ncpu)
 
-# локальная ad-hoc подпись (обязательна для arm64)
+# local ad-hoc signature (required on arm64)
 codesign --force --deep --sign - \
   build/LudensScope_artefacts/Release/VST3/LudensScope.vst3
 codesign --force --deep --sign - \
   build/LudensScope_artefacts/Release/AU/LudensScope.component
 ```
 
-`COPY_PLUGIN_AFTER_BUILD` кладёт VST3 в `~/Library/Audio/Plug-Ins/VST3/`,
-а AU — в `~/Library/Audio/Plug-Ins/Components/` (для всех пользователей —
+`COPY_PLUGIN_AFTER_BUILD` installs the VST3 into
+`~/Library/Audio/Plug-Ins/VST3/` and the AU into
+`~/Library/Audio/Plug-Ins/Components/` (system-wide:
 `/Library/Audio/Plug-Ins/...`).
 
-В Cubase: `Studio → VST Plug-in Manager → Rescan`, либо просто перезапустить
-Cubase. Плагин появится в категории `Analyzer`. Для Logic/GarageBand перезапусти
-приложение; проверить AU можно командой `auval -v aufx LDSC LDNS`.
+In Cubase: `Studio → VST Plug-in Manager → Rescan`, or just restart Cubase. The
+plugin appears under `Analyzer`. For Logic/GarageBand restart the app; check the
+AU with `auval -v aufx LDSC LDNS`.
 
-Замечания:
+Notes:
 
-- Универсальный бинарник (`arm64;x86_64`) нужен, чтобы работало и на M-чипах,
-  и на Intel.
-- Для раздачи другим людям — Developer ID + notarization. Для себя достаточно
-  ad-hoc подписи.
-- Собираются VST3 и AUv2; AAX и AUv3 (App Extension) — нет.
-- macOS-сборка проверяется в CI, но на реальном железе не тестировалась.
+- The universal binary (`arm64;x86_64`) is needed for both Apple Silicon and
+  Intel.
+- For distribution to other people use a Developer ID + notarisation. Ad-hoc
+  signing is enough for personal use.
+- VST3 and AUv2 are built; AAX and AUv3 (App Extension) are not.
+- The macOS build is checked in CI but has not been tested on real hardware.
 
-## Ограничения
+## Limitations
 
-- Только стерео (2 in / 2 out), форматы VST3 и AUv2.
-- Пользовательских пресетов плагина нет; target-кривые — глобальные пресеты.
-- AAX и AUv3 не собираются.
-- Обновления проверяются только через опубликованный GitHub Release;
-  автоматической установки нет — файл занят хостом до перезапуска DAW.
+- Stereo only (2 in / 2 out), VST3 and AUv2 formats.
+- No general plugin presets; target curves are global presets.
+- AAX and AUv3 are not built.
+- Updates only work through a published GitHub Release; there is no automatic
+  installation because the host keeps the binary loaded until the DAW restarts.
 
-## Поддержать проект
+## Support the project
 
-Если LudensScope экономит время — можно поддержать разработку через PayPal:
+If LudensScope saves you time, you can support development via PayPal:
 
 [![Donate](https://img.shields.io/badge/Donate-PayPal-00457C?logo=paypal&logoColor=white)](https://www.paypal.com/ncp/payment/MAMKZM5TTVN5U?locale.x=en_US&country.x=US)
 
