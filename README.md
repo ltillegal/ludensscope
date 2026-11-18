@@ -2,7 +2,7 @@
 
 [![build](https://github.com/ltillegal/ludensscope/actions/workflows/build.yml/badge.svg)](https://github.com/ltillegal/ludensscope/actions/workflows/build.yml)
 
-**Русский** · [English](README.en.md) · [❤ Donate](https://www.paypal.com/donate/?business=0eskimo0%40gmail.com&item_name=LudensScope&currency_code=USD)
+**Русский** · [English](README.en.md) · [❤ Donate](https://www.paypal.com/ncp/payment/MAMKZM5TTVN5U)
 
 Минималистичный стерео-анализатор в форматах **VST3, AU, AAX, CLAP** и standalone: спектр, громкость
 по ITU-R BS.1770-4, true-peak, векторскоп, осциллограф и референс.
@@ -260,6 +260,6 @@ Cubase. Плагин появится в категории `Analyzer`. Для L
 
 Если LudensScope экономит время — можно поддержать разработку через PayPal:
 
-[![Donate](https://img.shields.io/badge/Donate-PayPal-00457C?logo=paypal&logoColor=white)](https://www.paypal.com/donate/?business=0eskimo0%40gmail.com&item_name=LudensScope&currency_code=USD)
+[![Donate](https://img.shields.io/badge/Donate-PayPal-00457C?logo=paypal&logoColor=white)](https://www.paypal.com/ncp/payment/MAMKZM5TTVN5U)
 
-PayPal: **0eskimo0@gmail.com**
+PayPal: [Donate](https://www.paypal.com/ncp/payment/MAMKZM5TTVN5U)

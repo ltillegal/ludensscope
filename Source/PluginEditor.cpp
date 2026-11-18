@@ -264,11 +264,10 @@ LudensScopeEditor::LudensScopeEditor (LudensScopeProcessor& p)
     themeButton.onClick = [this] { showThemeMenu(); };
     addAndMakeVisible (themeButton);
 
-    donateButton.setTooltip ("Donate via PayPal (0eskimo0@gmail.com)");
+    donateButton.setTooltip ("Donate via PayPal");
     donateButton.onClick = []
     {
-        juce::URL ("https://www.paypal.com/donate/?business=0eskimo0%40gmail.com"
-                   "&item_name=LudensScope&currency_code=USD").launchInDefaultBrowser();
+        juce::URL ("https://www.paypal.com/ncp/payment/MAMKZM5TTVN5U").launchInDefaultBrowser();
     };
     addAndMakeVisible (donateButton);
 
