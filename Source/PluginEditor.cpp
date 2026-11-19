@@ -467,6 +467,21 @@ void LudensScopeEditor::paint (juce::Graphics& g)
     g.setColour (theme::textDim);
     g.drawText ("STEREO ANALYZER", header, juce::Justification::centredLeft);
 
+    if (isFull())
+    {
+        const auto email = LudensScopeLicence::licensedEmail();
+        const auto licence = LudensScopeLicence::isLegacy()
+            ? juce::String ("LICENSED TO LEGACY (0.4.x)")
+            : (email.isNotEmpty() ? "LICENSED TO " + email.toUpperCase()
+                                  : juce::String ("LICENSED TO FULL"));
+
+        g.setFont (theme::detailFont (8.5f, uiScale));
+        g.setColour (theme::accent.withAlpha (0.78f));
+        g.drawText (licence,
+                    header.withTrimmedRight (juce::roundToInt (190.0f * uiScale)),
+                    juce::Justification::centredRight);
+    }
+
     g.setColour (theme::panelLine.withAlpha (0.6f));
     g.fillRect (14, 14 + juce::roundToInt (36.0f * uiScale) + 3, getWidth() - 28, 1);
 
