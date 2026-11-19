@@ -143,7 +143,7 @@ private:
 
     bool keyPressed (const juce::KeyPress& key) override;
 
-    static constexpr int scopeSize = 131072;
+    static constexpr int scopeSize = 158400; // 3.3 s at 48 kHz
     static constexpr int readChunk = 16384;
 
     LudensScopeProcessor& processor;
