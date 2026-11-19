@@ -18,6 +18,7 @@
 #include "ui/SpectrogramView.h"
 #include "ui/SpectrumView.h"
 #include "ui/Theme.h"
+#include "Licence.h"
 #include "ui/VuMeterView.h"
 #include "ui/ReferenceStrip.h"
 #include "ui/VectorScopeView.h"
@@ -106,6 +107,9 @@ private:
     void toggleReferenceAb();
     void updateReferenceGain();
     void showFftMenu();
+    bool isFull() const { return LudensScopeLicence::isUnlocked(); }
+    void showUnlockDialog();
+    void applyEdition();
     void applyFftMenu (int result);
     void applyFftSettings (const LudensScopeProcessor::FftSettings& settings);
     void saveFftSettings();
@@ -162,6 +166,7 @@ private:
     juce::TextButton undoButton   { "UNDO" };
     DonateButton donateButton;
     juce::TextButton themeButton { "THEME" };
+    juce::TextButton unlockButton { "UNLOCK" };
     ReferenceStrip referenceStrip;
     juce::TextButton origButton { "ORIG" };
     juce::TextButton refButton  { "REF" };

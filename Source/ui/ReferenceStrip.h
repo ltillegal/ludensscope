@@ -34,6 +34,18 @@ public:
 
     void setState (State s) { state = std::move (s); repaint(); }
 
+    void setLocked (bool shouldBeLocked)
+    {
+        if (locked == shouldBeLocked)
+            return;
+
+        locked = shouldBeLocked;
+        setTooltip (locked
+            ? "Reference analysis, transport and A-D slots are a FULL feature - press UNLOCK"
+            : juce::String());
+        repaint();
+    }
+
     void setUiScale (float scale) noexcept
     {
         const float next = juce::jlimit (0.75f, 1.5f, scale);
@@ -86,6 +98,7 @@ private:
     }
 
     State state;
+    bool locked = false;
     float uiScale = 1.0f;
     juce::Rectangle<float> waveArea, playArea, loopArea, abArea, matchArea, mirrorArea;
     juce::Rectangle<float> refFileArea, nameArea;
@@ -264,6 +277,22 @@ inline void ReferenceStrip::paint (juce::Graphics& g)
     g.setFont (theme::detailFont (9.0f, uiScale));
     g.setColour (theme::textDim.withAlpha (0.7f));
     g.drawText ("REFERENCE", right.removeFromTop (10.0f * s), juce::Justification::centredRight);
+
+    if (locked)
+    {
+        g.setColour (juce::Colours::black.withAlpha (0.38f));
+        g.fillRoundedRectangle (b, 4.0f);
+
+        const auto badge = juce::Rectangle<float> (b.getCentreX() - 34.0f * s,
+                                                   b.getCentreY() - 11.0f * s,
+                                                   68.0f * s, 22.0f * s);
+        g.setColour (theme::panel);
+        g.fillRoundedRectangle (badge, badge.getHeight() * 0.5f);
+        g.setColour (theme::accent);
+        g.drawRoundedRectangle (badge, badge.getHeight() * 0.5f, 1.0f);
+        g.setFont (theme::detailFont (9.0f, uiScale));
+        g.drawText ("FULL", badge, juce::Justification::centred);
+    }
 }
 
 inline void ReferenceStrip::mouseDown (const juce::MouseEvent& e)

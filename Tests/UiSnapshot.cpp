@@ -6,11 +6,52 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
+#include <cstring>
 #include <vector>
 
 namespace
 {
     constexpr double pi = 3.14159265358979323846;
+
+    bool testLicence()
+    {
+        juce::RSAKey pub, priv;
+        juce::RSAKey::createKeyPair (pub, priv, 2048);
+
+        const juce::String payload = "LudensScope|FULL|test@example.com|2026-11-19";
+        juce::MemoryBlock block (256, true);
+        block[0] = 0x01;
+
+        const auto hash = juce::SHA256 (payload.toRawUTF8(),
+                                        payload.getNumBytesAsUTF8()).getRawData();
+        std::memcpy (static_cast<char*> (block.getData()) + 1,
+                     hash.getData(), juce::jmin ((size_t) hash.getSize(), (size_t) 32));
+
+        juce::BigInteger sig;
+        sig.loadFromMemoryBlock (block);
+        priv.applyToValue (sig);
+        const auto sigBlock = sig.toMemoryBlock();
+        const auto sigText = juce::Base64::toBase64 (sigBlock.getData(), sigBlock.getSize());
+
+        const auto key = "LS1|" + juce::Base64::toBase64 (payload) + "|" + sigText;
+        const auto info = LudensScopeLicence::parse (key, pub.toString());
+
+        const auto tamperedPayload = "LudensScope|FULL|evil@example.com|2026-11-19";
+        const auto tamperedKey = "LS1|" + juce::Base64::toBase64 (tamperedPayload) + "|" + sigText;
+
+        const bool ok = info.valid
+                        && info.email == "test@example.com"
+                        && info.edition == "FULL"
+                        && LudensScopeLicence::verifyKey (key, pub.toString())
+                        && ! LudensScopeLicence::verifyKey (tamperedKey, pub.toString());
+
+        LudensScopeLicence::setTestingUnlock (true);
+        const bool overrideOk = LudensScopeLicence::isUnlocked();
+        LudensScopeLicence::setTestingUnlock (false);
+
+        std::printf ("licence: %s\n", ok && overrideOk ? "ok" : "FAIL");
+        return ok && overrideOk;
+    }
 
     void renderTestSignal (juce::AudioBuffer<float>& buffer, int blockIndex)
     {
@@ -77,6 +118,9 @@ namespace
 
 int main (int argc, char** argv)
 {
+    // The UI snapshot exercises the FULL feature set; the licence logic is
+    // tested separately below.
+    LudensScopeLicence::setTestingUnlock (true);
     juce::ScopedJuceInitialiser_GUI init;
 
     LudensScopeProcessor processor;
@@ -929,9 +973,12 @@ int main (int argc, char** argv)
     presetFile.deleteFile();
     std::printf ("curve presets: %s\n", presetOk ? "ok" : "FAIL");
 
+    const bool licenceOk = testLicence();
+
     return clipped == 2 && undoOk && referenceOk && gainOk && seekOk
            && snapshotPersisted && settingsPersisted
            && sourceOk
            && referencePersisted
-           && viewPersisted && presetOk && slotsOk && slotBLoaded && soloOk && loopOk && waveformOk ? 0 : 1;
+           && viewPersisted && presetOk && slotsOk && slotBLoaded && soloOk && loopOk && waveformOk
+           && licenceOk ? 0 : 1;
 }

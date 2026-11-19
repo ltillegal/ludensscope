@@ -226,12 +226,12 @@ LudensScopeEditor::LudensScopeEditor (LudensScopeProcessor& p)
     addAndMakeVisible (undoButton);
 
     addAndMakeVisible (referenceStrip);
-    referenceStrip.onPlay = [this] { toggleReferencePlay(); };
-    referenceStrip.onLoop = [this] { toggleReferenceLoop(); };
-    referenceStrip.onAb = [this] { toggleReferenceAb(); };
-    referenceStrip.onMatch = [this] { toggleLevelMatch(); };
-    referenceStrip.onMirror = [this] { toggleMirror(); };
-    referenceStrip.onRefFile = [this] { chooseReferenceFile(); };
+    referenceStrip.onPlay = [this] { if (! isFull()) { showUnlockDialog(); return; } toggleReferencePlay(); };
+    referenceStrip.onLoop = [this] { if (! isFull()) { showUnlockDialog(); return; } toggleReferenceLoop(); };
+    referenceStrip.onAb = [this] { if (! isFull()) { showUnlockDialog(); return; } toggleReferenceAb(); };
+    referenceStrip.onMatch = [this] { if (! isFull()) { showUnlockDialog(); return; } toggleLevelMatch(); };
+    referenceStrip.onMirror = [this] { if (! isFull()) { showUnlockDialog(); return; } toggleMirror(); };
+    referenceStrip.onRefFile = [this] { if (! isFull()) { showUnlockDialog(); return; } chooseReferenceFile(); };
     referenceStrip.onSeek = [this] (double seconds)
     {
         processor.setReferencePositionSeconds (seconds);
@@ -260,9 +260,14 @@ LudensScopeEditor::LudensScopeEditor (LudensScopeProcessor& p)
     origButton.onClick = [this] { selectSource (false); };
     refButton.onClick = [this] { selectSource (true); };
 
-    themeButton.setTooltip ("Interface colour theme");
+    themeButton.setTooltip ("Interface colour theme (FULL: 7 themes)");
     themeButton.onClick = [this] { showThemeMenu(); };
     addAndMakeVisible (themeButton);
+
+    unlockButton.setColour (juce::TextButton::buttonColourId, theme::accent);
+    unlockButton.setColour (juce::TextButton::textColourOffId, theme::bg);
+    unlockButton.onClick = [this] { showUnlockDialog(); };
+    addAndMakeVisible (unlockButton);
 
     donateButton.setTooltip ("Donate via PayPal");
     donateButton.onClick = []
@@ -273,7 +278,7 @@ LudensScopeEditor::LudensScopeEditor (LudensScopeProcessor& p)
 
     captureButton.setColour (juce::TextButton::buttonColourId, theme::panel);
     captureButton.setColour (juce::TextButton::textColourOffId, theme::text);
-    captureButton.onClick = [this] { captureReference(); };
+    captureButton.onClick = [this] { if (! isFull()) { showUnlockDialog(); return; } captureReference(); };
     addAndMakeVisible (captureButton);
 
     monoButton.setClickingTogglesState (true);
@@ -334,6 +339,12 @@ LudensScopeEditor::LudensScopeEditor (LudensScopeProcessor& p)
 
     spectrumView.onSnapshotSelect = [this] (int slot)
     {
+        if (! isFull())
+        {
+            showUnlockDialog();
+            return;
+        }
+
         snapshotSlot = juce::jlimit (0, LudensScopeProcessor::snapshotSlots - 1, slot);
         processor.setSelectedSnapshot (snapshotSlot);
         spectrumView.setSnapshots (snapshots, snapshotFilled, snapshotSlot);
@@ -359,6 +370,8 @@ LudensScopeEditor::LudensScopeEditor (LudensScopeProcessor& p)
         applyUiScalePercent (uiScalePercent);
     else
         setSize (1060, 700);
+
+    applyEdition();
 
     startTimerHz (30);
     openEditors().add (this);
@@ -497,9 +510,13 @@ void LudensScopeEditor::resized()
 
     auto header = r.removeFromTop (juce::roundToInt (36.0f * uiScale));
     const int themeWidth = juce::roundToInt (90.0f * uiScale);
+    const int unlockWidth = juce::roundToInt (86.0f * uiScale);
     const int themeHeight = juce::jlimit (24, 42, juce::roundToInt (26.0f * uiScale));
     themeButton.setBounds (header.removeFromRight (themeWidth)
                                .withSizeKeepingCentre (themeWidth, themeHeight));
+    header.removeFromRight (juce::roundToInt (6.0f * uiScale));
+    unlockButton.setBounds (header.removeFromRight (unlockWidth)
+                                .withSizeKeepingCentre (unlockWidth, themeHeight));
     r.removeFromTop (8);
 
     const int gap = juce::roundToInt (10.0f * uiScale);
@@ -832,6 +849,12 @@ void LudensScopeEditor::appendScope (const float* left, const float* right, int 
 
 void LudensScopeEditor::chooseReferenceFile()
 {
+    if (! isFull())
+    {
+        showUnlockDialog();
+        return;
+    }
+
     referenceChooser = std::make_unique<juce::FileChooser> (
         "Load reference audio", juce::File(), "*.wav;*.aif;*.aiff;*.flac;*.ogg");
 
@@ -855,6 +878,12 @@ void LudensScopeEditor::chooseReferenceFile()
 
 void LudensScopeEditor::loadReferenceFile (const juce::File& file)
 {
+    if (! isFull())
+    {
+        showUnlockDialog();
+        return;
+    }
+
     const int targetSlot = processor.getActiveReferenceSlot();
     const std::uint64_t generation = ++referenceLoadGeneration;
 
@@ -917,6 +946,9 @@ void LudensScopeEditor::loadReferenceFile (const juce::File& file)
 void LudensScopeEditor::handleReferenceLoaded (const juce::File& file, int targetSlot,
                                                ReferenceAnalysis& analysis)
 {
+    if (! isFull())
+        return;
+
     if (analysis.cancelled)
         return;
 
@@ -993,6 +1025,8 @@ void LudensScopeEditor::showFftMenu()
 {
     juce::PopupMenu menu;
 
+    const bool full = isFull();
+
     const auto waterfallLabel = [this] (const juce::String& name, int divider)
     {
         const double seconds = spectrogramView.historySecondsFor (divider);
@@ -1024,24 +1058,24 @@ void LudensScopeEditor::showFftMenu()
     fftMenu.addItem (202, "Slow", true, timingPreset == 2);
 
     fftMenu.addSeparator();
-    fftMenu.addSectionHeader ("Tilt");
-    fftMenu.addItem (300, "Off", true, analyzer.getTilt() == 0.0f);
-    fftMenu.addItem (301, "+3 dB/oct", true, analyzer.getTilt() == 3.0f);
-    fftMenu.addItem (302, "+4.5 dB/oct", true, analyzer.getTilt() == 4.5f);
+    fftMenu.addSectionHeader (full ? "Tilt" : "Tilt (FULL)");
+    fftMenu.addItem (300, "Off", full, analyzer.getTilt() == 0.0f);
+    fftMenu.addItem (301, "+3 dB/oct", full, analyzer.getTilt() == 3.0f);
+    fftMenu.addItem (302, "+4.5 dB/oct", full, analyzer.getTilt() == 4.5f);
 
     fftMenu.addSeparator();
-    fftMenu.addSectionHeader ("Smoothing");
+    fftMenu.addSectionHeader (full ? "Smoothing" : "Smoothing (FULL)");
 
     const char* smoothing[] = { "Off", "1/1 octave", "1/3 octave", "1/6 octave" };
 
     for (int i = 0; i < 4; ++i)
-        fftMenu.addItem (800 + i, smoothing[i], true, smoothingPreset == i);
+        fftMenu.addItem (800 + i, smoothing[i], full, smoothingPreset == i);
 
     fftMenu.addSeparator();
-    fftMenu.addSectionHeader ("FFT overlap");
-    fftMenu.addItem (900, "Off", true, overlapPreset == 0);
-    fftMenu.addItem (901, "2x (50%)", true, overlapPreset == 1);
-    fftMenu.addItem (902, "4x (75%)", true, overlapPreset == 2);
+    fftMenu.addSectionHeader (full ? "FFT overlap" : "FFT overlap (FULL)");
+    fftMenu.addItem (900, "Off", full, overlapPreset == 0);
+    fftMenu.addItem (901, "2x (50%)", full, overlapPreset == 1);
+    fftMenu.addItem (902, "4x (75%)", full, overlapPreset == 2);
 
     menu.addSubMenu ("FFT", fftMenu);
 
@@ -1052,27 +1086,28 @@ void LudensScopeEditor::showFftMenu()
     displayMenu.addItem (702, waterfallLabel ("Slow", 4), true, waterfallHistory == 4);
 
     displayMenu.addSeparator();
-    displayMenu.addItem (601, "Difference shading", true, showDifference);
-    displayMenu.addItem (610, "  vs snapshot", true, differenceSource == 0);
-    displayMenu.addItem (611, "  vs REF FILE", true, differenceSource == 1);
-    displayMenu.addItem (612, "  vs live", true, differenceSource == 2);
-    displayMenu.addItem (600, "Peak markers", true, showPeakMarkers);
-    displayMenu.addItem (602, "Side (M/S) curve", true, showSide);
-    displayMenu.addItem (603, "Note grid", true, showNoteGrid);
+    displayMenu.addItem (601, full ? "Difference shading" : "Difference shading [FULL]", full, showDifference);
+    displayMenu.addItem (610, "  vs snapshot", full, differenceSource == 0);
+    displayMenu.addItem (611, "  vs REF FILE", full, differenceSource == 1);
+    displayMenu.addItem (612, "  vs live", full, differenceSource == 2);
+    displayMenu.addItem (600, full ? "Peak markers" : "Peak markers [FULL]", full, showPeakMarkers);
+    displayMenu.addItem (602, full ? "Side (M/S) curve" : "Side (M/S) curve [FULL]", full, showSide);
+    displayMenu.addItem (603, full ? "Note grid" : "Note grid [FULL]", full, showNoteGrid);
 
     displayMenu.addSeparator();
-    displayMenu.addSectionHeader ("Gain staging");
-    displayMenu.addItem (720, "Reference lines (FFT)", true, gainStaging);
-    displayMenu.addItem (721, "0 VU = -18 dBFS (EBU)", true, vuZeroDbfs == -18);
-    displayMenu.addItem (722, "0 VU = -20 dBFS (SMPTE)", true, vuZeroDbfs == -20);
+    displayMenu.addSectionHeader (full ? "Gain staging" : "Gain staging (FULL)");
+    displayMenu.addItem (720, "Reference lines (FFT)", full, gainStaging);
+    displayMenu.addItem (721, "0 VU = -18 dBFS (EBU)", full, vuZeroDbfs == -18);
+    displayMenu.addItem (722, "0 VU = -20 dBFS (SMPTE)", full, vuZeroDbfs == -20);
 
     menu.addSubMenu ("Display", displayMenu);
 
     juce::PopupMenu referenceMenu;
-    referenceMenu.addItem (730, "Suggested EQ (REF)", hasReference, showMatch);
+    referenceMenu.addItem (730, full ? "Suggested EQ (REF)" : "Suggested EQ (REF) [FULL]",
+                           full && hasReference, showMatch);
     referenceMenu.addSeparator();
-    referenceMenu.addSectionHeader ("Curve presets");
-    referenceMenu.addItem (1000, "Save current curve...", true, false);
+    referenceMenu.addSectionHeader (full ? "Curve presets" : "Curve presets (FULL)");
+    referenceMenu.addItem (1000, "Save current curve...", full, false);
 
     const auto& curves = curvePresets.getPresets();
 
@@ -1083,9 +1118,9 @@ void LudensScopeEditor::showFftMenu()
 
         for (int i = 0; i < (int) curves.size(); ++i)
         {
-            loadMenu.addItem (1100 + i, curves[(size_t) i].name, true,
+            loadMenu.addItem (1100 + i, curves[(size_t) i].name, full,
                               targetCurveActive && targetCurveName == curves[(size_t) i].name);
-            deleteMenu.addItem (1200 + i, curves[(size_t) i].name, true, false);
+            deleteMenu.addItem (1200 + i, curves[(size_t) i].name, full, false);
         }
 
         referenceMenu.addSubMenu ("Load curve", loadMenu);
@@ -1093,7 +1128,7 @@ void LudensScopeEditor::showFftMenu()
     }
 
     if (targetCurveActive)
-        referenceMenu.addItem (1001, "Clear target", true, false);
+        referenceMenu.addItem (1001, "Clear target", full, false);
 
     menu.addSubMenu ("Reference", referenceMenu);
 
@@ -1103,12 +1138,16 @@ void LudensScopeEditor::showFftMenu()
         anySnapshot = anySnapshot || processor.isSnapshotFilled (slot);
 
     juce::PopupMenu exportMenu;
-    exportMenu.addItem (500, "Export snapshots (CSV)...", anySnapshot);
+    exportMenu.addItem (500, full ? "Export snapshots (CSV)..." : "Export snapshots (CSV) [FULL]",
+                        full && anySnapshot);
     exportMenu.addItem (501, "Export view (PNG)...", true);
     menu.addSubMenu ("Export", exportMenu);
 
     menu.addSeparator();
     menu.addItem (630, "Check for updates...", true, false);
+
+    if (! full)
+        menu.addItem (640, "Unlock FULL - EUR 29...", true, false);
 
     juce::Component::SafePointer<LudensScopeEditor> safe (this);
 
@@ -1122,6 +1161,32 @@ void LudensScopeEditor::showFftMenu()
 
 void LudensScopeEditor::applyFftMenu (int result)
 {
+    if (result == 640)
+    {
+        showUnlockDialog();
+        return;
+    }
+
+    if (! isFull())
+    {
+        const bool fullOnly = (result >= 300 && result <= 302)
+            || result == 500
+            || (result >= 600 && result <= 603)
+            || (result >= 610 && result <= 612)
+            || (result >= 720 && result <= 722)
+            || result == 730
+            || (result >= 800 && result <= 803)
+            || (result >= 900 && result <= 902)
+            || result == 1000 || result == 1001
+            || (result >= 1100 && result <= 1299);
+
+        if (fullOnly)
+        {
+            showUnlockDialog();
+            return;
+        }
+    }
+
     if (result == 720)
     {
         gainStaging = ! gainStaging;
@@ -1320,7 +1385,7 @@ void LudensScopeEditor::applyFftSettings (const LudensScopeProcessor::FftSetting
     analyzer.setFftSize (settings.fftSize);
     analyzer.setWindow (static_cast<SpectrumAnalyzer::Window> (
         juce::jlimit (0, 2, settings.windowType)));
-    analyzer.setTilt (juce::jlimit (0.0f, 6.0f, settings.tiltDbPerOctave));
+    analyzer.setTilt (isFull() ? juce::jlimit (0.0f, 6.0f, settings.tiltDbPerOctave) : 0.0f);
 
     if (timingPreset == 0)
         analyzer.setTiming (0.85f, 0.30f, 0.80f);
@@ -1329,13 +1394,13 @@ void LudensScopeEditor::applyFftSettings (const LudensScopeProcessor::FftSetting
     else
         analyzer.setTiming (0.25f, 0.03f, 0.12f);
 
-    smoothingPreset = juce::jlimit (0, 3, settings.smoothingPreset);
+    smoothingPreset = isFull() ? juce::jlimit (0, 3, settings.smoothingPreset) : 0;
     applySmoothing();
 
-    overlapPreset = juce::jlimit (0, 2, settings.overlapPreset);
+    overlapPreset = isFull() ? juce::jlimit (0, 2, settings.overlapPreset) : 0;
     analyzer.setOverlap (overlapPreset == 0 ? 1 : (overlapPreset == 1 ? 2 : 4));
 
-    showNoteGrid = settings.noteGrid != 0;
+    showNoteGrid = isFull() && settings.noteGrid != 0;
     spectrumView.setNoteGrid (showNoteGrid);
 }
 
@@ -1355,6 +1420,12 @@ void LudensScopeEditor::saveFftSettings()
 
 void LudensScopeEditor::exportSnapshots()
 {
+    if (! isFull())
+    {
+        showUnlockDialog();
+        return;
+    }
+
     bool anySnapshot = false;
 
     for (int slot = 0; slot < LudensScopeProcessor::snapshotSlots; ++slot)
@@ -1439,6 +1510,12 @@ void LudensScopeEditor::updateReferenceGain()
 
 void LudensScopeEditor::selectSource (bool reference)
 {
+    if (reference && ! isFull())
+    {
+        showUnlockDialog();
+        return;
+    }
+
     processor.setReferenceMonitor (reference);
 
     origButton.setToggleState (! reference, juce::dontSendNotification);
@@ -1522,19 +1599,21 @@ void LudensScopeEditor::applyViewSettings (const LudensScopeProcessor::ViewSetti
 {
     applyingSettings = true;
 
+    const bool full = isFull();
+
     const auto& presets = guidePresets();
     guidePreset = juce::jlimit (0, (int) presets.size() - 1, settings.guidePreset);
     spectrumView.setGuideZones (presets[(size_t) guidePreset].zones);
     setGuidesEnabled (settings.guidesEnabled != 0);
 
-    showSide = settings.sideCurve != 0;
+    showSide = full && settings.sideCurve != 0;
     spectrumView.setShowSide (showSide);
 
-    gainStaging = settings.gainStaging != 0;
+    gainStaging = full && settings.gainStaging != 0;
     vuZeroDbfs = settings.vuZeroDbfs == -20 ? -20 : -18;
     applyGainStaging();
 
-    showMatch = settings.showMatch != 0;
+    showMatch = full && settings.showMatch != 0;
     spectrumView.setShowMatch (showMatch);
 
     uiScalePercent = settings.uiScalePercent;
@@ -1542,21 +1621,21 @@ void LudensScopeEditor::applyViewSettings (const LudensScopeProcessor::ViewSetti
     resized();
 
 
-    showPeakMarkers = settings.peakMarkers != 0;
+    showPeakMarkers = full && settings.peakMarkers != 0;
     spectrumView.setPeakMarkers (showPeakMarkers);
 
-    showDifference = settings.difference != 0;
+    showDifference = full && settings.difference != 0;
     spectrumView.setDifferenceShading (showDifference);
     differenceSource = juce::jlimit (0, 2, settings.differenceSource);
     spectrumView.setDifferenceSource (differenceSource);
 
-    if (settings.targetCurveName.isNotEmpty())
+    if (full && settings.targetCurveName.isNotEmpty())
         applyTargetCurve (settings.targetCurveName);
     else
         clearTargetCurve();
 
-    levelMatch = settings.levelMatch != 0;
-    mirror = settings.mirror != 0;
+    levelMatch = full && settings.levelMatch != 0;
+    mirror = full && settings.mirror != 0;
     processor.setReferenceMirror (mirror);
 
     spanIndex = juce::jlimit (0, 5, settings.spanIndex);
@@ -1697,6 +1776,12 @@ void LudensScopeEditor::showGuidesMenu()
 
 void LudensScopeEditor::captureReference()
 {
+    if (! isFull())
+    {
+        showUnlockDialog();
+        return;
+    }
+
     processor.clearUndo();
 
     processor.setSnapshot (snapshotSlot, analyzer.averageLevels().data());
@@ -1707,7 +1792,7 @@ void LudensScopeEditor::syncSnapshots()
 {
     for (int slot = 0; slot < LudensScopeProcessor::snapshotSlots; ++slot)
     {
-        snapshotFilled[(size_t) slot] = processor.isSnapshotFilled (slot);
+        snapshotFilled[(size_t) slot] = isFull() && processor.isSnapshotFilled (slot);
 
         if (snapshotFilled[(size_t) slot])
             std::copy (processor.snapshotLevels (slot),
@@ -1836,6 +1921,12 @@ void LudensScopeEditor::handleDownloadFinished (bool succeeded, const juce::Stri
 
 void LudensScopeEditor::showThemeMenu()
 {
+    if (! isFull())
+    {
+        showUnlockDialog();
+        return;
+    }
+
     juce::PopupMenu menu;
 
     for (int i = 0; i < 7; ++i)
@@ -1891,6 +1982,128 @@ void LudensScopeEditor::applyTheme()
 
     for (auto* child : getChildren())
         child->repaint();
+}
+
+void LudensScopeEditor::showUnlockDialog()
+{
+    if (isFull())
+    {
+        const juce::String status = LudensScopeLicence::statusText();
+
+        juce::AlertWindow::showMessageBoxAsync (
+            juce::MessageBoxIconType::InfoIcon,
+            "LudensScope " + status,
+            LudensScopeLicence::isLegacy()
+                ? "Grandfathered FULL licence from a 0.4.x installation.\n\n"
+                  "Thank you for supporting LudensScope."
+                : "Licensed to: " + LudensScopeLicence::licensedEmail() + "\n\n"
+                  "Offline licence, no account and no telemetry.\n"
+                  "Thank you for supporting LudensScope.");
+        return;
+    }
+
+    auto* aw = new juce::AlertWindow (
+        "Unlock LudensScope FULL",
+        "FULL adds the reference A-D analysis and transport, snapshot slots, "
+        "gain staging lines, all 7 themes, advanced FFT options, target curves "
+        "and CSV export.\n\n"
+        "EUR 29 via PayPal. After payment email 0eskimo0@gmail.com and you will "
+        "receive a licence key. The licence is offline, valid on 2 machines and "
+        "includes 1.x updates.",
+        juce::MessageBoxIconType::NoIcon);
+
+    aw->addTextEditor ("key", LudensScopeLicence::load(), "Licence key");
+    aw->addButton ("Unlock", 1, juce::KeyPress (juce::KeyPress::returnKey));
+    aw->addButton ("Buy FULL - EUR 29", 2);
+    aw->addButton ("Cancel", 0, juce::KeyPress (juce::KeyPress::escapeKey));
+
+    aw->enterModalState (true, juce::ModalCallbackFunction::create (
+        [this, aw] (int result)
+        {
+            if (result == 1)
+            {
+                juce::String error;
+
+                if (LudensScopeLicence::saveAndVerify (aw->getTextEditorContents ("key"), error))
+                {
+                    applyEdition();
+
+                    juce::AlertWindow::showMessageBoxAsync (
+                        juce::MessageBoxIconType::InfoIcon,
+                        "LudensScope FULL",
+                        "Thank you! FULL features are now unlocked.");
+                }
+                else
+                {
+                    juce::AlertWindow::showMessageBoxAsync (
+                        juce::MessageBoxIconType::WarningIcon,
+                        "Licence not accepted",
+                        error);
+                }
+            }
+            else if (result == 2)
+            {
+                juce::URL ("https://www.paypal.com/ncp/payment/MAMKZM5TTVN5U?locale.x=en_US&country.x=US")
+                    .launchInDefaultBrowser();
+            }
+        }), true);
+}
+
+void LudensScopeEditor::applyEdition()
+{
+    const bool full = isFull();
+    const bool legacy = LudensScopeLicence::isLegacy();
+
+    unlockButton.setButtonText (full ? "FULL" : "UNLOCK");
+    unlockButton.setEnabled (! full);
+    unlockButton.setTooltip (full
+        ? (legacy ? "Grandfathered FULL licence (0.4.x)" : "LudensScope FULL licence")
+        : "Unlock LudensScope FULL - EUR 29 via PayPal");
+
+    if (! full)
+    {
+        theme::setTheme (0);
+        applyTheme();
+
+        showSide = false;
+        showPeakMarkers = false;
+        showDifference = false;
+        showNoteGrid = false;
+        showMatch = false;
+        gainStaging = false;
+        levelMatch = false;
+        mirror = false;
+
+        spectrumView.setShowSide (false);
+        spectrumView.setPeakMarkers (false);
+        spectrumView.setDifferenceShading (false);
+        spectrumView.setNoteGrid (false);
+        spectrumView.setShowMatch (false);
+        spectrumView.setDifferenceSource (0);
+
+        processor.setReferenceMirror (false);
+        processor.setReferenceGainDb (0.0f);
+
+        clearTargetCurve();
+        applyGainStaging();
+    }
+    else
+    {
+        applyFftSettings (processor.getFftSettings());
+        applyViewSettings (processor.getViewSettings());
+    }
+
+    referenceStrip.setLocked (! full);
+    captureButton.setEnabled (full);
+    captureButton.setTooltip (full
+        ? "Store the averaged spectrum in the selected snapshot slot"
+        : "Snapshot slots are a FULL feature");
+
+    syncSnapshots();
+    applyReferenceSettings();
+
+    resized();
+    repaint();
 }
 
 void LudensScopeEditor::updateMatchSuggestions()
@@ -1960,6 +2173,9 @@ void LudensScopeEditor::updateMatchSuggestions()
 
 void LudensScopeEditor::applyGainStaging()
 {
+    if (! isFull())
+        gainStaging = false;
+
     spectrumView.setGainStaging (gainStaging, (float) vuZeroDbfs);
     oscilloscopeView.setGainStaging (gainStaging, (float) vuZeroDbfs);
     vuMeterView.setZeroDbfs ((float) vuZeroDbfs);
@@ -1990,6 +2206,12 @@ void LudensScopeEditor::toggleMirror()
 
 void LudensScopeEditor::selectReferenceSlot (int slot)
 {
+    if (! isFull())
+    {
+        showUnlockDialog();
+        return;
+    }
+
     if (slot == processor.getActiveReferenceSlot())
         return;
 
@@ -1999,6 +2221,27 @@ void LudensScopeEditor::selectReferenceSlot (int slot)
 
 void LudensScopeEditor::applyReferenceSettings()
 {
+    if (! isFull())
+    {
+        lastReferenceGeneration = processor.referenceGeneration();
+        hasReference = false;
+        hasReferenceBand = false;
+        referencePath.clear();
+        showMatch = false;
+        levelMatch = false;
+        mirror = false;
+        matchLines.clear();
+
+        spectrumView.setShowMatch (false);
+        spectrumView.setMatchSuggestions (matchLines, false);
+        spectrumView.setReference (nullptr, false);
+        spectrumView.setReferencePlaceholder ("REFERENCE - FULL FEATURE");
+
+        processor.setReferenceMirror (false);
+        processor.setReferenceGainDb (0.0f);
+        return;
+    }
+
     const auto reference = processor.getReferenceSettings();
     lastReferenceGeneration = processor.referenceGeneration();
 
@@ -2113,6 +2356,12 @@ void LudensScopeEditor::deleteCurvePreset (int index)
 
 void LudensScopeEditor::applyTargetCurve (const juce::String& name)
 {
+    if (! isFull())
+    {
+        clearTargetCurve();
+        return;
+    }
+
     const auto* preset = curvePresets.find (name);
 
     if (preset == nullptr)
@@ -2357,6 +2606,12 @@ void LudensScopeEditor::filesDropped (const juce::StringArray& files, int, int)
 {
     fileDragActive = false;
     repaint();
+
+    if (! isFull())
+    {
+        showUnlockDialog();
+        return;
+    }
 
     if (files.isEmpty())
         return;
