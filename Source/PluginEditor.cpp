@@ -1406,14 +1406,17 @@ void LudensScopeEditor::applyFftSettings (const LudensScopeProcessor::FftSetting
 
 void LudensScopeEditor::saveFftSettings()
 {
+    const bool full = isFull();
+    const auto preserved = processor.getFftSettings();
+
     LudensScopeProcessor::FftSettings settings;
     settings.fftSize = analyzer.getFftSize();
     settings.timingPreset = timingPreset;
-    settings.tiltDbPerOctave = analyzer.getTilt();
+    settings.tiltDbPerOctave = full ? analyzer.getTilt() : preserved.tiltDbPerOctave;
     settings.windowType = (int) analyzer.getWindow();
-    settings.smoothingPreset = smoothingPreset;
-    settings.overlapPreset = overlapPreset;
-    settings.noteGrid = showNoteGrid ? 1 : 0;
+    settings.smoothingPreset = full ? smoothingPreset : preserved.smoothingPreset;
+    settings.overlapPreset = full ? overlapPreset : preserved.overlapPreset;
+    settings.noteGrid = full ? (showNoteGrid ? 1 : 0) : preserved.noteGrid;
 
     processor.setFftSettings (settings);
 }
@@ -1666,25 +1669,29 @@ void LudensScopeEditor::saveViewSettings()
     if (applyingSettings)
         return;
 
+    const bool full = isFull();
+    const auto preserved = processor.getViewSettings();
+
     LudensScopeProcessor::ViewSettings settings;
     settings.guidesEnabled = guidesEnabled ? 1 : 0;
     settings.guidePreset = guidePreset;
-    settings.sideCurve = showSide ? 1 : 0;
-    settings.peakMarkers = showPeakMarkers ? 1 : 0;
-    settings.difference = showDifference ? 1 : 0;
-    settings.differenceSource = differenceSource;
-    settings.targetCurveName = targetCurveActive ? targetCurveName : juce::String();
-    settings.levelMatch = levelMatch ? 1 : 0;
-    settings.mirror = mirror ? 1 : 0;
+    settings.sideCurve = full ? (showSide ? 1 : 0) : preserved.sideCurve;
+    settings.peakMarkers = full ? (showPeakMarkers ? 1 : 0) : preserved.peakMarkers;
+    settings.difference = full ? (showDifference ? 1 : 0) : preserved.difference;
+    settings.differenceSource = full ? differenceSource : preserved.differenceSource;
+    settings.targetCurveName = full ? (targetCurveActive ? targetCurveName : juce::String())
+                                    : preserved.targetCurveName;
+    settings.levelMatch = full ? (levelMatch ? 1 : 0) : preserved.levelMatch;
+    settings.mirror = full ? (mirror ? 1 : 0) : preserved.mirror;
     settings.spanIndex = spanIndex;
     settings.rangeLow = rangeLow;
     settings.rangeHigh = rangeHigh;
     settings.targetLufs = meterPanel.getTarget();
     settings.waterfallHistory = waterfallHistory;
     settings.waterfallRatio = waterfallRatio;
-    settings.gainStaging = gainStaging ? 1 : 0;
-    settings.vuZeroDbfs = vuZeroDbfs;
-    settings.showMatch = showMatch ? 1 : 0;
+    settings.gainStaging = full ? (gainStaging ? 1 : 0) : preserved.gainStaging;
+    settings.vuZeroDbfs = full ? vuZeroDbfs : preserved.vuZeroDbfs;
+    settings.showMatch = full ? (showMatch ? 1 : 0) : preserved.showMatch;
     settings.uiScalePercent = uiScalePercent;
     settings.oscWindow = oscilloscopeView.getWindowSamples();
     settings.oscGain = oscilloscopeView.getVerticalGain();
