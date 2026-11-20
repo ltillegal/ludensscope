@@ -53,6 +53,86 @@ namespace
         return ok && overrideOk;
     }
 
+    bool testMachineActivation()
+    {
+        juce::RSAKey pub, priv;
+        juce::RSAKey::createKeyPair (pub, priv, 2048);
+
+        const auto makeKey = [&] (const juce::String& email, const juce::String& issued)
+        {
+            const juce::String payload = "LudensScope|FULL|" + email + "|" + issued;
+
+            juce::MemoryBlock block (256, true);
+            block[0] = 0x01;
+
+            const auto hash = juce::SHA256 (payload.toRawUTF8(),
+                                            payload.getNumBytesAsUTF8()).getRawData();
+            std::memcpy (static_cast<char*> (block.getData()) + 1,
+                         hash.getData(), juce::jmin ((size_t) hash.getSize(), (size_t) 32));
+
+            juce::BigInteger sig;
+            sig.loadFromMemoryBlock (block);
+            priv.applyToValue (sig);
+
+            const auto sigBlock = sig.toMemoryBlock();
+            return "LS1|" + juce::Base64::toBase64 (payload)
+                 + "|" + juce::Base64::toBase64 (sigBlock.getData(), sigBlock.getSize());
+        };
+
+        const auto dir = juce::File::getSpecialLocation (juce::File::tempDirectory)
+                             .getChildFile ("ludensscope-activation-test");
+        dir.deleteRecursively();
+        dir.createDirectory();
+
+        LudensScopeLicence::setLicenceDirectoryForTesting (dir);
+        LudensScopeLicence::setPublicKeyForTesting (pub.toString());
+
+        const auto activationFile = dir.getChildFile ("licence-machines.txt");
+        const auto countRecords = [&]()
+        {
+            auto lines = juce::StringArray::fromLines (activationFile.loadFileAsString());
+            lines.removeEmptyStrings();
+            return lines.size();
+        };
+        const auto newKey = makeKey ("buyer@example.com", "2026-12-01");
+        juce::String error;
+
+        LudensScopeLicence::setMachineHashesForTesting (juce::StringArray { "machine-A" });
+        const bool first = LudensScopeLicence::saveAndVerify (newKey, error) && error.isEmpty();
+        const auto firstRecord = activationFile.loadFileAsString();
+        const bool recorded = firstRecord.contains ("machine-A") && countRecords() == 1;
+
+        LudensScopeLicence::setMachineHashesForTesting (juce::StringArray { "machine-B" });
+        const bool second = LudensScopeLicence::saveAndVerify (newKey, error) && error.isEmpty();
+        const bool twoRecords = countRecords() == 2;
+
+        LudensScopeLicence::setMachineHashesForTesting (juce::StringArray { "machine-C" });
+        const bool thirdRejected = ! LudensScopeLicence::saveAndVerify (newKey, error)
+                                   && error.contains ("2 machines");
+
+        LudensScopeLicence::setMachineHashesForTesting (juce::StringArray { "machine-A" });
+        const bool firstStillWorks = LudensScopeLicence::saveAndVerify (newKey, error)
+                                  && error.isEmpty();
+
+        // Keys issued before the cutoff stay unrestricted and are not recorded.
+        const auto oldKey = makeKey ("old@example.com", "2026-11-19");
+        LudensScopeLicence::setMachineHashesForTesting (juce::StringArray { "machine-C" });
+        const bool oldUnrestricted = LudensScopeLicence::saveAndVerify (oldKey, error)
+                                  && error.isEmpty();
+        const bool oldNotRecorded = countRecords() == 2;
+
+        LudensScopeLicence::setPublicKeyForTesting ({});
+        LudensScopeLicence::setMachineHashesForTesting ({});
+        LudensScopeLicence::setLicenceDirectoryForTesting ({});
+        dir.deleteRecursively();
+
+        const bool ok = first && recorded && second && twoRecords && thirdRejected
+                     && firstStillWorks && oldUnrestricted && oldNotRecorded;
+
+        std::printf ("machine activation: %s\n", ok ? "ok" : "FAIL");
+        return ok;
+    }
+
     void renderTestSignal (juce::AudioBuffer<float>& buffer, int blockIndex)
     {
         constexpr double sampleRate = 48000.0;
@@ -1009,11 +1089,12 @@ int main (int argc, char** argv)
     std::printf ("curve presets: %s\n", presetOk ? "ok" : "FAIL");
 
     const bool licenceOk = testLicence();
+    const bool activationOk = testMachineActivation();
 
     return clipped == 2 && undoOk && referenceOk && gainOk && seekOk
            && snapshotPersisted && settingsPersisted
            && sourceOk
            && referencePersisted
            && viewPersisted && presetOk && slotsOk && slotBLoaded && soloOk && loopOk && waveformOk
-           && vuFreezeOk && licenceOk ? 0 : 1;
+           && vuFreezeOk && licenceOk && activationOk ? 0 : 1;
 }

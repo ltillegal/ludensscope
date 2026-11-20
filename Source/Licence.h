@@ -47,8 +47,19 @@ public:
     };
 
     //==============================================================================
+    static const juce::String& activePublicKey()
+    {
+       #ifdef LUDENSCOPE_TEST_HOOKS
+        if (publicKeyOverride.isNotEmpty())
+            return publicKeyOverride;
+       #endif
+
+        static const juce::String key (kPublicKey);
+        return key;
+    }
+
     static Info parse (const juce::String& key,
-                       const juce::String& publicKeyString = kPublicKey)
+                       const juce::String& publicKeyString = activePublicKey())
     {
         Info info;
 
@@ -118,7 +129,7 @@ public:
     }
 
     static bool verifyKey (const juce::String& key,
-                           const juce::String& publicKeyString = kPublicKey)
+                           const juce::String& publicKeyString = activePublicKey())
     {
         return parse (key, publicKeyString).valid;
     }
@@ -126,6 +137,11 @@ public:
     //==============================================================================
     static juce::File file()
     {
+       #ifdef LUDENSCOPE_TEST_HOOKS
+        if (licenceDirectoryOverride.isDirectory())
+            return licenceDirectoryOverride.getChildFile ("licence.txt");
+       #endif
+
         return juce::File::getSpecialLocation (juce::File::userApplicationDataDirectory)
                    .getChildFile ("LudensScope")
                    .getChildFile ("licence.txt");
@@ -240,6 +256,23 @@ public:
         testingUnlock = shouldBeUnlocked;
         cachedState = shouldBeUnlocked ? 1 : -1;
     }
+
+    static void setLicenceDirectoryForTesting (const juce::File& dir)
+    {
+        licenceDirectoryOverride = dir;
+        resetCache();
+    }
+
+    static void setPublicKeyForTesting (const juce::String& key)
+    {
+        publicKeyOverride = key;
+        resetCache();
+    }
+
+    static void setMachineHashesForTesting (const juce::StringArray& hashes)
+    {
+        machineHashesOverride = hashes;
+    }
    #endif
 
     static void resetCache()
@@ -266,6 +299,11 @@ private:
     // counts as the same activation.
     static juce::StringArray machineHashes()
     {
+       #ifdef LUDENSCOPE_TEST_HOOKS
+        if (machineHashesOverride.size() > 0)
+            return machineHashesOverride;
+       #endif
+
         juce::StringArray hashes;
 
         const auto ids = juce::SystemStats::getMachineIdentifiers (
@@ -422,6 +460,9 @@ private:
 
    #ifdef LUDENSCOPE_TEST_HOOKS
     static inline bool testingUnlock = false;
+    static inline juce::File licenceDirectoryOverride;
+    static inline juce::String publicKeyOverride;
+    static inline juce::StringArray machineHashesOverride;
    #endif
     static inline int cachedState = -1;
     static inline juce::String cachedEmail;
