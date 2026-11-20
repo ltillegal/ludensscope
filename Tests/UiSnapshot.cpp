@@ -529,6 +529,16 @@ int main (int argc, char** argv)
 
     std::printf ("VU with sparse audio: %s\n", vuSparseOk ? "ok" : "FAIL");
 
+    // The VU panel stays a wide rectangle; the rest of the bottom row goes
+    // to the oscilloscope.
+    bool vuLayoutOk = true;
+
+    for (auto* child : editor->getChildren())
+        if (auto* vu = dynamic_cast<VuMeterView*> (child))
+            vuLayoutOk = vu->getWidth() > 0 && vu->getHeight() > 0
+                      && std::abs ((float) vu->getWidth() / (float) vu->getHeight() - 3.47f) < 0.5f;
+
+    std::printf ("VU layout: %s\n", vuLayoutOk ? "ok" : "FAIL");
 
     // Exercise the reference curve so the snapshot also covers that path.
     if (auto* ludens = dynamic_cast<LudensScopeEditor*> (editor.get()))
@@ -1125,5 +1135,5 @@ int main (int argc, char** argv)
            && sourceOk
            && referencePersisted
            && viewPersisted && presetOk && slotsOk && slotBLoaded && soloOk && loopOk && waveformOk
-           && vuFreezeOk && vuSparseOk && licenceOk && activationOk ? 0 : 1;
+           && vuFreezeOk && vuSparseOk && vuLayoutOk && licenceOk && activationOk ? 0 : 1;
 }
