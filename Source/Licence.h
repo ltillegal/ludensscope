@@ -3,10 +3,12 @@
 #include <cstring>
 #include <juce_cryptography/juce_cryptography.h>
 
-// Offline licence for LudensScope FULL.
+// Offline licence for LudensScope PRO.
 //
 // Key format:  LS1|<base64(payload)>|<base64(rsa-signature)>
 // Payload:     LudensScope|FULL|<email>|<issued YYYY-MM-DD>
+//              FULL stays in the signed payload for compatibility with
+//              existing keys; the UI calls this edition PRO.
 // Signature:   raw RSA (2048-bit) over the fixed 256-byte block
 //              [0x01][SHA-256(payload) 32 bytes][zero padding]
 //
@@ -18,7 +20,7 @@
 // locally on up to kMaxMachines machines. The activation record is a plain
 // sidecar file next to licence.txt and holds hashes of machine identifiers,
 // never personal data. Older keys stay unrestricted so an update cannot take
-// FULL away from an existing customer.
+// PRO away from an existing customer.
 class LudensScopeLicence
 {
 public:
@@ -78,7 +80,7 @@ public:
         const auto fields = juce::StringArray::fromTokens (payload, "|", "");
         if (fields.size() != 4 || fields[0] != kProduct || fields[1] != "FULL")
         {
-            info.error = "Licence payload is not a LudensScope FULL key.";
+            info.error = "Licence payload is not a LudensScope PRO key.";
             return info;
         }
 
@@ -215,9 +217,9 @@ public:
             refresh();
 
         if (cachedState == 1)
-            return "FULL";
+            return "PRO";
         if (cachedState == 2)
-            return "LEGACY FULL";
+            return "LEGACY PRO";
         if (cachedState == 3)
             return "MACHINE LIMIT";
 
@@ -420,7 +422,7 @@ private:
             || dir.getChildFile ("curve-presets.json").existsAsFile())
         {
             dir.getChildFile ("legacy.txt")
-               .replaceWithText ("Grandfathered FULL licence (0.4.x install)\n");
+               .replaceWithText ("Grandfathered PRO licence (0.4.x install)\n");
             return true;
         }
 

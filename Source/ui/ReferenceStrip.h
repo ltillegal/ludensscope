@@ -52,7 +52,7 @@ public:
 
         locked = shouldBeLocked;
         setTooltip (locked
-            ? "Reference analysis, transport and A-D slots are a FULL feature - press UNLOCK"
+            ? "Reference analysis, transport and A-D slots are a PRO feature - press UNLOCK"
             : juce::String());
         repaint();
     }
@@ -321,7 +321,7 @@ inline void ReferenceStrip::paint (juce::Graphics& g)
         g.setColour (theme::accent);
         g.drawRoundedRectangle (badge, badge.getHeight() * 0.5f, 1.0f);
         g.setFont (theme::detailFont (9.0f, uiScale));
-        g.drawText ("FULL", badge, juce::Justification::centred);
+        g.drawText ("PRO", badge, juce::Justification::centred);
     }
 }
 

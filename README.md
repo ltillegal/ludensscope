@@ -2,23 +2,23 @@
 
 [![build](https://github.com/ltillegal/ludensscope/actions/workflows/build.yml/badge.svg)](https://github.com/ltillegal/ludensscope/actions/workflows/build.yml)
 
-[Русский](README.ru.md) · **English** · [❤ Donate](https://www.paypal.com/ncp/payment/9LQYYZMR7TW7G)
+[Русский](README.ru.md) · **English** · [❤ Donate](https://www.paypal.com/donate/?business=0eskimo0%40gmail.com&item_name=LudensScope&currency_code=USD)
 
 A minimalist stereo analyser in **VST3, AU, AAX, CLAP** and standalone formats: spectrum, loudness
 to ITU-R BS.1770-4, true peak, vectorscope, oscilloscope and reference.
 
-The free Lite is not a time-limited demo. Holiday offer: FULL is a one-time
+The free Lite is not a time-limited demo. Holiday offer: PRO is a one-time
 EUR 19 (was EUR 29) purchase for the reference workflow, snapshot slots, gain
 staging, all 7 themes and the
 advanced FFT/display options. No subscriptions and no telemetry. The project
 state stores FFT snapshots, analyser settings, the UI state and the reference
 metadata. There are no general plugin presets — only named target curves.
 
-## Lite and FULL
+## Lite and PRO
 
 One installer, two editions.
 
-| Feature | Lite | FULL (EUR 19, was EUR 29) |
+| Feature | Lite | PRO (EUR 19, was EUR 29) |
 |---|:---:|:---:|
 | Spectrum, waterfall, LUFS/TP/LRA | yes | yes |
 | VU, oscilloscope, vectorscope | yes | yes |
@@ -34,17 +34,17 @@ One installer, two editions.
 | Target curves and curve presets | - | yes |
 | CSV export | - | yes |
 
-Press **UNLOCK** in the header (or `FFT -> Unlock FULL`) and paste the key.
-Holiday offer: FULL is a one-time PayPal purchase at EUR 19 (was EUR 29).
+Press **UNLOCK** in the header (or `FFT -> Unlock PRO`) and paste the key.
+Holiday offer: PRO is a one-time PayPal purchase at EUR 19 (was EUR 29).
 After paying, email alek.ludens@gmail.com and you will receive a key.
 The licence is offline, stored
 in the LudensScope config directory, and includes 1.x updates. No account and
 no telemetry. Keys issued from 1.0.4 onward activate on up to 2 machines;
 earlier keys stay unrestricted.
 
-[Buy FULL - EUR 19 (was EUR 29)](https://www.paypal.com/ncp/payment/9LQYYZMR7TW7G)
+[Buy PRO - EUR 19 (was EUR 29)](https://www.paypal.com/ncp/payment/9LQYYZMR7TW7G)
 
-**Existing 0.4.x users keep FULL for free.** The plugin grants a grandfathered
+**Existing 0.4.x users keep PRO for free.** The plugin grants a grandfathered
 licence when it finds the old `theme.txt` / `curve-presets.json` in the config
 directory; if it does not, email alek.ludens@gmail.com for a free key.
 
@@ -240,7 +240,7 @@ Linux — `.deb`, macOS — `.pkg` (VST3 + AU), Windows — `.exe`, plus
 `SHA256SUMS.txt`. There are no zip assets. The build version comes from
 `-DLUDENSCOPE_VERSION`, so the tag and the version must match. The update check
 only makes a network request when you ask for it. The licence lives outside the
-project and survives updates, so a Lite user who unlocked FULL stays FULL. The
+project and survives updates, so a Lite user who unlocked PRO stays PRO. The
 binaries are unsigned and not notarised — on macOS you may need to clear the
 quarantine flag.
 
@@ -297,22 +297,22 @@ Notes:
 - Updates only work through a published GitHub Release; there is no automatic
   installation because the host keeps the binary loaded until the DAW restarts.
 
-## FULL licence
+## PRO licence
 
-Holiday offer: FULL is a one-time EUR 19 (was EUR 29) PayPal purchase.
+Holiday offer: PRO is a one-time EUR 19 (was EUR 29) PayPal purchase.
 After payment email alek.ludens@gmail.com with the receipt and you will receive
 a licence key. The licence is offline and includes 1.x updates. Keys issued
 from 1.0.4 onward activate on up to 2 machines; earlier keys stay unrestricted.
 
-[Buy FULL - EUR 19 (was EUR 29)](https://www.paypal.com/ncp/payment/9LQYYZMR7TW7G)
+[Buy PRO - EUR 19 (was EUR 29)](https://www.paypal.com/ncp/payment/9LQYYZMR7TW7G)
 
-Existing 0.4.x users get FULL for free: the plugin grandfathered the old config
+Existing 0.4.x users get PRO for free: the plugin grandfathered the old config
 directory automatically, or email for a key.
 
 ## Support the project
 
 If LudensScope saves you time, you can support development via PayPal:
 
-[![Donate](https://img.shields.io/badge/Donate-PayPal-00457C?logo=paypal&logoColor=white)](https://www.paypal.com/ncp/payment/9LQYYZMR7TW7G)
+[![Donate](https://img.shields.io/badge/Donate-PayPal-00457C?logo=paypal&logoColor=white)](https://www.paypal.com/donate/?business=0eskimo0%40gmail.com&item_name=LudensScope&currency_code=USD)
 
-PayPal: [Donate](https://www.paypal.com/ncp/payment/9LQYYZMR7TW7G)
+PayPal: [Donate](https://www.paypal.com/donate/?business=0eskimo0%40gmail.com&item_name=LudensScope&currency_code=USD)

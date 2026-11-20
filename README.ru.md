@@ -2,23 +2,23 @@
 
 [![build](https://github.com/ltillegal/ludensscope/actions/workflows/build.yml/badge.svg)](https://github.com/ltillegal/ludensscope/actions/workflows/build.yml)
 
-**Русский** · [English](README.md) · [❤ Donate](https://www.paypal.com/ncp/payment/9LQYYZMR7TW7G)
+**Русский** · [English](README.md) · [❤ Donate](https://www.paypal.com/donate/?business=0eskimo0%40gmail.com&item_name=LudensScope&currency_code=USD)
 
 Минималистичный стерео-анализатор в форматах **VST3, AU, AAX, CLAP** и standalone: спектр, громкость
 по ITU-R BS.1770-4, true-peak, векторскоп, осциллограф и референс.
 
-Бесплатный Lite — не пробник по времени. Праздничная цена: FULL — разовая
+Бесплатный Lite — не пробник по времени. Праздничная цена: PRO — разовая
 покупка за 19 € (было 29 €): референс, снапшоты, gain staging, все 7 тем и
 продвинутые настройки FFT/дисплея.
 Без подписок и телеметрии. В состоянии проекта сохраняются снапшоты FFT,
 настройки анализатора, вид интерфейса и метаданные референса. Пользовательских
 пресетов плагина нет — только именованные target-кривые.
 
-## Lite и FULL
+## Lite и PRO
 
 Один установщик, две редакции.
 
-| Возможность | Lite | FULL (19 €, было 29 €) |
+| Возможность | Lite | PRO (19 €, было 29 €) |
 |---|:---:|:---:|
 | Спектр, waterfall, LUFS/TP/LRA | да | да |
 | VU, осциллограф, векторскоп | да | да |
@@ -34,16 +34,16 @@
 | Target-кривые и пресеты | — | да |
 | CSV export | — | да |
 
-Нажмите **UNLOCK** в шапке (или `FFT → Unlock FULL`) и вставьте ключ.
-Праздничная цена: FULL — разовая покупка через PayPal за 19 € (было 29 €).
+Нажмите **UNLOCK** в шапке (или `FFT → Unlock PRO`) и вставьте ключ.
+Праздничная цена: PRO — разовая покупка через PayPal за 19 € (было 29 €).
 После оплаты напишите на alek.ludens@gmail.com, придёт ключ. Лицензия офлайн,
 хранится в каталоге конфигурации LudensScope, обновления 1.x включены.
 Без аккаунта и телеметрии. Ключи, выданные с версии 1.0.4, активируются не более
 чем на 2 машинах; более старые ключи остаются без ограничений.
 
-[Купить FULL — 19 € (было 29 €)](https://www.paypal.com/ncp/payment/9LQYYZMR7TW7G)
+[Купить PRO — 19 € (было 29 €)](https://www.paypal.com/ncp/payment/9LQYYZMR7TW7G)
 
-**Пользователи 0.4.x сохраняют FULL бесплатно.** Плагин выдаёт
+**Пользователи 0.4.x сохраняют PRO бесплатно.** Плагин выдаёт
 grandfathered-лицензию, если находит старые `theme.txt` / `curve-presets.json`
 в каталоге конфигурации; если не нашёл — напишите на alek.ludens@gmail.com,
 ключ бесплатный.
@@ -239,8 +239,8 @@ Linux — `.deb`, macOS — `.pkg` (VST3 + AU), Windows — `.exe`; плюс
 `SHA256SUMS.txt`. Zip-архивов в ассетах нет. Версия сборки передаётся через
 `-DLUDENSCOPE_VERSION`, поэтому тег и версия должны совпадать. Проверка
 обновлений делает сетевой запрос только по нажатию. Лицензия хранится вне
-проекта и переживает обновления: Lite-пользователь, разблокировавший FULL,
-остаётся FULL. Бинарники не подписаны и не нотаризованы — на macOS может
+проекта и переживает обновления: Lite-пользователь, разблокировавший PRO,
+остаётся PRO. Бинарники не подписаны и не нотаризованы — на macOS может
 понадобиться снять quarantine.
 
 ## macOS + Cubase / Logic
@@ -295,22 +295,22 @@ Cubase. Плагин появится в категории `Analyzer`. Для L
 - Обновления проверяются только через опубликованный GitHub Release;
   автоматической установки нет — файл занят хостом до перезапуска DAW.
 
-## Лицензия FULL
+## Лицензия PRO
 
-Праздничная цена: FULL — разовая покупка за 19 € (было 29 €) через PayPal.
+Праздничная цена: PRO — разовая покупка за 19 € (было 29 €) через PayPal.
 После оплаты напишите на alek.ludens@gmail.com с чеком, придёт ключ.
 Лицензия офлайн, обновления 1.x включены. Ключи с версии 1.0.4 активируются
 не более чем на 2 машинах; старые ключи остаются без ограничений.
 
-[Купить FULL — 19 € (было 29 €)](https://www.paypal.com/ncp/payment/9LQYYZMR7TW7G)
+[Купить PRO — 19 € (было 29 €)](https://www.paypal.com/ncp/payment/9LQYYZMR7TW7G)
 
-Пользователи 0.4.x получают FULL бесплатно: старый каталог конфигурации
+Пользователи 0.4.x получают PRO бесплатно: старый каталог конфигурации
 грандфазерится автоматически, либо напишите за ключом.
 
 ## Поддержать проект
 
 Если LudensScope экономит время — можно поддержать разработку через PayPal:
 
-[![Donate](https://img.shields.io/badge/Donate-PayPal-00457C?logo=paypal&logoColor=white)](https://www.paypal.com/ncp/payment/9LQYYZMR7TW7G)
+[![Donate](https://img.shields.io/badge/Donate-PayPal-00457C?logo=paypal&logoColor=white)](https://www.paypal.com/donate/?business=0eskimo0%40gmail.com&item_name=LudensScope&currency_code=USD)
 
-PayPal: [Donate](https://www.paypal.com/ncp/payment/9LQYYZMR7TW7G)
+PayPal: [Donate](https://www.paypal.com/donate/?business=0eskimo0%40gmail.com&item_name=LudensScope&currency_code=USD)

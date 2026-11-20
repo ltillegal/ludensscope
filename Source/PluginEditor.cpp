@@ -8,6 +8,40 @@
 
 #include <algorithm>
 
+namespace
+{
+juce::File persistedUiStateFile()
+{
+    return juce::File::getSpecialLocation (juce::File::userApplicationDataDirectory)
+             .getChildFile ("LudensScope")
+             .getChildFile ("ui-state.bin");
+}
+
+// The standalone host writes its own JUCE filterState, but only on a clean
+// close handshake that is unreliable in the kiosk session. Keep an independent
+// copy next to the licence and refresh it on every UI setting change.
+void persistUiState (juce::AudioProcessor& proc)
+{
+    juce::MemoryBlock data;
+    proc.getStateInformation (data);
+
+    const auto file = persistedUiStateFile();
+    file.getParentDirectory().createDirectory();
+    file.replaceWithData (data.getData(), data.getSize());
+}
+
+void restorePersistedUiState (juce::AudioProcessor& proc)
+{
+    const auto file = persistedUiStateFile();
+    if (! file.existsAsFile())
+        return;
+
+    juce::MemoryBlock data;
+    if (file.loadFileAsData (data) && data.getSize() > 0)
+        proc.setStateInformation (data.getData(), (int) data.getSize());
+}
+}
+
 class ScopeLookAndFeel final : public juce::LookAndFeel_V4
 {
 public:
@@ -260,7 +294,7 @@ LudensScopeEditor::LudensScopeEditor (LudensScopeProcessor& p)
     origButton.onClick = [this] { selectSource (false); };
     refButton.onClick = [this] { selectSource (true); };
 
-    themeButton.setTooltip ("Interface colour theme (FULL: 7 themes)");
+    themeButton.setTooltip ("Interface colour theme (PRO: 7 themes)");
     themeButton.onClick = [this] { showThemeMenu(); };
     addAndMakeVisible (themeButton);
 
@@ -272,7 +306,7 @@ LudensScopeEditor::LudensScopeEditor (LudensScopeProcessor& p)
     donateButton.setTooltip ("Donate via PayPal");
     donateButton.onClick = []
     {
-        juce::URL ("https://www.paypal.com/ncp/payment/9LQYYZMR7TW7G").launchInDefaultBrowser();
+        juce::URL ("https://www.paypal.com/donate/?business=0eskimo0%40gmail.com&item_name=LudensScope&currency_code=USD").launchInDefaultBrowser();
     };
     addAndMakeVisible (donateButton);
 
@@ -349,6 +383,9 @@ LudensScopeEditor::LudensScopeEditor (LudensScopeProcessor& p)
         processor.setSelectedSnapshot (snapshotSlot);
         spectrumView.setSnapshots (snapshots, snapshotFilled, snapshotSlot);
     };
+
+    // Our own state file is authoritative in the kiosk session.
+    restorePersistedUiState (processor);
 
     syncSnapshots();
 
@@ -490,7 +527,7 @@ void LudensScopeEditor::paint (juce::Graphics& g)
         const auto licence = LudensScopeLicence::isLegacy()
             ? juce::String ("LICENSED TO LEGACY (0.4.x)")
             : (email.isNotEmpty() ? "LICENSED TO " + email.toUpperCase()
-                                  : juce::String ("LICENSED TO FULL"));
+                                  : juce::String ("LICENSED TO PRO"));
 
         g.setFont (theme::detailFont (8.5f, uiScale));
         g.setColour (theme::accent.withAlpha (0.78f));
@@ -566,20 +603,32 @@ void LudensScopeEditor::resized()
     auto rail = railBounds.withTrimmedLeft (2).withTrimmedRight (2)
                           .withTrimmedTop (juce::roundToInt (8.0f * uiScale));
     const int available = juce::jmax (0, rail.getHeight());
-    const int buttonGap = juce::roundToInt (2.0f * uiScale);
-    const int buttonHeight = juce::jmax (juce::roundToInt (22.0f * uiScale),
-                                         (available - buttonGap * 8) / 9);
-
-    const int stackHeight = buttonHeight * 9 + buttonGap * 8;
-    auto stack = rail.withHeight (juce::jmin (available, stackHeight));
 
     juce::Component* const buttons[] = {
         &fftButton, &guidesButton, &spanButton, &monoButton,
         &captureButton, &freezeButton, &undoButton, &resetButton, &donateButton
     };
 
+    int buttonCount = 0;
+    for (auto* button : buttons)
+        if (button->isVisible())
+            ++buttonCount;
+
+    buttonCount = juce::jmax (1, buttonCount);
+
+    const int buttonGap = juce::roundToInt (2.0f * uiScale);
+    const int buttonHeight = juce::jmax (
+        juce::roundToInt (22.0f * uiScale),
+        (available - buttonGap * (buttonCount - 1)) / buttonCount);
+
+    const int stackHeight = buttonHeight * buttonCount + buttonGap * (buttonCount - 1);
+    auto stack = rail.withHeight (juce::jmin (available, stackHeight));
+
     for (auto* button : buttons)
     {
+        if (! button->isVisible())
+            continue;
+
         button->setBounds (stack.removeFromTop (buttonHeight));
         stack.removeFromTop (buttonGap);
     }
@@ -1116,13 +1165,13 @@ void LudensScopeEditor::showFftMenu()
     fftMenu.addItem (202, "Slow", true, timingPreset == 2);
 
     fftMenu.addSeparator();
-    fftMenu.addSectionHeader (full ? "Tilt" : "Tilt (FULL)");
+    fftMenu.addSectionHeader (full ? "Tilt" : "Tilt (PRO)");
     fftMenu.addItem (300, "Off", full, analyzer.getTilt() == 0.0f);
     fftMenu.addItem (301, "+3 dB/oct", full, analyzer.getTilt() == 3.0f);
     fftMenu.addItem (302, "+4.5 dB/oct", full, analyzer.getTilt() == 4.5f);
 
     fftMenu.addSeparator();
-    fftMenu.addSectionHeader (full ? "Smoothing" : "Smoothing (FULL)");
+    fftMenu.addSectionHeader (full ? "Smoothing" : "Smoothing (PRO)");
 
     const char* smoothing[] = { "Off", "1/1 octave", "1/3 octave", "1/6 octave" };
 
@@ -1130,7 +1179,7 @@ void LudensScopeEditor::showFftMenu()
         fftMenu.addItem (800 + i, smoothing[i], full, smoothingPreset == i);
 
     fftMenu.addSeparator();
-    fftMenu.addSectionHeader (full ? "FFT overlap" : "FFT overlap (FULL)");
+    fftMenu.addSectionHeader (full ? "FFT overlap" : "FFT overlap (PRO)");
     fftMenu.addItem (900, "Off", full, overlapPreset == 0);
     fftMenu.addItem (901, "2x (50%)", full, overlapPreset == 1);
     fftMenu.addItem (902, "4x (75%)", full, overlapPreset == 2);
@@ -1150,16 +1199,16 @@ void LudensScopeEditor::showFftMenu()
     displayMenu.addItem (742, "Extra smooth (150 ms)", true, vuInputSmoothingMs == 150);
 
     displayMenu.addSeparator();
-    displayMenu.addItem (601, full ? "Difference shading" : "Difference shading [FULL]", full, showDifference);
+    displayMenu.addItem (601, full ? "Difference shading" : "Difference shading [PRO]", full, showDifference);
     displayMenu.addItem (610, "  vs snapshot", full, differenceSource == 0);
     displayMenu.addItem (611, "  vs REF FILE", full, differenceSource == 1);
     displayMenu.addItem (612, "  vs live", full, differenceSource == 2);
-    displayMenu.addItem (600, full ? "Peak markers" : "Peak markers [FULL]", full, showPeakMarkers);
-    displayMenu.addItem (602, full ? "Side (M/S) curve" : "Side (M/S) curve [FULL]", full, showSide);
-    displayMenu.addItem (603, full ? "Note grid" : "Note grid [FULL]", full, showNoteGrid);
+    displayMenu.addItem (600, full ? "Peak markers" : "Peak markers [PRO]", full, showPeakMarkers);
+    displayMenu.addItem (602, full ? "Side (M/S) curve" : "Side (M/S) curve [PRO]", full, showSide);
+    displayMenu.addItem (603, full ? "Note grid" : "Note grid [PRO]", full, showNoteGrid);
 
     displayMenu.addSeparator();
-    displayMenu.addSectionHeader (full ? "Gain staging" : "Gain staging (FULL)");
+    displayMenu.addSectionHeader (full ? "Gain staging" : "Gain staging (PRO)");
     displayMenu.addItem (720, "Reference lines (FFT)", full, gainStaging);
     displayMenu.addItem (721, "0 VU = -18 dBFS (EBU)", full, vuZeroDbfs == -18);
     displayMenu.addItem (722, "0 VU = -20 dBFS (SMPTE)", full, vuZeroDbfs == -20);
@@ -1167,10 +1216,10 @@ void LudensScopeEditor::showFftMenu()
     menu.addSubMenu ("Display", displayMenu);
 
     juce::PopupMenu referenceMenu;
-    referenceMenu.addItem (730, full ? "Suggested EQ (REF)" : "Suggested EQ (REF) [FULL]",
+    referenceMenu.addItem (730, full ? "Suggested EQ (REF)" : "Suggested EQ (REF) [PRO]",
                            full && hasReference, showMatch);
     referenceMenu.addSeparator();
-    referenceMenu.addSectionHeader (full ? "Curve presets" : "Curve presets (FULL)");
+    referenceMenu.addSectionHeader (full ? "Curve presets" : "Curve presets (PRO)");
     referenceMenu.addItem (1000, "Save current curve...", full, false);
 
     const auto& curves = curvePresets.getPresets();
@@ -1202,7 +1251,7 @@ void LudensScopeEditor::showFftMenu()
         anySnapshot = anySnapshot || processor.isSnapshotFilled (slot);
 
     juce::PopupMenu exportMenu;
-    exportMenu.addItem (500, full ? "Export snapshots (CSV)..." : "Export snapshots (CSV) [FULL]",
+    exportMenu.addItem (500, full ? "Export snapshots (CSV)..." : "Export snapshots (CSV) [PRO]",
                         full && anySnapshot);
     exportMenu.addItem (501, "Export view (PNG)...", true);
     menu.addSubMenu ("Export", exportMenu);
@@ -1211,7 +1260,7 @@ void LudensScopeEditor::showFftMenu()
     menu.addItem (630, "Check for updates...", true, false);
 
     if (! full)
-        menu.addItem (640, "Unlock FULL - EUR 19 (was EUR 29)...", true, false);
+        menu.addItem (640, "Unlock PRO - EUR 19 (was EUR 29)...", true, false);
 
     juce::Component::SafePointer<LudensScopeEditor> safe (this);
 
@@ -1491,6 +1540,7 @@ void LudensScopeEditor::saveFftSettings()
     settings.noteGrid = full ? (showNoteGrid ? 1 : 0) : preserved.noteGrid;
 
     processor.setFftSettings (settings);
+    persistUiState (processor);
 }
 
 void LudensScopeEditor::exportSnapshots()
@@ -1773,6 +1823,7 @@ void LudensScopeEditor::saveViewSettings()
     settings.oscGain = oscilloscopeView.getVerticalGain();
 
     processor.setViewSettings (settings);
+    persistUiState (processor);
 }
 
 void LudensScopeEditor::setGuidesEnabled (bool enabled)
@@ -2077,7 +2128,7 @@ void LudensScopeEditor::showUnlockDialog()
             juce::MessageBoxIconType::InfoIcon,
             "LudensScope " + status,
             LudensScopeLicence::isLegacy()
-                ? "Grandfathered FULL licence from a 0.4.x installation.\n\n"
+                ? "Grandfathered PRO licence from a 0.4.x installation.\n\n"
                   "Thank you for supporting LudensScope."
                 : "Licensed to: " + LudensScopeLicence::licensedEmail() + "\n\n"
                   "Offline licence, no account and no telemetry.\n"
@@ -2086,7 +2137,7 @@ void LudensScopeEditor::showUnlockDialog()
     }
 
     juce::String message =
-        "FULL adds the ORIG/REF reference analysis and transport, snapshot slots, "
+        "PRO adds the ORIG/REF reference analysis and transport, snapshot slots, "
         "gain staging lines, all 7 themes, advanced FFT options, target curves "
         "and CSV export.\n\n"
         "Holiday offer: EUR 19 (was EUR 29) via PayPal. After payment email "
@@ -2098,11 +2149,11 @@ void LudensScopeEditor::showUnlockDialog()
         message += "\n\n" + LudensScopeLicence::activationMessage();
 
     auto* aw = new juce::AlertWindow (
-        "Unlock LudensScope FULL", message, juce::MessageBoxIconType::NoIcon);
+        "Unlock LudensScope PRO", message, juce::MessageBoxIconType::NoIcon);
 
     aw->addTextEditor ("key", LudensScopeLicence::load(), "Licence key");
     aw->addButton ("Unlock", 1, juce::KeyPress (juce::KeyPress::returnKey));
-    aw->addButton ("Buy FULL - EUR 19", 2);
+    aw->addButton ("Buy PRO - EUR 19 (was EUR 29)", 2);
     aw->addButton ("Cancel", 0, juce::KeyPress (juce::KeyPress::escapeKey));
 
     aw->enterModalState (true, juce::ModalCallbackFunction::create (
@@ -2118,8 +2169,8 @@ void LudensScopeEditor::showUnlockDialog()
 
                     juce::AlertWindow::showMessageBoxAsync (
                         juce::MessageBoxIconType::InfoIcon,
-                        "LudensScope FULL",
-                        "Thank you! FULL features are now unlocked.");
+                        "LudensScope PRO",
+                        "Thank you! PRO features are now unlocked.");
                 }
                 else
                 {
@@ -2142,11 +2193,13 @@ void LudensScopeEditor::applyEdition()
     const bool full = isFull();
     const bool legacy = LudensScopeLicence::isLegacy();
 
-    unlockButton.setButtonText (full ? "FULL" : "UNLOCK");
+    donateButton.setVisible (! full);
+
+    unlockButton.setButtonText (full ? "PRO" : "UNLOCK");
     unlockButton.setEnabled (! full);
     unlockButton.setTooltip (full
-        ? (legacy ? "Grandfathered FULL licence (0.4.x)" : "LudensScope FULL licence")
-        : "Unlock LudensScope FULL - EUR 19 (was EUR 29) via PayPal");
+        ? (legacy ? "Grandfathered PRO licence (0.4.x)" : "LudensScope PRO licence")
+        : "Unlock LudensScope PRO - EUR 19 (was EUR 29) via PayPal");
 
     if (! full)
     {
@@ -2185,7 +2238,7 @@ void LudensScopeEditor::applyEdition()
     captureButton.setEnabled (full);
     captureButton.setTooltip (full
         ? "Store the averaged spectrum in the selected snapshot slot"
-        : "Snapshot slots are a FULL feature");
+        : "Snapshot slots are a PRO feature");
 
     syncSnapshots();
     applyReferenceSettings();
@@ -2323,7 +2376,7 @@ void LudensScopeEditor::applyReferenceSettings()
         spectrumView.setShowMatch (false);
         spectrumView.setMatchSuggestions (matchLines, false);
         spectrumView.setReference (nullptr, false);
-        spectrumView.setReferencePlaceholder ("REFERENCE - FULL FEATURE");
+        spectrumView.setReferencePlaceholder ("REFERENCE - PRO FEATURE");
 
         processor.setReferenceMirror (false);
         processor.setReferenceGainDb (0.0f);
