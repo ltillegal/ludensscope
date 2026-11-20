@@ -7,7 +7,7 @@ if(CMAKE_HOST_SYSTEM_NAME STREQUAL "Darwin")
 endif()
 
 if(NOT DEFINED LUDENSCOPE_VERSION)
-  set(LUDENSCOPE_VERSION "1.0.3")
+  set(LUDENSCOPE_VERSION "1.0.4")
 endif()
 project(LudensScope VERSION ${LUDENSCOPE_VERSION} LANGUAGES C CXX)
 add_compile_definitions (LUDENSCOPE_VERSION_STRING="${LUDENSCOPE_VERSION}")
@@ -129,7 +129,8 @@ if(LUDENSCOPE_BUILD_TESTS)
   target_compile_definitions(LudensScopeUiSnapshot PRIVATE
     JUCE_STANDALONE_APPLICATION=1
     JUCE_MODAL_LOOPS_PERMITTED=1
-    JUCE_WEB_BROWSER=0)
+    JUCE_WEB_BROWSER=0
+    LUDENSCOPE_TEST_HOOKS=1)
   target_link_libraries(LudensScopeUiSnapshot PRIVATE
     juce::juce_audio_utils
     juce::juce_dsp

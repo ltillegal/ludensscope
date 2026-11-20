@@ -2043,15 +2043,20 @@ void LudensScopeEditor::showUnlockDialog()
         return;
     }
 
-    auto* aw = new juce::AlertWindow (
-        "Unlock LudensScope FULL",
+    juce::String message =
         "FULL adds the ORIG/REF reference analysis and transport, snapshot slots, "
         "gain staging lines, all 7 themes, advanced FFT options, target curves "
         "and CSV export.\n\n"
         "Holiday offer: EUR 19 (was EUR 29) via PayPal. After payment email "
         "alek.ludens@gmail.com and you will receive a licence key. The licence "
-        "is offline, valid on 2 machines and includes 1.x updates.",
-        juce::MessageBoxIconType::NoIcon);
+        "is offline, includes 1.x updates and, for keys issued from 1.0.4, is "
+        "activated on up to 2 machines.";
+
+    if (LudensScopeLicence::isMachineLimitReached())
+        message += "\n\n" + LudensScopeLicence::activationMessage();
+
+    auto* aw = new juce::AlertWindow (
+        "Unlock LudensScope FULL", message, juce::MessageBoxIconType::NoIcon);
 
     aw->addTextEditor ("key", LudensScopeLicence::load(), "Licence key");
     aw->addButton ("Unlock", 1, juce::KeyPress (juce::KeyPress::returnKey));

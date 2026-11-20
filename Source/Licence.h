@@ -13,10 +13,20 @@
 // Only the seller holds the private key (scripts/make-licence, private key
 // outside the repository). The plugin verifies locally with the public key
 // below. No server, no account, no telemetry.
+//
+// Machine activation: keys issued after kActivationCutoffDate are activated
+// locally on up to kMaxMachines machines. The activation record is a plain
+// sidecar file next to licence.txt and holds hashes of machine identifiers,
+// never personal data. Older keys stay unrestricted so an update cannot take
+// FULL away from an existing customer.
 class LudensScopeLicence
 {
 public:
     static constexpr const char* kProduct = "LudensScope";
+
+    // Keys issued on or before this date predate activation and stay unlimited.
+    static constexpr const char* kActivationCutoffDate = "2026-11-19";
+    static constexpr int kMaxMachines = 2;
 
     // Seller public key in JUCE RSAKey toString() format: "<e hex>,<n hex>".
     // Replace only together with the private key used by scripts/make-licence.
@@ -136,14 +146,19 @@ public:
 
     static bool saveAndVerify (const juce::String& key, juce::String& error)
     {
-        const auto info = parse (key);
+        const auto trimmed = key.trim();
+        const auto info = parse (trimmed);
         if (! info.valid)
         {
             error = info.error;
             return false;
         }
 
-        save (key);
+        error = machineLimitError (trimmed);
+        if (error.isNotEmpty())
+            return false;
+
+        save (trimmed);
         error.clear();
         return true;
     }
@@ -151,8 +166,10 @@ public:
     //==============================================================================
     static bool isUnlocked()
     {
+       #ifdef LUDENSCOPE_TEST_HOOKS
         if (testingUnlock)
             return true;
+       #endif
 
         if (cachedState < 0)
             refresh();
@@ -185,8 +202,26 @@ public:
             return "FULL";
         if (cachedState == 2)
             return "LEGACY FULL";
+        if (cachedState == 3)
+            return "MACHINE LIMIT";
 
         return "LITE";
+    }
+
+    static bool isMachineLimitReached()
+    {
+        if (cachedState < 0)
+            refresh();
+
+        return cachedState == 3;
+    }
+
+    static juce::String activationMessage()
+    {
+        if (cachedState < 0)
+            refresh();
+
+        return cachedMessage;
     }
 
     static juce::String licensedEmail()
@@ -198,20 +233,118 @@ public:
     }
 
     //==============================================================================
-    // Test hooks: never used by the shipping UI.
+   #ifdef LUDENSCOPE_TEST_HOOKS
+    // Compiled only into the test binary; absent from every shipping plugin.
     static void setTestingUnlock (bool shouldBeUnlocked)
     {
         testingUnlock = shouldBeUnlocked;
         cachedState = shouldBeUnlocked ? 1 : -1;
     }
+   #endif
 
     static void resetCache()
     {
         cachedState = -1;
         cachedEmail.clear();
+        cachedMessage.clear();
     }
 
 private:
+    static juce::String shortHash (const juce::String& text)
+    {
+        return juce::SHA256 (text.toRawUTF8(), text.getNumBytesAsUTF8())
+                   .toHexString().substring (0, 16);
+    }
+
+    static juce::File activationFile()
+    {
+        return file().getParentDirectory().getChildFile ("licence-machines.txt");
+    }
+
+    // Several identifiers are stored per machine: a MAC can change when a
+    // network card is replaced, so any one of them identifying the machine
+    // counts as the same activation.
+    static juce::StringArray machineHashes()
+    {
+        juce::StringArray hashes;
+
+        const auto ids = juce::SystemStats::getMachineIdentifiers (
+            juce::SystemStats::MachineIdFlags::uniqueId
+          | juce::SystemStats::MachineIdFlags::fileSystemId
+          | juce::SystemStats::MachineIdFlags::macAddresses);
+
+        for (const auto& id : ids)
+            if (id.isNotEmpty())
+                hashes.add (shortHash (id));
+
+        hashes.removeDuplicates (false);
+        return hashes;
+    }
+
+    // Empty result means the key may be used here. Otherwise it explains that
+    // both activations are already taken.
+    static juce::String machineLimitError (const juce::String& key)
+    {
+        const auto info = parse (key);
+        if (! info.valid)
+            return {};
+
+        if (info.issued.compare (kActivationCutoffDate) <= 0)
+            return {};
+
+        const auto mine = machineHashes();
+        if (mine.isEmpty())
+            return {};
+
+        const auto keyId = shortHash (key);
+        auto lines = juce::StringArray::fromLines (activationFile().loadFileAsString());
+        juce::StringArray kept;
+        int used = 0;
+        bool activatedHere = false;
+
+        for (const auto& line : lines)
+        {
+            const auto cols = juce::StringArray::fromTokens (line, "|", "");
+
+            if (cols.size() < 2 || cols[0] != keyId)
+            {
+                kept.add (line);
+                continue;
+            }
+
+            const auto recorded = juce::StringArray::fromTokens (cols[1], ",", "");
+            bool matches = false;
+
+            for (const auto& hash : mine)
+                if (recorded.contains (hash))
+                {
+                    matches = true;
+                    break;
+                }
+
+            if (matches)
+                activatedHere = true;
+
+            kept.add (line);
+            ++used;
+        }
+
+        if (! activatedHere && used >= kMaxMachines)
+            return "This key is already active on " + juce::String (kMaxMachines)
+                   + " machines. Email alek.ludens@gmail.com to move it to another machine.";
+
+        if (! activatedHere)
+        {
+            kept.add (keyId + "|" + mine.joinIntoString (","));
+
+            auto f = activationFile();
+            f.getParentDirectory().createDirectory();
+            f.replaceWithText (kept.joinIntoString ("\n") + "\n");
+        }
+
+        return {};
+    }
+
     static juce::MemoryBlock decode (const juce::String& text)
     {
         juce::MemoryOutputStream out;
@@ -258,14 +391,17 @@ private:
 
     static void refresh()
     {
+       #ifdef LUDENSCOPE_TEST_HOOKS
         if (testingUnlock)
         {
             cachedState = 1;
             return;
         }
+       #endif
 
         cachedState = 0;
         cachedEmail.clear();
+        cachedMessage.clear();
 
         const auto key = load();
         if (key.isNotEmpty())
@@ -273,8 +409,9 @@ private:
             const auto info = parse (key);
             if (info.valid)
             {
-                cachedState = 1;
                 cachedEmail = info.email;
+                cachedMessage = machineLimitError (key);
+                cachedState = cachedMessage.isEmpty() ? 1 : 3;
                 return;
             }
         }
@@ -283,7 +420,10 @@ private:
             cachedState = 2;
     }
 
+   #ifdef LUDENSCOPE_TEST_HOOKS
     static inline bool testingUnlock = false;
+   #endif
     static inline int cachedState = -1;
     static inline juce::String cachedEmail;
+    static inline juce::String cachedMessage;
 };

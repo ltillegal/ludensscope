@@ -38,8 +38,9 @@ Press **UNLOCK** in the header (or `FFT -> Unlock FULL`) and paste the key.
 Holiday offer: FULL is a one-time PayPal purchase at EUR 19 (was EUR 29).
 After paying, email alek.ludens@gmail.com and you will receive a key.
 The licence is offline, stored
-in the LudensScope config directory, valid on 2 machines and includes 1.x
-updates. No account and no telemetry.
+in the LudensScope config directory, and includes 1.x updates. No account and
+no telemetry. Keys issued from 1.0.4 onward activate on up to 2 machines;
+earlier keys stay unrestricted.
 
 [Buy FULL - EUR 19 (was EUR 29)](https://www.paypal.com/ncp/payment/9LQYYZMR7TW7G)
 
@@ -300,8 +301,8 @@ Notes:
 
 Holiday offer: FULL is a one-time EUR 19 (was EUR 29) PayPal purchase.
 After payment email alek.ludens@gmail.com with the receipt and you will receive
-a licence key. The
-licence is offline, valid on 2 machines and includes 1.x updates.
+a licence key. The licence is offline and includes 1.x updates. Keys issued
+from 1.0.4 onward activate on up to 2 machines; earlier keys stay unrestricted.
 
 [Buy FULL - EUR 19 (was EUR 29)](https://www.paypal.com/ncp/payment/9LQYYZMR7TW7G)
 
