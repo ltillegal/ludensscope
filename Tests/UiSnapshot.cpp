@@ -529,6 +529,7 @@ int main (int argc, char** argv)
 
     std::printf ("VU with sparse audio: %s\n", vuSparseOk ? "ok" : "FAIL");
 
+
     // Exercise the reference curve so the snapshot also covers that path.
     if (auto* ludens = dynamic_cast<LudensScopeEditor*> (editor.get()))
     {

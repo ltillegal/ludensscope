@@ -610,10 +610,19 @@ void LudensScopeEditor::resized()
 
     // The VU meter has a natural width of 400 px at 100%; never take more than
     // half of the bottom row, so the oscilloscope keeps a usable share.
-    const int vuWidth = juce::jlimit (240, 480,
-                                      juce::jmin (juce::roundToInt (400.0f * uiScale),
-                                                  juce::roundToInt (bottom.getWidth() * 0.50f)));
-    auto vuBounds = bottom.removeFromLeft (vuWidth);
+    // Shrink width and height by the same factor so the two meter faces keep
+    // their proportions while the oscilloscope gains horizontal room.
+    constexpr float vuShrink = 0.85f;
+    const int fullVuWidth = juce::jlimit (240, 480,
+                                          juce::jmin (juce::roundToInt (400.0f * uiScale),
+                                                      juce::roundToInt (bottom.getWidth() * 0.50f)));
+    const int vuWidth = juce::jmax (200, juce::roundToInt ((float) fullVuWidth * vuShrink));
+    const int vuHeight = juce::jmin (bottom.getHeight(),
+                                     juce::jmax (96, juce::roundToInt ((float) bottom.getHeight()
+                                                                       * (float) vuWidth
+                                                                       / (float) fullVuWidth)));
+    auto vuBounds = bottom.removeFromLeft (vuWidth)
+                          .withSizeKeepingCentre (vuWidth, vuHeight);
     bottom.removeFromLeft (gap);
 
     vuMeterView.setBounds (vuBounds);
