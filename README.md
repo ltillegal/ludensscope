@@ -2,13 +2,14 @@
 
 [![build](https://github.com/ltillegal/ludensscope/actions/workflows/build.yml/badge.svg)](https://github.com/ltillegal/ludensscope/actions/workflows/build.yml)
 
-[Русский](README.ru.md) · **English** · [❤ Donate](https://www.paypal.com/ncp/payment/MAMKZM5TTVN5U?locale.x=en_US&country.x=US)
+[Русский](README.ru.md) · **English** · [❤ Donate](https://www.paypal.com/ncp/payment/9LQYYZMR7TW7G)
 
 A minimalist stereo analyser in **VST3, AU, AAX, CLAP** and standalone formats: spectrum, loudness
 to ITU-R BS.1770-4, true peak, vectorscope, oscilloscope and reference.
 
-The free Lite is not a time-limited demo. FULL is a one-time EUR 29 purchase
-for the reference workflow, snapshot slots, gain staging, all 7 themes and the
+The free Lite is not a time-limited demo. Holiday offer: FULL is a one-time
+EUR 19 (was EUR 29) purchase for the reference workflow, snapshot slots, gain
+staging, all 7 themes and the
 advanced FFT/display options. No subscriptions and no telemetry. The project
 state stores FFT snapshots, analyser settings, the UI state and the reference
 metadata. There are no general plugin presets — only named target curves.
@@ -17,7 +18,7 @@ metadata. There are no general plugin presets — only named target curves.
 
 One installer, two editions.
 
-| Feature | Lite | FULL (EUR 29) |
+| Feature | Lite | FULL (EUR 19, was EUR 29) |
 |---|:---:|:---:|
 | Spectrum, waterfall, LUFS/TP/LRA | yes | yes |
 | VU, oscilloscope, vectorscope | yes | yes |
@@ -34,16 +35,17 @@ One installer, two editions.
 | CSV export | - | yes |
 
 Press **UNLOCK** in the header (or `FFT -> Unlock FULL`) and paste the key.
-FULL is a one-time PayPal purchase: after paying EUR 29, email
-0eskimo0@gmail.com and you will receive a key. The licence is offline, stored
+Holiday offer: FULL is a one-time PayPal purchase at EUR 19 (was EUR 29).
+After paying, email alek.ludens@gmail.com and you will receive a key.
+The licence is offline, stored
 in the LudensScope config directory, valid on 2 machines and includes 1.x
 updates. No account and no telemetry.
 
-[Buy FULL - EUR 29](https://www.paypal.com/ncp/payment/MAMKZM5TTVN5U?locale.x=en_US&country.x=US)
+[Buy FULL - EUR 19 (was EUR 29)](https://www.paypal.com/ncp/payment/9LQYYZMR7TW7G)
 
 **Existing 0.4.x users keep FULL for free.** The plugin grants a grandfathered
 licence when it finds the old `theme.txt` / `curve-presets.json` in the config
-directory; if it does not, email 0eskimo0@gmail.com for a free key.
+directory; if it does not, email alek.ludens@gmail.com for a free key.
 
 ## What's inside
 
@@ -296,11 +298,12 @@ Notes:
 
 ## FULL licence
 
-FULL is a one-time EUR 29 PayPal purchase. After payment email
-0eskimo0@gmail.com with the receipt and you will receive a licence key. The
+Holiday offer: FULL is a one-time EUR 19 (was EUR 29) PayPal purchase.
+After payment email alek.ludens@gmail.com with the receipt and you will receive
+a licence key. The
 licence is offline, valid on 2 machines and includes 1.x updates.
 
-[Buy FULL - EUR 29](https://www.paypal.com/ncp/payment/MAMKZM5TTVN5U?locale.x=en_US&country.x=US)
+[Buy FULL - EUR 19 (was EUR 29)](https://www.paypal.com/ncp/payment/9LQYYZMR7TW7G)
 
 Existing 0.4.x users get FULL for free: the plugin grandfathered the old config
 directory automatically, or email for a key.
@@ -309,6 +312,6 @@ directory automatically, or email for a key.
 
 If LudensScope saves you time, you can support development via PayPal:
 
-[![Donate](https://img.shields.io/badge/Donate-PayPal-00457C?logo=paypal&logoColor=white)](https://www.paypal.com/ncp/payment/MAMKZM5TTVN5U?locale.x=en_US&country.x=US)
+[![Donate](https://img.shields.io/badge/Donate-PayPal-00457C?logo=paypal&logoColor=white)](https://www.paypal.com/ncp/payment/9LQYYZMR7TW7G)
 
-PayPal: [Donate](https://www.paypal.com/ncp/payment/MAMKZM5TTVN5U?locale.x=en_US&country.x=US)
+PayPal: [Donate](https://www.paypal.com/ncp/payment/9LQYYZMR7TW7G)

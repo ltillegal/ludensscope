@@ -388,6 +388,39 @@ int main (int argc, char** argv)
     processor.setReferencePositionSeconds (0.0);
     std::printf ("ORIG/REF source: %s (peak %.3f)\n", sourceOk ? "ok" : "FAIL", sourcePeak);
 
+    // FREEZE holds the spectrum and waterfall only: the VU must keep moving.
+    VuMeterView* vuView = nullptr;
+
+    for (auto* child : editor->getChildren())
+        if (auto* vu = dynamic_cast<VuMeterView*> (child))
+        {
+            vuView = vu;
+            break;
+        }
+
+    bool vuFreezeOk = false;
+
+    if (scopeEditor != nullptr && vuView != nullptr)
+    {
+        vuView->setRest();
+        scopeEditor->keyPressed (juce::KeyPress ('f'));
+
+        juce::AudioBuffer<float> freezeBuffer (2, 512);
+        juce::MidiBuffer freezeMidi;
+
+        for (int block = 0; block < 30; ++block)
+        {
+            renderTestSignal (freezeBuffer, 900 + block);
+            processor.processBlock (freezeBuffer, freezeMidi);
+            scopeEditor->timerCallback();
+        }
+
+        vuFreezeOk = vuView->getDisplayLevelL() > -19.0f;
+        scopeEditor->keyPressed (juce::KeyPress ('f'));
+    }
+
+    std::printf ("VU while frozen: %s\n", vuFreezeOk ? "ok" : "FAIL");
+
     // Exercise the reference curve so the snapshot also covers that path.
     if (auto* ludens = dynamic_cast<LudensScopeEditor*> (editor.get()))
     {
@@ -812,6 +845,7 @@ int main (int argc, char** argv)
     testView.waterfallRatio = 0.45f;
     testView.gainStaging = 1;
     testView.vuZeroDbfs = -20;
+    testView.vuInputSmoothing = 150;
     testView.showMatch = 1;
     testView.uiScalePercent = 125;
     testView.spanIndex = 2;
@@ -854,6 +888,7 @@ int main (int argc, char** argv)
         && std::abs (restoredView.waterfallRatio - 0.45f) < 0.01f
         && restoredView.gainStaging == 1
         && restoredView.vuZeroDbfs == -20
+        && restoredView.vuInputSmoothing == 150
         && restoredView.showMatch == 1
         && restoredView.uiScalePercent == 125
         && restoredView.spanIndex == 2
@@ -980,5 +1015,5 @@ int main (int argc, char** argv)
            && sourceOk
            && referencePersisted
            && viewPersisted && presetOk && slotsOk && slotBLoaded && soloOk && loopOk && waveformOk
-           && licenceOk ? 0 : 1;
+           && vuFreezeOk && licenceOk ? 0 : 1;
 }

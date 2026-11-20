@@ -87,10 +87,10 @@ jobs:
           Section: sound
           Priority: optional
           Architecture: amd64
-          Maintainer: ltillegal <0eskimo0@gmail.com>
+          Maintainer: ltillegal <alek.ludens@gmail.com>
           Depends: libasound2 | libasound2t64, libcurl4 | libcurl4t64, libfreetype6, libx11-6, libxext6, libxinerama1, libxrandr2, libxrender1, libgl1
           Description: Stereo audio analyzer (VST3, CLAP, standalone)
-           Spectrum, BS.1770 loudness, true peak, reference A-D, gain staging and VU.
+           Spectrum, BS.1770 loudness, true peak, ORIG/REF reference, gain staging and VU.
           EOF
           dpkg-deb --build --root-owner-group pkgroot LudensScope-linux.deb
 

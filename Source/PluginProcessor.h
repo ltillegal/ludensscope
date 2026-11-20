@@ -217,6 +217,7 @@ public:
         float waterfallRatio = 0.32f;
         int gainStaging = 0;
         int vuZeroDbfs = -18;
+        int vuInputSmoothing = 80;
         int showMatch = 0;
         int uiScalePercent = 0;
     };

@@ -92,8 +92,11 @@ public:
     void captureReference();
 
     void setGuidesEnabled (bool enabled);
-private:
+
     void timerCallback() override;
+    bool keyPressed (const juce::KeyPress& key) override;
+
+private:
     void appendScope (const float* left, const float* right, int numSamples) noexcept;
     void resetDisplay();
     void cycleSpan();
@@ -145,8 +148,6 @@ private:
     void exportViewPng();
     void applySmoothing();
 
-    bool keyPressed (const juce::KeyPress& key) override;
-
     static constexpr int scopeSize = 158400; // 3.3 s at 48 kHz
     static constexpr int readChunk = 16384;
 
@@ -188,6 +189,7 @@ private:
     bool showSide = false;
     bool gainStaging = false;
     int vuZeroDbfs = -18;
+    int vuInputSmoothingMs = 80;
     bool showMatch = false;
     bool hasReferenceBand = false;
     juce::String referenceBandPath;

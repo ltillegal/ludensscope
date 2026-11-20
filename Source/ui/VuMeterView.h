@@ -9,9 +9,9 @@
 // Stereo volume-unit meter following IEC 60268-17 / ANSI C16.5:
 // - the pointer deflection is proportional to voltage, so the dB scale is
 //   non-linear (0 VU sits at ~68.5% of the -20..+3 arc)
-// - ballistics: 300 ms second-order system in the voltage domain
-//   (zeta = 0.8, omega_n = 16.67 rad/s) plus 40 ms input smoothing,
-//   ≈400 ms to 99% of a step, not a one-pole in dB
+// - ballistics: critically damped second-order system in the voltage domain
+//   (zeta = 1.0, omega_n = 13.3 rad/s) plus 80 ms input smoothing by default,
+//   ≈500 ms to 99% of a step, not a one-pole in dB
 // - 0 VU is the digital reference (default -18 dBFS, EBU)
 class VuMeterView : public juce::Component
 {
@@ -50,6 +50,20 @@ public:
         repaint();
     }
 
+    void setInputSmoothingMs (int ms) noexcept
+    {
+        const int next = (ms == 40 || ms == 150) ? ms : 80;
+
+        if (next == inputSmoothingMs)
+            return;
+
+        inputSmoothingMs = next;
+    }
+
+    int getInputSmoothingMs() const noexcept { return inputSmoothingMs; }
+    float getDisplayLevelL() const noexcept { return displayL; }
+    float getDisplayLevelR() const noexcept { return displayR; }
+
     void setLevels (float rmsLeft, float rmsRight, float newZero,
                     double deltaSeconds) noexcept
     {
@@ -64,14 +78,17 @@ public:
         const float rawL = rawVu (rmsLeft);
         const float rawR = rawVu (rmsRight);
 
-        // Soften the 30 Hz RMS steps before the ballistic so needles don't jump.
-        const float levelCoeff = (float) (1.0 - std::exp (-juce::jmax (0.001, deltaSeconds) / 0.040));
+        // Soften the 30 Hz RMS steps before the ballistic. The 80 ms default
+        // keeps the needle calm without hiding short transients.
+        const double smoothingSeconds = 0.001 * (double) inputSmoothingMs;
+        const float levelCoeff = (float) (1.0 - std::exp (-juce::jmax (0.001, deltaSeconds) / smoothingSeconds));
         levelL += levelCoeff * (rawL - levelL);
         levelR += levelCoeff * (rawR - levelR);
 
-        // VU ballistics in the voltage domain: 300 ms to 99%, 1.5% overshoot.
-        constexpr float zeta = 0.8f;
-        constexpr float omegaN = 16.67f; // rad/s -> 300 ms settling at zeta 0.8
+        // VU ballistics in the voltage domain: critically damped, ~500 ms to
+        // 99% of a step, no overshoot.
+        constexpr float zeta = 1.0f;
+        constexpr float omegaN = 13.3f; // rad/s -> ~500 ms settling at zeta 1
         const float dt = juce::jlimit (0.001f, 0.1f, (float) deltaSeconds);
 
         const auto targetVoltage = [] (float vu)
@@ -93,8 +110,10 @@ public:
         displayL = 20.0f * std::log10 (juce::jmax (voltageL, 1.0e-6f));
         displayR = 20.0f * std::log10 (juce::jmax (voltageR, 1.0e-6f));
 
-        numericL = rawL;
-        numericR = rawR;
+        // Show the same smoothed level that drives the needle, so the digits
+        // don't flicker while the pointer moves calmly.
+        numericL = levelL;
+        numericR = levelR;
         repaint();
     }
 
@@ -245,6 +264,7 @@ private:
 
 private:
     float uiScale = 1.0f;
+    int inputSmoothingMs = 80;
     float levelL = -20.0f, levelR = -20.0f;
     float zeroDbfs = -18.0f;
     float displayL = -20.0f, displayR = -20.0f;

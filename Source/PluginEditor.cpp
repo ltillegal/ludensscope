@@ -207,7 +207,7 @@ LudensScopeEditor::LudensScopeEditor (LudensScopeProcessor& p)
     freezeButton.onClick = [this]
     {
         frozen = freezeButton.getToggleState();
-        oscilloscopeView.setData (scopeLeft.data(), scopeRight.data(), scopeSize, frozen);
+        oscilloscopeView.setData (scopeLeft.data(), scopeRight.data(), scopeSize, false);
         oscilloscopeView.repaint();
     };
     addAndMakeVisible (freezeButton);
@@ -272,7 +272,7 @@ LudensScopeEditor::LudensScopeEditor (LudensScopeProcessor& p)
     donateButton.setTooltip ("Donate via PayPal");
     donateButton.onClick = []
     {
-        juce::URL ("https://www.paypal.com/ncp/payment/MAMKZM5TTVN5U?locale.x=en_US&country.x=US").launchInDefaultBrowser();
+        juce::URL ("https://www.paypal.com/ncp/payment/9LQYYZMR7TW7G").launchInDefaultBrowser();
     };
     addAndMakeVisible (donateButton);
 
@@ -667,24 +667,25 @@ void LudensScopeEditor::timerCallback()
                                         std::max (std::abs (left[i]), std::abs (right[i])));
         }
 
+        // FREEZE holds the spectrum and waterfall only; scopes and meters keep
+        // following the audio.
         if (! frozen)
-        {
             analyzer.push (left, right, numRead);
-            appendScope (left, right, numRead);
 
-            double sumLL = 0.0, sumRR = 0.0, sumLR = 0.0;
+        appendScope (left, right, numRead);
 
-            for (int i = 0; i < numRead; ++i)
-            {
-                sumLL += (double) left[i] * (double) left[i];
-                sumRR += (double) right[i] * (double) right[i];
-                sumLR += (double) left[i] * (double) right[i];
-            }
+        double sumLL = 0.0, sumRR = 0.0, sumLR = 0.0;
 
-            const double denominator = std::sqrt (sumLL * sumRR);
-            const float instant = denominator > 1.0e-12 ? (float) (sumLR / denominator) : 0.0f;
-            correlation += 0.25f * (instant - correlation);
+        for (int i = 0; i < numRead; ++i)
+        {
+            sumLL += (double) left[i] * (double) left[i];
+            sumRR += (double) right[i] * (double) right[i];
+            sumLR += (double) left[i] * (double) right[i];
         }
+
+        const double denominator = std::sqrt (sumLL * sumRR);
+        const float instant = denominator > 1.0e-12 ? (float) (sumLR / denominator) : 0.0f;
+        correlation += 0.25f * (instant - correlation);
     }
 
     const double referenceRate = preparedSampleRate > 0.0 ? preparedSampleRate : 48000.0;
@@ -737,12 +738,6 @@ void LudensScopeEditor::timerCallback()
     if (processor.snapshotGeneration() != snapshotGeneration)
         syncSnapshots();
 
-    if (frozen)
-    {
-        spectrumView.repaint();
-        return;
-    }
-
     if (blockTruePeak > 1.0f)
         ++truePeakOvers;
 
@@ -758,6 +753,52 @@ void LudensScopeEditor::timerCallback()
 
     if (truePeakDb > truePeakHoldDb)
         truePeakHoldDb = truePeakDb;
+
+    const float integrated = processor.integratedLufs();
+    const float plr = (integrated > -70.0f && truePeakHoldDb > -99.0f)
+                          ? truePeakHoldDb - integrated
+                          : -100.0f;
+
+    meterPanel.setValues (processor.momentaryLufs(), processor.shortTermLufs(),
+                          integrated, truePeakDb, samplePeakDb,
+                          correlation, truePeakHoldDb, processor.lraLu(), plr,
+                          processor.clippedSampleCount(), truePeakOvers);
+
+    float vuL = 0.0f, vuR = 0.0f;
+
+    if (numRead > 0)
+    {
+        double sumL = 0.0, sumR = 0.0;
+
+        for (int i = 0; i < numRead; ++i)
+        {
+            const double l = readLeft[(size_t) i];
+            const double r = readRight[(size_t) i];
+            sumL += l * l;
+            sumR += r * r;
+        }
+
+        vuL = (float) std::sqrt (sumL / (double) numRead);
+        vuR = (float) std::sqrt (sumR / (double) numRead);
+    }
+
+    vuMeterView.setUiScale (uiScale);
+    vuMeterView.setLevels (vuL, vuR, (float) vuZeroDbfs, 1.0 / 30.0);
+
+    vectorScopeView.setData (scopeLeft.data() + (scopeSize - 1024),
+                             scopeRight.data() + (scopeSize - 1024), 1024);
+    oscilloscopeView.setMomentaryLufs (processor.momentaryLufs());
+    oscilloscopeView.setData (scopeLeft.data(), scopeRight.data(), scopeSize, false);
+
+    meterPanel.repaint();
+    vectorScopeView.repaint();
+    oscilloscopeView.repaint();
+
+    if (frozen)
+    {
+        spectrumView.repaint();
+        return;
+    }
 
     if (numRead > 0)
     {
@@ -800,48 +841,8 @@ void LudensScopeEditor::timerCallback()
         }
     }
 
-    const float integrated = processor.integratedLufs();
-    const float plr = (integrated > -70.0f && truePeakHoldDb > -99.0f)
-                          ? truePeakHoldDb - integrated
-                          : -100.0f;
-
     spectrumView.setData (analyzer.levels().data(), analyzer.peaks().data());
-    meterPanel.setValues (processor.momentaryLufs(), processor.shortTermLufs(),
-                          integrated, truePeakDb, samplePeakDb,
-                          correlation, truePeakHoldDb, processor.lraLu(), plr,
-                          processor.clippedSampleCount(), truePeakOvers);
-
-
-    float vuL = 0.0f, vuR = 0.0f;
-
-    if (numRead > 0)
-    {
-        double sumL = 0.0, sumR = 0.0;
-
-        for (int i = 0; i < numRead; ++i)
-        {
-            const double l = readLeft[(size_t) i];
-            const double r = readRight[(size_t) i];
-            sumL += l * l;
-            sumR += r * r;
-        }
-
-        vuL = (float) std::sqrt (sumL / (double) numRead);
-        vuR = (float) std::sqrt (sumR / (double) numRead);
-    }
-
-    vuMeterView.setUiScale (uiScale);
-    vuMeterView.setLevels (vuL, vuR, (float) vuZeroDbfs, 1.0 / 30.0);
-
-    vectorScopeView.setData (scopeLeft.data() + (scopeSize - 1024),
-                             scopeRight.data() + (scopeSize - 1024), 1024);
-    oscilloscopeView.setMomentaryLufs (processor.momentaryLufs());
-    oscilloscopeView.setData (scopeLeft.data(), scopeRight.data(), scopeSize, false);
-
     spectrumView.repaint();
-    meterPanel.repaint();
-    vectorScopeView.repaint();
-    oscilloscopeView.repaint();
 }
 
 void LudensScopeEditor::appendScope (const float* left, const float* right, int numSamples) noexcept
@@ -1101,6 +1102,12 @@ void LudensScopeEditor::showFftMenu()
     displayMenu.addItem (702, waterfallLabel ("Slow", 4), true, waterfallHistory == 4);
 
     displayMenu.addSeparator();
+    displayMenu.addSectionHeader ("VU input smoothing");
+    displayMenu.addItem (740, "Fast (40 ms)", true, vuInputSmoothingMs == 40);
+    displayMenu.addItem (741, "Smooth (80 ms)", true, vuInputSmoothingMs == 80);
+    displayMenu.addItem (742, "Extra smooth (150 ms)", true, vuInputSmoothingMs == 150);
+
+    displayMenu.addSeparator();
     displayMenu.addItem (601, full ? "Difference shading" : "Difference shading [FULL]", full, showDifference);
     displayMenu.addItem (610, "  vs snapshot", full, differenceSource == 0);
     displayMenu.addItem (611, "  vs REF FILE", full, differenceSource == 1);
@@ -1162,7 +1169,7 @@ void LudensScopeEditor::showFftMenu()
     menu.addItem (630, "Check for updates...", true, false);
 
     if (! full)
-        menu.addItem (640, "Unlock FULL - EUR 29...", true, false);
+        menu.addItem (640, "Unlock FULL - EUR 19 (was EUR 29)...", true, false);
 
     juce::Component::SafePointer<LudensScopeEditor> safe (this);
 
@@ -1226,6 +1233,14 @@ void LudensScopeEditor::applyFftMenu (int result)
         if (showMatch)
             updateMatchSuggestions();
 
+        saveViewSettings();
+        return;
+    }
+
+    if (result >= 740 && result < 743)
+    {
+        vuInputSmoothingMs = result == 740 ? 40 : (result == 741 ? 80 : 150);
+        vuMeterView.setInputSmoothingMs (vuInputSmoothingMs);
         saveViewSettings();
         return;
     }
@@ -1629,6 +1644,9 @@ void LudensScopeEditor::applyViewSettings (const LudensScopeProcessor::ViewSetti
 
     gainStaging = full && settings.gainStaging != 0;
     vuZeroDbfs = settings.vuZeroDbfs == -20 ? -20 : -18;
+    vuInputSmoothingMs = (settings.vuInputSmoothing == 40 || settings.vuInputSmoothing == 150)
+                             ? settings.vuInputSmoothing : 80;
+    vuMeterView.setInputSmoothingMs (vuInputSmoothingMs);
     applyGainStaging();
 
     showMatch = full && settings.showMatch != 0;
@@ -1706,6 +1724,7 @@ void LudensScopeEditor::saveViewSettings()
     settings.waterfallRatio = waterfallRatio;
     settings.gainStaging = full ? (gainStaging ? 1 : 0) : preserved.gainStaging;
     settings.vuZeroDbfs = full ? vuZeroDbfs : preserved.vuZeroDbfs;
+    settings.vuInputSmoothing = vuInputSmoothingMs;
     settings.showMatch = full ? (showMatch ? 1 : 0) : preserved.showMatch;
     settings.uiScalePercent = uiScalePercent;
     settings.oscWindow = oscilloscopeView.getWindowSamples();
@@ -2026,17 +2045,17 @@ void LudensScopeEditor::showUnlockDialog()
 
     auto* aw = new juce::AlertWindow (
         "Unlock LudensScope FULL",
-        "FULL adds the reference A-D analysis and transport, snapshot slots, "
+        "FULL adds the ORIG/REF reference analysis and transport, snapshot slots, "
         "gain staging lines, all 7 themes, advanced FFT options, target curves "
         "and CSV export.\n\n"
-        "EUR 29 via PayPal. After payment email 0eskimo0@gmail.com and you will "
-        "receive a licence key. The licence is offline, valid on 2 machines and "
-        "includes 1.x updates.",
+        "Holiday offer: EUR 19 (was EUR 29) via PayPal. After payment email "
+        "alek.ludens@gmail.com and you will receive a licence key. The licence "
+        "is offline, valid on 2 machines and includes 1.x updates.",
         juce::MessageBoxIconType::NoIcon);
 
     aw->addTextEditor ("key", LudensScopeLicence::load(), "Licence key");
     aw->addButton ("Unlock", 1, juce::KeyPress (juce::KeyPress::returnKey));
-    aw->addButton ("Buy FULL - EUR 29", 2);
+    aw->addButton ("Buy FULL - EUR 19", 2);
     aw->addButton ("Cancel", 0, juce::KeyPress (juce::KeyPress::escapeKey));
 
     aw->enterModalState (true, juce::ModalCallbackFunction::create (
@@ -2065,7 +2084,7 @@ void LudensScopeEditor::showUnlockDialog()
             }
             else if (result == 2)
             {
-                juce::URL ("https://www.paypal.com/ncp/payment/MAMKZM5TTVN5U?locale.x=en_US&country.x=US")
+                juce::URL ("https://www.paypal.com/ncp/payment/9LQYYZMR7TW7G")
                     .launchInDefaultBrowser();
             }
         }), true);
@@ -2080,7 +2099,7 @@ void LudensScopeEditor::applyEdition()
     unlockButton.setEnabled (! full);
     unlockButton.setTooltip (full
         ? (legacy ? "Grandfathered FULL licence (0.4.x)" : "LudensScope FULL licence")
-        : "Unlock LudensScope FULL - EUR 29 via PayPal");
+        : "Unlock LudensScope FULL - EUR 19 (was EUR 29) via PayPal");
 
     if (! full)
     {
@@ -2581,6 +2600,12 @@ bool LudensScopeEditor::keyPressed (const juce::KeyPress& key)
     {
         case 'a':
         case 'A':
+            if (! isFull())
+            {
+                showUnlockDialog();
+                return true;
+            }
+
             toggleReferenceAb();
             return true;
 
