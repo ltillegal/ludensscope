@@ -30,30 +30,55 @@ public:
         repaint();
     }
 
-    void setValues (float newMomentary, float newShortTerm, float newIntegrated,
+    // Returns true when a displayed value changed. The editor repaints only
+    // then, so an idle meter does not invalidate its buffer every timer tick.
+    bool setValues (float newMomentary, float newShortTerm, float newIntegrated,
                     float newTruePeak, float newSamplePeak, float newCorrelation,
                     float newTruePeakHold, float newLra, float newPlr,
                     std::uint64_t newClipSamples, int newTruePeakOvers) noexcept
     {
-        momentary = newMomentary;
-        shortTerm = newShortTerm;
-        integrated = newIntegrated;
-        truePeak = newTruePeak;
-        samplePeak = newSamplePeak;
-        correlation = newCorrelation;
-        truePeakHold = newTruePeakHold;
-        lra = newLra;
-        plr = newPlr;
-        clipSamples = newClipSamples;
-        truePeakOvers = newTruePeakOvers;
+        bool changed = false;
+        const auto assign = [&changed] (auto& target, auto value)
+        {
+            if (target != value)
+            {
+                target = value;
+                changed = true;
+            }
+        };
+
+        assign (momentary, newMomentary);
+        assign (shortTerm, newShortTerm);
+        assign (integrated, newIntegrated);
+        assign (truePeak, newTruePeak);
+        assign (samplePeak, newSamplePeak);
+        assign (correlation, newCorrelation);
+        assign (truePeakHold, newTruePeakHold);
+        assign (lra, newLra);
+        assign (plr, newPlr);
+        assign (clipSamples, newClipSamples);
+        assign (truePeakOvers, newTruePeakOvers);
 
         if (++historyTick >= 3)
         {
             historyTick = 0;
+
+            if (historyValues[(size_t) historyWrite] != newShortTerm)
+                changed = true;
+
             historyValues[(size_t) historyWrite] = newShortTerm;
             historyWrite = (historyWrite + 1) % historyCapacity;
-            historyCount = juce::jmin (historyCapacity, historyCount + 1);
+
+            const int nextCount = juce::jmin (historyCapacity, historyCount + 1);
+
+            if (nextCount != historyCount)
+            {
+                historyCount = nextCount;
+                changed = true;
+            }
         }
+
+        return changed;
     }
 
     // Measured integrated loudness target in LUFS; values below -90 disable it.

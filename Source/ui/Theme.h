@@ -136,10 +136,14 @@ namespace theme
         return names[(size_t) juce::jlimit (0, 6, index)];
     }
 
+    // One radius for every surrounding surface: the main window, the right
+    // rail, all seven panels and the drag&drop overlay.
+    constexpr float panelRadius = 10.0f;
+
     // Shared panel chrome: a near-invisible vertical gradient, a one-pixel
     // top highlight and a thin border. Keeps every view visually consistent.
     inline void drawPanel (juce::Graphics& g, juce::Rectangle<float> bounds,
-                           float radius = 10.0f)
+                           float radius = panelRadius)
     {
         const juce::ColourGradient gradient (panelTop, bounds.getX(), bounds.getY(),
                                              panel, bounds.getX(), bounds.getBottom(), false);

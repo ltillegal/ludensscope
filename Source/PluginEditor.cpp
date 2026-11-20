@@ -423,25 +423,42 @@ LudensScopeEditor::openEditors()
 
 void LudensScopeEditor::paint (juce::Graphics& g)
 {
-    g.setGradientFill (juce::ColourGradient::vertical (theme::bg, 0.0f,
-                                                       theme::bgBottom, (float) getHeight()));
+    // The whole window uses the same corner radius as the panels, so no
+    // surface inside it ends up with square corners next to rounded ones.
+    g.setColour (theme::bg);
     g.fillAll();
 
-    // Soft accent glow behind the spectrum area.
-    juce::ColourGradient glow (theme::accent.withAlpha (0.05f),
-                               getWidth() * 0.30f, -80.0f,
-                               juce::Colours::transparentBlack,
-                               getWidth() * 0.62f, getHeight() * 0.55f,
-                               true);
-    g.setGradientFill (glow);
-    g.fillAll();
+    const auto windowBounds = getLocalBounds().toFloat().reduced (0.5f);
+
+    g.setGradientFill (juce::ColourGradient::vertical (theme::bg, 0.0f,
+                                                       theme::bgBottom, (float) getHeight()));
+    g.fillRoundedRectangle (windowBounds, theme::panelRadius);
+
+    g.setColour (theme::panelLine.withAlpha (0.6f));
+    g.drawRoundedRectangle (windowBounds.reduced (0.5f), theme::panelRadius, 1.0f);
+
+    // Soft accent glow behind the spectrum area, kept inside the rounded edge.
+    {
+        juce::Graphics::ScopedSaveState saved (g);
+        juce::Path roundedWindow;
+        roundedWindow.addRoundedRectangle (windowBounds, theme::panelRadius);
+        g.reduceClipRegion (roundedWindow);
+
+        juce::ColourGradient glow (theme::accent.withAlpha (0.05f),
+                                   getWidth() * 0.30f, -80.0f,
+                                   juce::Colours::transparentBlack,
+                                   getWidth() * 0.62f, getHeight() * 0.55f,
+                                   true);
+        g.setGradientFill (glow);
+        g.fillAll();
+    }
 
     if (! railBounds.isEmpty())
     {
         g.setColour (theme::panel.withAlpha (0.35f));
-        g.fillRoundedRectangle (railBounds.toFloat(), 8.0f);
+        g.fillRoundedRectangle (railBounds.toFloat(), theme::panelRadius);
         g.setColour (theme::panelLine.withAlpha (0.6f));
-        g.drawRoundedRectangle (railBounds.toFloat().reduced (0.5f), 8.0f, 1.0f);
+        g.drawRoundedRectangle (railBounds.toFloat().reduced (0.5f), theme::panelRadius, 1.0f);
 
     }
 
@@ -488,9 +505,9 @@ void LudensScopeEditor::paint (juce::Graphics& g)
     if (fileDragActive)
     {
         g.setColour (theme::bg.withAlpha (0.55f));
-        g.fillRect (getLocalBounds());
+        g.fillRoundedRectangle (windowBounds, theme::panelRadius);
         g.setColour (theme::accent);
-        g.drawRect (getLocalBounds().reduced (3), 2);
+        g.drawRoundedRectangle (windowBounds.reduced (2.5f), theme::panelRadius - 2.0f, 2.0f);
         g.setFont (theme::detailFont (15.0f, uiScale));
         g.drawText ("DROP REFERENCE AUDIO", getLocalBounds(), juce::Justification::centred);
     }
@@ -567,12 +584,9 @@ void LudensScopeEditor::resized()
         stack.removeFromTop (buttonGap);
     }
 
-    // ORIG/REF take their own band beside the waveform strip, never above it.
-    // The source tiles are buttons, not full-height slabs: keep them centred
-    // in the strip band instead of stretching them over the waveform row.
-    auto sourceRow = sourceBand.withSizeKeepingCentre (
-                         sourceBand.getWidth(), juce::roundToInt (30.0f * uiScale))
-                         .reduced (juce::roundToInt (2.0f * uiScale), 0);
+    // ORIG/REF take their own band beside the waveform strip and span the
+    // whole height of the reference panel, so the two tiles line up with it.
+    auto sourceRow = sourceBand.reduced (juce::roundToInt (2.0f * uiScale), 0);
     const int sourceGap = juce::roundToInt (3.0f * uiScale);
     origButton.setBounds (sourceRow.removeFromLeft ((sourceRow.getWidth() - sourceGap) / 2));
     sourceRow.removeFromLeft (sourceGap);
@@ -608,19 +622,14 @@ void LudensScopeEditor::resized()
 
     vectorScopeView.setBounds (vectorBounds);
 
-    // The VU meter has a natural width of 400 px at 100%; never take more than
-    // half of the bottom row, so the oscilloscope keeps a usable share.
-    // Shrink width and height by the same factor so the two meter faces keep
-    // their proportions while the oscilloscope gains horizontal room.
+    // The VU meter keeps its narrower width, but shares the full row height
+    // with the stereo image and the oscilloscope. Only its width is shrunk.
     constexpr float vuShrink = 0.85f;
     const int fullVuWidth = juce::jlimit (240, 480,
                                           juce::jmin (juce::roundToInt (400.0f * uiScale),
                                                       juce::roundToInt (bottom.getWidth() * 0.50f)));
     const int vuWidth = juce::jmax (200, juce::roundToInt ((float) fullVuWidth * vuShrink));
-    const int vuHeight = juce::jmin (bottom.getHeight(),
-                                     juce::jmax (96, juce::roundToInt ((float) bottom.getHeight()
-                                                                       * (float) vuWidth
-                                                                       / (float) fullVuWidth)));
+    const int vuHeight = bottom.getHeight();
     auto vuBounds = bottom.removeFromLeft (vuWidth)
                           .withSizeKeepingCentre (vuWidth, vuHeight);
     bottom.removeFromLeft (gap);
@@ -648,6 +657,7 @@ void LudensScopeEditor::timerCallback()
     }
 
     const int numRead = processor.readSamples (readLeft.data(), readRight.data(), readChunk);
+    const bool audioActive = numRead > 0;
 
     // Mono check: sum the input for the analyzers without touching the DAW signal.
     if (numRead > 0 && monoActive)
@@ -768,8 +778,8 @@ void LudensScopeEditor::timerCallback()
                           ? truePeakHoldDb - integrated
                           : -100.0f;
 
-    meterPanel.setValues (processor.momentaryLufs(), processor.shortTermLufs(),
-                          integrated, truePeakDb, samplePeakDb,
+    const bool meterChanged = meterPanel.setValues (processor.momentaryLufs(),
+                          processor.shortTermLufs(), integrated, truePeakDb, samplePeakDb,
                           correlation, truePeakHoldDb, processor.lraLu(), plr,
                           processor.clippedSampleCount(), truePeakOvers);
 
@@ -807,20 +817,27 @@ void LudensScopeEditor::timerCallback()
     vuMeterView.setUiScale (uiScale);
     vuMeterView.setLevels (vuL, vuR, (float) vuZeroDbfs, 1.0 / 30.0);
 
-    vectorScopeView.setData (scopeLeft.data() + (scopeSize - 1024),
-                             scopeRight.data() + (scopeSize - 1024), 1024);
-    oscilloscopeView.setMomentaryLufs (processor.momentaryLufs());
-    oscilloscopeView.setData (scopeLeft.data(), scopeRight.data(), scopeSize, false);
+    // The scopes only change when new samples arrive (plus one final frame
+    // when audio stops). Repainting them forever with a stale buffer is what
+    // made the window shimmer after a while in silence.
+    if (audioActive || wasAudioActive)
+    {
+        vectorScopeView.setData (scopeLeft.data() + (scopeSize - 1024),
+                                 scopeRight.data() + (scopeSize - 1024), 1024);
+        oscilloscopeView.setMomentaryLufs (processor.momentaryLufs());
+        oscilloscopeView.setData (scopeLeft.data(), scopeRight.data(), scopeSize, false);
 
-    meterPanel.repaint();
-    vectorScopeView.repaint();
-    oscilloscopeView.repaint();
+        vectorScopeView.repaint();
+        oscilloscopeView.repaint();
+    }
+
+    if (meterChanged)
+        meterPanel.repaint();
+
+    wasAudioActive = audioActive;
 
     if (frozen)
-    {
-        spectrumView.repaint();
         return;
-    }
 
     if (numRead > 0)
     {
@@ -863,8 +880,11 @@ void LudensScopeEditor::timerCallback()
         }
     }
 
-    spectrumView.setData (analyzer.levels().data(), analyzer.peaks().data());
-    spectrumView.repaint();
+    if (audioActive)
+    {
+        spectrumView.setData (analyzer.levels().data(), analyzer.peaks().data());
+        spectrumView.repaint();
+    }
 }
 
 void LudensScopeEditor::appendScope (const float* left, const float* right, int numSamples) noexcept

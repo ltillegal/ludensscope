@@ -2,6 +2,7 @@
 
 #include <juce_gui_basics/juce_gui_basics.h>
 
+#include <algorithm>
 #include <array>
 #include <cmath>
 #include <functional>
@@ -32,7 +33,17 @@ public:
         setBufferedToImage (true);
     }
 
-    void setState (State s) { state = std::move (s); repaint(); }
+    // Returns true only when the strip actually changed, so the timer can
+    // leave a static reference panel alone instead of repainting it forever.
+    bool setState (State s)
+    {
+        if (sameState (state, s))
+            return false;
+
+        state = std::move (s);
+        repaint();
+        return true;
+    }
 
     void setLocked (bool shouldBeLocked)
     {
@@ -73,6 +84,25 @@ public:
     void mouseExit (const juce::MouseEvent&) override;
 
 private:
+    static bool sameState (const State& a, const State& b) noexcept
+    {
+        return a.waveform.size() == b.waveform.size()
+            && std::equal (a.waveform.begin(), a.waveform.end(), b.waveform.begin())
+            && a.duration == b.duration
+            && a.position == b.position
+            && a.loopStart == b.loopStart
+            && a.loopEnd == b.loopEnd
+            && a.playing == b.playing
+            && a.looping == b.looping
+            && a.audible == b.audible
+            && a.match == b.match
+            && a.mirror == b.mirror
+            && a.activeSlot == b.activeSlot
+            && a.filled == b.filled
+            && a.name == b.name
+            && a.lufs == b.lufs;
+    }
+
     static juce::String formatTime (double seconds)
     {
         const int total = juce::jmax (0, (int) std::floor (seconds));

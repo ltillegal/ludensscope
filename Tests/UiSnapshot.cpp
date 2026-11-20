@@ -529,14 +529,48 @@ int main (int argc, char** argv)
 
     std::printf ("VU with sparse audio: %s\n", vuSparseOk ? "ok" : "FAIL");
 
-    // The VU panel stays a wide rectangle; the rest of the bottom row goes
-    // to the oscilloscope.
-    bool vuLayoutOk = true;
+    // Once the ballistics have settled in silence, setLevels() must stop
+    // reporting changes: that is what keeps the idle window from shimmering.
+    bool vuIdleOk = false;
+
+    if (vuView != nullptr)
+    {
+        bool stillMoving = true;
+
+        for (int tick = 0; tick < 600 && stillMoving; ++tick)
+            stillMoving = vuView->setLevels (0.0f, 0.0f, -18.0f, 1.0 / 30.0);
+
+        vuIdleOk = ! stillMoving;
+        vuView->setRest();
+    }
+
+    std::printf ("VU idle repaint: %s\n", vuIdleOk ? "ok" : "FAIL");
+
+    // The VU shares the full row height with the stereo image, and ORIG/REF
+    // span the whole height of the reference panel.
+    VuMeterView* vuPanel = nullptr;
+    VectorScopeView* stereoImage = nullptr;
+    ReferenceStrip* refStrip = nullptr;
+    int origHeight = 0, refHeight = 0;
 
     for (auto* child : editor->getChildren())
-        if (auto* vu = dynamic_cast<VuMeterView*> (child))
-            vuLayoutOk = vu->getWidth() > 0 && vu->getHeight() > 0
-                      && std::abs ((float) vu->getWidth() / (float) vu->getHeight() - 3.47f) < 0.5f;
+    {
+        if (auto* vu = dynamic_cast<VuMeterView*> (child))     vuPanel = vu;
+        if (auto* stereo = dynamic_cast<VectorScopeView*> (child)) stereoImage = stereo;
+        if (auto* strip = dynamic_cast<ReferenceStrip*> (child)) refStrip = strip;
+
+        if (auto* button = dynamic_cast<juce::TextButton*> (child))
+        {
+            if (button->getButtonText() == "ORIG") origHeight = button->getHeight();
+            if (button->getButtonText() == "REF")  refHeight  = button->getHeight();
+        }
+    }
+
+    const bool vuLayoutOk = vuPanel != nullptr && stereoImage != nullptr && refStrip != nullptr
+                         && vuPanel->getWidth() > 0
+                         && vuPanel->getHeight() == stereoImage->getHeight()
+                         && origHeight > 0 && origHeight == refStrip->getHeight()
+                         && refHeight  > 0 && refHeight  == refStrip->getHeight();
 
     std::printf ("VU layout: %s\n", vuLayoutOk ? "ok" : "FAIL");
 
@@ -1135,5 +1169,5 @@ int main (int argc, char** argv)
            && sourceOk
            && referencePersisted
            && viewPersisted && presetOk && slotsOk && slotBLoaded && soloOk && loopOk && waveformOk
-           && vuFreezeOk && vuSparseOk && vuLayoutOk && licenceOk && activationOk ? 0 : 1;
+           && vuFreezeOk && vuSparseOk && vuIdleOk && vuLayoutOk && licenceOk && activationOk ? 0 : 1;
 }

@@ -46,7 +46,12 @@ public:
 
     void setZeroDbfs (float newZero) noexcept
     {
-        zeroDbfs = juce::jlimit (-30.0f, -6.0f, newZero);
+        const float next = juce::jlimit (-30.0f, -6.0f, newZero);
+
+        if (next == zeroDbfs)
+            return;
+
+        zeroDbfs = next;
         repaint();
     }
 
@@ -66,9 +71,16 @@ public:
     float getNumericLevelL() const noexcept { return numericL; }
     float getNumericLevelR() const noexcept { return numericR; }
 
-    void setLevels (float rmsLeft, float rmsRight, float newZero,
+    // Returns true when the visible needle/digits actually moved. The editor
+    // uses that to avoid repainting a static meter 30 times a second.
+    bool setLevels (float rmsLeft, float rmsRight, float newZero,
                     double deltaSeconds) noexcept
     {
+        const float previousDisplayL = displayL;
+        const float previousDisplayR = displayR;
+        const float previousNumericL = numericL;
+        const float previousNumericR = numericR;
+
         setZeroDbfs (newZero);
 
         // Smooth in the power domain, not in dB. A host writes silent blocks
@@ -129,7 +141,17 @@ public:
         // while the pointer barely moved, which looked like a broken meter.
         numericL = displayL;
         numericR = displayR;
-        repaint();
+
+        constexpr float epsilon = 0.005f;
+        const bool changed = std::abs (displayL - previousDisplayL) > epsilon
+                          || std::abs (displayR - previousDisplayR) > epsilon
+                          || std::abs (numericL - previousNumericL) > epsilon
+                          || std::abs (numericR - previousNumericR) > epsilon;
+
+        if (changed)
+            repaint();
+
+        return changed;
     }
 
     void paint (juce::Graphics& g) override

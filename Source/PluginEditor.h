@@ -193,6 +193,7 @@ private:
     int vuInputSmoothingMs = 80;
     float lastVuRmsL = 0.0f, lastVuRmsR = 0.0f;
     int vuGapTicks = 0;
+    bool wasAudioActive = false; // lets the idle timer skip static repaints
     bool showMatch = false;
     bool hasReferenceBand = false;
     juce::String referenceBandPath;
