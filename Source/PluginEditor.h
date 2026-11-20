@@ -150,6 +150,7 @@ private:
 
     static constexpr int scopeSize = 158400; // 3.3 s at 48 kHz
     static constexpr int readChunk = 16384;
+    static constexpr int vuHoldTicks = 30; // ~1 s at 30 Hz
 
     LudensScopeProcessor& processor;
 
@@ -190,6 +191,8 @@ private:
     bool gainStaging = false;
     int vuZeroDbfs = -18;
     int vuInputSmoothingMs = 80;
+    float lastVuRmsL = 0.0f, lastVuRmsR = 0.0f;
+    int vuGapTicks = 0;
     bool showMatch = false;
     bool hasReferenceBand = false;
     juce::String referenceBandPath;

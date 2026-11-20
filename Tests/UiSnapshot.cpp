@@ -501,6 +501,34 @@ int main (int argc, char** argv)
 
     std::printf ("VU while frozen: %s\n", vuFreezeOk ? "ok" : "FAIL");
 
+    // Regression: a host writes silent audio blocks between audible ones.
+    // They must not pin the needle or make the digits jump.
+    bool vuSparseOk = false;
+
+    if (scopeEditor != nullptr && vuView != nullptr)
+    {
+        vuView->setRest();
+
+        juce::AudioBuffer<float> sparseBuffer (2, 512);
+        juce::MidiBuffer sparseMidi;
+
+        for (int block = 0; block < 30; ++block)
+        {
+            sparseBuffer.clear();
+
+            if (block % 3 == 0)
+                renderTestSignal (sparseBuffer, 900 + block);
+
+            processor.processBlock (sparseBuffer, sparseMidi);
+            scopeEditor->timerCallback();
+        }
+
+        vuSparseOk = vuView->getDisplayLevelL() > -19.0f
+                  && std::abs (vuView->getNumericLevelL() - vuView->getDisplayLevelL()) < 0.05f;
+    }
+
+    std::printf ("VU with sparse audio: %s\n", vuSparseOk ? "ok" : "FAIL");
+
     // Exercise the reference curve so the snapshot also covers that path.
     if (auto* ludens = dynamic_cast<LudensScopeEditor*> (editor.get()))
     {
@@ -1096,5 +1124,5 @@ int main (int argc, char** argv)
            && sourceOk
            && referencePersisted
            && viewPersisted && presetOk && slotsOk && slotBLoaded && soloOk && loopOk && waveformOk
-           && vuFreezeOk && licenceOk && activationOk ? 0 : 1;
+           && vuFreezeOk && vuSparseOk && licenceOk && activationOk ? 0 : 1;
 }

@@ -39,7 +39,7 @@ public:
         displayL = displayR = -20.0f;
         voltageL = voltageR = 0.1f;
         velocityL = velocityR = 0.0f;
-        levelL = levelR = -20.0f;
+        powerL = powerR = 0.0f;
         numericL = numericR = -20.0f;
         repaint();
     }
@@ -63,27 +63,36 @@ public:
     int getInputSmoothingMs() const noexcept { return inputSmoothingMs; }
     float getDisplayLevelL() const noexcept { return displayL; }
     float getDisplayLevelR() const noexcept { return displayR; }
+    float getNumericLevelL() const noexcept { return numericL; }
+    float getNumericLevelR() const noexcept { return numericR; }
 
     void setLevels (float rmsLeft, float rmsRight, float newZero,
                     double deltaSeconds) noexcept
     {
         setZeroDbfs (newZero);
 
-        const auto rawVu = [this] (float rms)
+        // Smooth in the power domain, not in dB. A host writes silent blocks
+        // into the same FIFO as audible ones; a dB smoother dives to -100 VU
+        // on every silent tick and pins the needle to its rest stop while the
+        // digits jump around. Power averaging treats those gaps as silence
+        // instead of as -100 VU steps.
+        const auto rawPower = [] (float rms)
         {
-            const float db = 20.0f * std::log10 (juce::jmax (rms, 1.0e-6f));
-            return db - zeroDbfs;
+            return juce::jmax (rms * rms, 1.0e-12f);
         };
 
-        const float rawL = rawVu (rmsLeft);
-        const float rawR = rawVu (rmsRight);
-
-        // Soften the 30 Hz RMS steps before the ballistic. The 80 ms default
-        // keeps the needle calm without hiding short transients.
         const double smoothingSeconds = 0.001 * (double) inputSmoothingMs;
         const float levelCoeff = (float) (1.0 - std::exp (-juce::jmax (0.001, deltaSeconds) / smoothingSeconds));
-        levelL += levelCoeff * (rawL - levelL);
-        levelR += levelCoeff * (rawR - levelR);
+        powerL += levelCoeff * (rawPower (rmsLeft) - powerL);
+        powerR += levelCoeff * (rawPower (rmsRight) - powerR);
+
+        const auto rawVu = [this] (float power)
+        {
+            return 10.0f * std::log10 (power) - zeroDbfs;
+        };
+
+        const float rawL = rawVu (powerL);
+        const float rawR = rawVu (powerR);
 
         // VU ballistics in the voltage domain: critically damped, ~500 ms to
         // 99% of a step, no overshoot.
@@ -102,18 +111,24 @@ public:
                          - 2.0f * zeta * omegaN * velocity) * dt;
             v += velocity * dt;
             v = juce::jlimit (0.07f, 1.6f, v); // mechanical stops
+
+            // Don't let velocity wind up against a stop: that would keep the
+            // needle pinned there long after the signal comes back.
+            if ((v <= 0.07f && velocity < 0.0f) || (v >= 1.6f && velocity > 0.0f))
+                velocity = 0.0f;
         };
 
-        step (voltageL, velocityL, targetVoltage (levelL));
-        step (voltageR, velocityR, targetVoltage (levelR));
+        step (voltageL, velocityL, targetVoltage (rawL));
+        step (voltageR, velocityR, targetVoltage (rawR));
 
         displayL = 20.0f * std::log10 (juce::jmax (voltageL, 1.0e-6f));
         displayR = 20.0f * std::log10 (juce::jmax (voltageR, 1.0e-6f));
 
-        // Show the same smoothed level that drives the needle, so the digits
-        // don't flicker while the pointer moves calmly.
-        numericL = levelL;
-        numericR = levelR;
+        // Show exactly what the needle indicates. The input smoother alone was
+        // too fast next to the 500 ms ballistics: the digits jumped around
+        // while the pointer barely moved, which looked like a broken meter.
+        numericL = displayL;
+        numericR = displayR;
         repaint();
     }
 
@@ -265,7 +280,7 @@ private:
 private:
     float uiScale = 1.0f;
     int inputSmoothingMs = 80;
-    float levelL = -20.0f, levelR = -20.0f;
+    float powerL = 0.0f, powerR = 0.0f;
     float zeroDbfs = -18.0f;
     float displayL = -20.0f, displayR = -20.0f;
     float voltageL = 0.1f, voltageR = 0.1f;   // -20 VU at rest

@@ -780,6 +780,19 @@ void LudensScopeEditor::timerCallback()
 
         vuL = (float) std::sqrt (sumL / (double) numRead);
         vuR = (float) std::sqrt (sumR / (double) numRead);
+        lastVuRmsL = vuL;
+        lastVuRmsR = vuR;
+        vuGapTicks = 0;
+    }
+    else if (vuGapTicks < vuHoldTicks)
+    {
+        // A host may call the editor timer more often than it delivers audio
+        // blocks. Treating those ticks as silence drives the input smoother to
+        // -100 VU, which pins the needle to its rest stop while the digits jump.
+        // Hold the last RMS for a short while, then fall back to silence.
+        ++vuGapTicks;
+        vuL = lastVuRmsL;
+        vuR = lastVuRmsR;
     }
 
     vuMeterView.setUiScale (uiScale);
