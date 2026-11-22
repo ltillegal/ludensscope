@@ -194,6 +194,110 @@ namespace
         const double lb = relativeLuminance (b);
         return (std::max (la, lb) + 0.05) / (std::min (la, lb) + 0.05);
     }
+
+    struct AnalysisLayout
+    {
+        juce::Rectangle<int> spectrum, waterfall, loudness, vu, vector, scope;
+        bool stripVisible = false;
+        bool origVisible = false;
+        bool refVisible = false;
+    };
+
+    AnalysisLayout readAnalysisLayout (LudensScopeEditor& editor)
+    {
+        AnalysisLayout out;
+
+        for (auto* child : editor.getChildren())
+        {
+            if (auto* v = dynamic_cast<SpectrumView*> (child))      out.spectrum = child->getBounds();
+            if (auto* v = dynamic_cast<SpectrogramView*> (child))   out.waterfall = child->getBounds();
+            if (auto* v = dynamic_cast<MeterPanel*> (child))        out.loudness = child->getBounds();
+            if (auto* v = dynamic_cast<VuMeterView*> (child))       out.vu = child->getBounds();
+            if (auto* v = dynamic_cast<VectorScopeView*> (child))   out.vector = child->getBounds();
+            if (auto* v = dynamic_cast<OscilloscopeView*> (child))  out.scope = child->getBounds();
+            if (auto* v = dynamic_cast<ReferenceStrip*> (child))    out.stripVisible = child->isVisible();
+
+            if (auto* button = dynamic_cast<juce::TextButton*> (child))
+            {
+                if (button->getButtonText() == "ORIG") out.origVisible = button->isVisible();
+                if (button->getButtonText() == "REF")  out.refVisible = button->isVisible();
+            }
+        }
+
+        return out;
+    }
+
+    bool testLiteLayout (bool writePreview)
+    {
+        // An empty licence directory forces LITE without touching real keys.
+        const auto emptyDir = juce::File::getSpecialLocation (juce::File::tempDirectory)
+                                  .getChildFile ("ludensscope-lite-layout-test");
+        emptyDir.deleteRecursively();
+        emptyDir.createDirectory();
+        LudensScopeLicence::setLicenceDirectoryForTesting (emptyDir);
+
+        LudensScopeProcessor processor;
+        processor.setPlayConfigDetails (2, 2, 48000.0, 512);
+        processor.prepareToPlay (48000.0, 512);
+
+        LudensScopeLicence::setTestingUnlock (true);
+        std::unique_ptr<LudensScopeEditor> pro (dynamic_cast<LudensScopeEditor*> (processor.createEditor()));
+        pro->setSize (1060, 700);
+        pro->setUiScalePercent (100);
+        const auto full = readAnalysisLayout (*pro);
+
+        LudensScopeLicence::setTestingUnlock (false);
+        std::unique_ptr<LudensScopeEditor> lite (dynamic_cast<LudensScopeEditor*> (processor.createEditor()));
+        lite->setSize (1060, 700);
+        lite->setUiScalePercent (100);
+        const auto small = readAnalysisLayout (*lite);
+
+        // At 100% the strip is 100 px plus a 10 px gap.
+        constexpr int reclaimed = 110;
+
+        const bool proIntact = full.stripVisible && full.origVisible && full.refVisible;
+        const bool liteHidden = ! small.stripVisible && ! small.origVisible && ! small.refVisible;
+        const bool scopesKeptSize = small.vu.getHeight() == full.vu.getHeight()
+                                 && small.vector.getHeight() == full.vector.getHeight()
+                                 && small.scope.getHeight() == full.scope.getHeight();
+        const bool scopesDropped = small.vu.getY() - full.vu.getY() == reclaimed
+                                 && small.vector.getY() == small.vu.getY()
+                                 && small.scope.getY() == small.vu.getY();
+        const bool analysisGrew = small.loudness.getHeight() - full.loudness.getHeight() == reclaimed
+                               && small.spectrum.getHeight() > full.spectrum.getHeight()
+                               && small.waterfall.getHeight() > full.waterfall.getHeight();
+        const bool splitKept = small.spectrum.getHeight() + small.waterfall.getHeight()
+                             - full.spectrum.getHeight() - full.waterfall.getHeight() == reclaimed;
+
+        if (writePreview)
+        {
+            const auto image = lite->createComponentSnapshot (lite->getLocalBounds(), true, 1.0f);
+            juce::File out = juce::File::getCurrentWorkingDirectory()
+                                 .getChildFile ("docs/ui-preview-lite.png");
+            out.getParentDirectory().createDirectory();
+            out.deleteFile();
+
+            if (auto stream = std::unique_ptr<juce::FileOutputStream> (out.createOutputStream()))
+            {
+                juce::PNGImageFormat png;
+                png.writeImageToStream (image, *stream);
+                std::printf ("wrote %s (%dx%d)\n", out.getFullPathName().toRawUTF8(),
+                             image.getWidth(), image.getHeight());
+            }
+        }
+
+        const bool ok = proIntact && liteHidden && scopesKeptSize && scopesDropped
+                     && analysisGrew && splitKept;
+        std::printf ("lite layout: %s (strip %d->%d, fft %d->%d, loudness %d->%d)\n",
+                     ok ? "ok" : "FAIL",
+                     full.stripVisible, small.stripVisible,
+                     full.spectrum.getHeight() + full.waterfall.getHeight(),
+                     small.spectrum.getHeight() + small.waterfall.getHeight(),
+                     full.loudness.getHeight(), small.loudness.getHeight());
+
+        LudensScopeLicence::setTestingUnlock (true);
+        return ok;
+    }
 }
 
 int main (int argc, char** argv)
@@ -1163,11 +1267,13 @@ int main (int argc, char** argv)
 
     const bool licenceOk = testLicence();
     const bool activationOk = testMachineActivation();
+    const bool liteLayoutOk = testLiteLayout (argc > 1);
 
     return clipped == 2 && undoOk && referenceOk && gainOk && seekOk
            && snapshotPersisted && settingsPersisted
            && sourceOk
            && referencePersisted
            && viewPersisted && presetOk && slotsOk && slotBLoaded && soloOk && loopOk && waveformOk
-           && vuFreezeOk && vuSparseOk && vuIdleOk && vuLayoutOk && licenceOk && activationOk ? 0 : 1;
+           && vuFreezeOk && vuSparseOk && vuIdleOk && vuLayoutOk && licenceOk && activationOk
+           && liteLayoutOk ? 0 : 1;
 }

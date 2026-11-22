@@ -592,17 +592,38 @@ void LudensScopeEditor::resized()
     const int railWidth = juce::roundToInt (88.0f * uiScale);
     const int stripHeight = juce::jlimit (80, 160, juce::roundToInt (100.0f * uiScale));
 
-    auto stripBand = r.removeFromBottom (stripHeight);
-    auto sourceBand = stripBand.removeFromRight (railWidth);
-    referenceStrip.setBounds (stripBand);
-    r.removeFromBottom (gap);
+    // Lite has no reference band: its height is handed to the analysis row
+    // above (FFT/waterfall and loudness), while the scope row below keeps its
+    // size and drops into the freed space.
+    int reclaimedHeight = 0;
+
+    if (referenceStrip.isVisible())
+    {
+        auto stripBand = r.removeFromBottom (stripHeight);
+        auto sourceBand = stripBand.removeFromRight (railWidth);
+        referenceStrip.setBounds (stripBand);
+
+        // ORIG/REF span the whole height of the reference panel.
+        auto sourceRow = sourceBand.reduced (juce::roundToInt (2.0f * uiScale), 0);
+        const int sourceGap = juce::roundToInt (3.0f * uiScale);
+        origButton.setBounds (sourceRow.removeFromLeft ((sourceRow.getWidth() - sourceGap) / 2));
+        sourceRow.removeFromLeft (sourceGap);
+        refButton.setBounds (sourceRow);
+
+        r.removeFromBottom (gap);
+    }
+    else
+    {
+        reclaimedHeight = stripHeight + gap;
+    }
 
     railBounds = r.removeFromRight (railWidth);
     r.removeFromRight (juce::roundToInt (10.0f * uiScale));
 
     auto rail = railBounds.withTrimmedLeft (2).withTrimmedRight (2)
                           .withTrimmedTop (juce::roundToInt (8.0f * uiScale));
-    const int available = juce::jmax (0, rail.getHeight());
+    // Buttons keep their PRO size; only the analysis panels grow in Lite.
+    const int available = juce::jmax (0, rail.getHeight() - reclaimedHeight);
 
     juce::Component* const buttons[] = {
         &fftButton, &guidesButton, &spanButton, &monoButton,
@@ -633,15 +654,10 @@ void LudensScopeEditor::resized()
         stack.removeFromTop (buttonGap);
     }
 
-    // ORIG/REF take their own band beside the waveform strip and span the
-    // whole height of the reference panel, so the two tiles line up with it.
-    auto sourceRow = sourceBand.reduced (juce::roundToInt (2.0f * uiScale), 0);
-    const int sourceGap = juce::roundToInt (3.0f * uiScale);
-    origButton.setBounds (sourceRow.removeFromLeft ((sourceRow.getWidth() - sourceGap) / 2));
-    sourceRow.removeFromLeft (sourceGap);
-    refButton.setBounds (sourceRow);
-
-    const int bottomHeight = juce::jlimit (115, 160, (int) ((float) r.getHeight() * 0.22f));
+    // The scope row is sized from the height the window had with the strip,
+    // so reclaimed space never inflates VU, stereo image or oscilloscope.
+    const int baseHeight = juce::jmax (0, r.getHeight() - reclaimedHeight);
+    const int bottomHeight = juce::jlimit (115, 160, (int) ((float) baseHeight * 0.22f));
     auto bottom = r.removeFromBottom (bottomHeight);
     r.removeFromBottom (gap);
 
@@ -2194,6 +2210,12 @@ void LudensScopeEditor::applyEdition()
     const bool legacy = LudensScopeLicence::isLegacy();
 
     donateButton.setVisible (! full);
+
+    // Lite has no reference workflow, so it does not reserve a bottom strip
+    // for the player or the ORIG/REF source switch. PRO keeps both unchanged.
+    referenceStrip.setVisible (full);
+    origButton.setVisible (full);
+    refButton.setVisible (full);
 
     unlockButton.setButtonText (full ? "PRO" : "UNLOCK");
     unlockButton.setEnabled (! full);
