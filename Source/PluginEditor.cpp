@@ -1225,7 +1225,7 @@ void LudensScopeEditor::showFftMenu()
 
     displayMenu.addSeparator();
     displayMenu.addSectionHeader (full ? "Gain staging" : "Gain staging (PRO)");
-    displayMenu.addItem (720, "Reference lines (FFT)", full, gainStaging);
+    displayMenu.addItem (720, "Reference lines", full, gainStaging);
     displayMenu.addItem (721, "0 VU = -18 dBFS (EBU)", full, vuZeroDbfs == -18);
     displayMenu.addItem (722, "0 VU = -20 dBFS (SMPTE)", full, vuZeroDbfs == -20);
 

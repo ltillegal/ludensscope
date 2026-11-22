@@ -273,7 +273,7 @@ namespace
         {
             const auto image = lite->createComponentSnapshot (lite->getLocalBounds(), true, 1.0f);
             juce::File out = juce::File::getCurrentWorkingDirectory()
-                                 .getChildFile ("docs/ui-preview-lite.png");
+                                 .getChildFile ("docs/qa-lite-layout.png");
             out.getParentDirectory().createDirectory();
             out.deleteFile();
 
@@ -1264,6 +1264,68 @@ int main (int argc, char** argv)
 
     presetFile.deleteFile();
     std::printf ("curve presets: %s\n", presetOk ? "ok" : "FAIL");
+
+    // Lite preview for the website: a dedicated processor keeps the shot clean
+    // of the state the tests above left behind, and a fresh editor without the
+    // testing unlock shows what a free user gets - no reference strip, taller
+    // analysis panels. The editor ticks are driven by hand: a second
+    // runDispatchLoop() after stopDispatchLoop() returns immediately.
+    {
+        LudensScopeLicence::setTestingUnlock (false);
+
+        LudensScopeProcessor liteProcessor;
+        liteProcessor.setPlayConfigDetails (2, 2, 48000.0, 512);
+        liteProcessor.prepareToPlay (48000.0, 512);
+
+        juce::AudioBuffer<float> liteBuffer (2, 512);
+        juce::MidiBuffer liteMidi;
+        int liteBlock = 0;
+
+        for (int block = 0; block < 400; ++block)
+        {
+            renderTestSignal (liteBuffer, liteBlock++);
+            liteProcessor.processBlock (liteBuffer, liteMidi);
+        }
+
+        std::unique_ptr<juce::AudioProcessorEditor> liteEditor (liteProcessor.createEditor());
+        auto* liteScope = dynamic_cast<LudensScopeEditor*> (liteEditor.get());
+
+        if (liteScope != nullptr)
+            liteScope->setInterfaceTheme (0);
+
+        liteEditor->setSize (1060, 700);
+
+        if (liteScope != nullptr)
+        {
+            // Match the PRO preview: the main flow runs the feeder for ~7.5 s
+            // at 120 Hz, so the average spectrum reaches the same part of the test loop.
+            for (int tick = 0; tick < 900; ++tick)
+            {
+                for (int i = 0; i < 8; ++i)
+                {
+                    renderTestSignal (liteBuffer, liteBlock++);
+                    liteProcessor.processBlock (liteBuffer, liteMidi);
+                }
+
+                liteScope->timerCallback();
+            }
+        }
+
+        const auto liteImage = liteEditor->createComponentSnapshot (liteEditor->getLocalBounds(), true, 1.0f);
+        const auto liteFile = juce::File::getCurrentWorkingDirectory()
+                                  .getChildFile ("docs/ui-preview-lite.png");
+        liteFile.getParentDirectory().createDirectory();
+        liteFile.deleteFile();
+
+        if (auto liteStream = std::unique_ptr<juce::FileOutputStream> (liteFile.createOutputStream()))
+        {
+            juce::PNGImageFormat png;
+            png.writeImageToStream (liteImage, *liteStream);
+            std::printf ("wrote %s (%dx%d)\n", liteFile.getFullPathName().toRawUTF8(),
+                         liteImage.getWidth(), liteImage.getHeight());
+        }
+    }
+    LudensScopeLicence::setTestingUnlock (true);
 
     const bool licenceOk = testLicence();
     const bool activationOk = testMachineActivation();
