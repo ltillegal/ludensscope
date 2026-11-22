@@ -202,10 +202,47 @@ void SpectrumAnalyzer::update()
 
     std::array<float, numBins> targetDb = rawDb;
 
+    // Below ~500 Hz several log display bins can collapse onto the same FFT
+    // bin, so the curve looks like a staircase. Taper a log-spaced triangular
+    // average in over the low bins and fade it out completely at 500 Hz.
+    constexpr float kRoundingLimitHz = 500.0f;
+    const float binsPerOctave = (float) numBins
+                                / std::log2 ((double) kMaxFrequency / (double) kMinFrequency);
+    const float maxRadius = binsPerOctave / 6.0f;
+    const float logSpan = std::log (kRoundingLimitHz / kMinFrequency);
+
+    for (int i = 0; i < numBins; ++i)
+    {
+        const float hz = binHz[(size_t) i];
+
+        if (hz >= kRoundingLimitHz)
+            continue;
+
+        const float taper = juce::jlimit (0.0f, 1.0f,
+                                          std::log (kRoundingLimitHz / hz) / logSpan);
+        const int radius = (int) std::lround (maxRadius * taper);
+
+        if (radius < 1)
+            continue;
+
+        float sum = 0.0f;
+        float weightSum = 0.0f;
+
+        for (int offset = -radius; offset <= radius; ++offset)
+        {
+            const int j = juce::jlimit (0, numBins - 1, i + offset);
+            const float distance = (float) (offset < 0 ? -offset : offset);
+            const float weight = 1.0f - distance / (float) (radius + 1);
+
+            sum += rawDb[(size_t) j] * weight;
+            weightSum += weight;
+        }
+
+        targetDb[(size_t) i] = sum / weightSum;
+    }
+
     if (octaveSmoothing > 0.0f)
     {
-        const float binsPerOctave = (float) numBins
-                                    / std::log2 (kMaxFrequency / kMinFrequency);
         const int radius = juce::jmax (1, (int) std::lround (binsPerOctave * octaveSmoothing * 0.5f));
 
         for (int i = 0; i < numBins; ++i)

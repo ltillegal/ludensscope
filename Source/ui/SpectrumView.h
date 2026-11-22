@@ -1058,7 +1058,27 @@ private:
         const int b1 = juce::jmin (b0 + 1, numBins - 1);
         const float mix = juce::jlimit (0.0f, 1.0f, binF - (float) b0);
 
-        return data[(size_t) b0] + mix * (data[(size_t) b1] - data[(size_t) b0]);
+        const float v0 = data[(size_t) b0];
+        const float v1 = data[(size_t) b1];
+
+        if (hz >= 500.0f || b0 == b1)
+            return v0 + mix * (v1 - v0);
+
+        // Below 500 Hz a straight line between log bins still shows the
+        // staircase as corners. A Catmull-Rom segment rounds those corners;
+        // clamping to the two samples keeps it from ringing on sharp peaks.
+        const int before = juce::jmax (0, b0 - 1);
+        const int after  = juce::jmin (numBins - 1, b1 + 1);
+        const float vm1 = data[(size_t) before];
+        const float vp2 = data[(size_t) after];
+        const float t2 = mix * mix;
+        const float t3 = t2 * mix;
+        const float rounded = 0.5f * ((2.0f * v0)
+                                     + (-vm1 + v1) * mix
+                                     + (2.0f * vm1 - 5.0f * v0 + 4.0f * v1 - vp2) * t2
+                                     + (-vm1 + 3.0f * v0 - 3.0f * v1 + vp2) * t3);
+
+        return juce::jlimit (juce::jmin (v0, v1), juce::jmax (v0, v1), rounded);
     }
 
     static juce::String formatHzShort (float hz)

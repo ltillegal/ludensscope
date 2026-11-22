@@ -2,8 +2,10 @@
 
 #include <juce_gui_basics/juce_gui_basics.h>
 
+#include <algorithm>
 #include <array>
 #include <cmath>
+#include <vector>
 
 #include "Theme.h"
 
@@ -35,21 +37,47 @@ public:
 
         juce::Image::BitmapData data (image, juce::Image::BitmapData::writeOnly);
 
+        if ((int) rowT.size() != width)
+        {
+            rowT.assign ((size_t) width, 0.0f);
+            blurredT.assign ((size_t) width, 0.0f);
+            smoothT.assign ((size_t) width, 0.0f);
+            hasPreviousRow = false;
+        }
+
         for (int x = 0; x < width; ++x)
         {
             const float fraction = (float) x / (float) juce::jmax (1, width - 1);
-            const float hz = rangeLow * std::pow (rangeHigh / rangeLow, fraction);
-            const int bin = juce::jlimit (
-                0, numBins - 1,
-                (int) std::lround (std::log (hz / 20.0f) / std::log (1000.0f)
-                                   * (float) (numBins - 1)));
-            const float t = juce::jlimit (0.0f, 1.0f,
-                                          (levelsDb[bin] - minDb) / (maxDb - minDb));
+            const float db = levelAt (levelsDb, numBins, fraction);
+            rowT[(size_t) x] = juce::jlimit (0.0f, 1.0f,
+                                             (db - minDb) / (maxDb - minDb));
+        }
 
+        // A 3-tap horizontal blur removes the hard steps between log bins;
+        // blending with the previous row rounds off the vertical block edges.
+        for (int x = 0; x < width; ++x)
+        {
+            const int left = juce::jmax (0, x - 1);
+            const int right = juce::jmin (width - 1, x + 1);
+
+            blurredT[(size_t) x] = 0.25f * rowT[(size_t) left]
+                                 + 0.50f * rowT[(size_t) x]
+                                 + 0.25f * rowT[(size_t) right];
+        }
+
+        for (int x = 0; x < width; ++x)
+        {
+            float t = blurredT[(size_t) x];
+
+            if (hasPreviousRow)
+                t = 0.70f * t + 0.30f * smoothT[(size_t) x];
+
+            smoothT[(size_t) x] = t;
             data.setPixelColour (x, writeRow,
                                  palette[(size_t) (int) std::lround (t * (float) (paletteSize - 1))]);
         }
 
+        hasPreviousRow = true;
         writeRow = (writeRow + 1) % height;
         repaint();
     }
@@ -103,6 +131,8 @@ public:
         if (image.isValid())
             image.clear (image.getBounds(), theme::bg);
 
+        std::fill (smoothT.begin(), smoothT.end(), 0.0f);
+        hasPreviousRow = false;
         writeRow = 0;
         repaint();
     }
@@ -136,6 +166,11 @@ public:
                                                               * (double) height
                                                               / (double) oldHeight))
                            : 0;
+
+            rowT.assign ((size_t) width, 0.0f);
+            blurredT.assign ((size_t) width, 0.0f);
+            smoothT.assign ((size_t) width, 0.0f);
+            hasPreviousRow = false;
         }
     }
 
@@ -197,6 +232,22 @@ public:
     }
 
 private:
+    // Linear interpolation between log bins, matching the spectrum view, so
+    // adjacent waterfall pixels no longer snap to the same FFT bin.
+    float levelAt (const float* levelsDb, int numBins, float fraction) const noexcept
+    {
+        const float hz = rangeLow * std::pow (rangeHigh / rangeLow,
+                                             juce::jlimit (0.0f, 1.0f, fraction));
+        const float binF = std::log (hz / 20.0f) / std::log (1000.0f)
+                           * (float) (numBins - 1);
+        const int b0 = juce::jlimit (0, numBins - 1, (int) binF);
+        const int b1 = juce::jmin (b0 + 1, numBins - 1);
+        const float mix = juce::jlimit (0.0f, 1.0f, binF - (float) b0);
+
+        return levelsDb[(size_t) b0]
+               + mix * (levelsDb[(size_t) b1] - levelsDb[(size_t) b0]);
+    }
+
     double historySeconds() const noexcept
     {
         return historySecondsFor (pushDivider);
@@ -260,6 +311,11 @@ private:
     }
 
     juce::Image image;
+    std::vector<float> rowT;
+    std::vector<float> blurredT;
+    std::vector<float> smoothT;
+    bool hasPreviousRow = false;
+
     int width = 0;
     int height = 0;
     int writeRow = 0;
