@@ -201,14 +201,15 @@ reference's variation over time); `OPTIONS → Reference → Suggested EQ (REF)`
 four broad `CUT/BOOST` hints from the difference of the average spectra
 (read-only, no processing).
 
-The VU follows IEC 60268-17 / ANSI C16.5: 0 VU = +4 dBu = 1.228 V RMS at
-1 kHz, -20..+3 VU scale. The pointer deflection is proportional to the
-**voltage**, so the scale is non-linear: 0 VU sits at ~68.5% of the arc and
-the 0..+3 zone is red. Ballistics are second-order in the voltage domain:
-300 ms second-order + 40 ms input smoothing (≈400 ms to 99%, zeta ~0.8, omega_n ~16.7 rad/s).
-In the digital domain 0 VU is the alignment level -18 dBFS (EBU R68) or
--20 dBFS (SMPTE RP 155); the VU reads average loudness, not peaks - use
-TRUE PEAK for peaks.
+The 0 VU point and scale follow IEC 60268-17 / ANSI C16.5: 0 VU = +4 dBu =
+1.228 V RMS at 1 kHz, -20..+3 VU scale. The pointer deflection is proportional
+to the **voltage**, so the scale is non-linear: 0 VU sits at ~68.5% of the arc
+and the 0..+3 zone is red. Ballistics are second-order in the voltage domain,
+critically damped (zeta = 1.0, omega_n ~13.3 rad/s): ~500 ms to 99% of a step,
+slower than the standard 300 ms and without overshoot. Input smoothing is
+40/80/150 ms (`OPTIONS -> VU input smoothing`, 80 ms by default). In the digital
+domain 0 VU is the alignment level -18 dBFS (EBU R68) or -20 dBFS (SMPTE RP 155);
+the VU reads average loudness, not peaks - use TRUE PEAK for peaks.
 
 ## Install from a release
 
