@@ -315,3 +315,10 @@ Cubase. Плагин появится в категории `Analyzer`. Для L
 [![Donate](https://img.shields.io/badge/Donate-PayPal-00457C?logo=paypal&logoColor=white)](https://www.paypal.com/donate/?business=0eskimo0%40gmail.com&item_name=LudensScope&currency_code=USD)
 
 PayPal: [Donate](https://www.paypal.com/donate/?business=0eskimo0%40gmail.com&item_name=LudensScope&currency_code=USD)
+
+## Лицензия
+
+LudensScope — проприетарное ПО. Исходный код опубликован только для
+ознакомления, проверки и резервной копии; прав на использование, изменение
+или распространение не предоставляется. См. [LICENSE](LICENSE) и
+[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).

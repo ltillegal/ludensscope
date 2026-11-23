@@ -317,3 +317,10 @@ If LudensScope saves you time, you can support development via PayPal:
 [![Donate](https://img.shields.io/badge/Donate-PayPal-00457C?logo=paypal&logoColor=white)](https://www.paypal.com/donate/?business=0eskimo0%40gmail.com&item_name=LudensScope&currency_code=USD)
 
 PayPal: [Donate](https://www.paypal.com/donate/?business=0eskimo0%40gmail.com&item_name=LudensScope&currency_code=USD)
+
+## License
+
+LudensScope is proprietary software. The source code is published for
+transparency, review and backup only; no licence to use, modify or
+redistribute it is granted. See [LICENSE](LICENSE) and
+[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
