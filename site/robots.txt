@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://ludens.pages.dev/sitemap.xml
+Sitemap: https://ludens-7cx.pages.dev/sitemap.xml
