@@ -337,7 +337,7 @@ h2 {
   letter-spacing: 0.06em;
   color: var(--mute);
 }
-.window img, .window video { display: block; width: 100%; height: auto; }
+.window img { display: block; width: 100%; height: auto; }
 
 .glow {
   position: absolute;

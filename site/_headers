@@ -9,6 +9,9 @@
 /404.html
   Cache-Control: public, max-age=0, must-revalidate
 
+/google*.html
+  Cache-Control: public, max-age=0, must-revalidate
+
 /en/index.html
   Cache-Control: public, max-age=0, must-revalidate
 
