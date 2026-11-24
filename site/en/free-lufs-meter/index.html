@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Free LUFS meter for VST3, AU and CLAP — ITU-R BS.1770-4 | LudensScope</title>
+  <meta name="description" content="A free LUFS meter that follows ITU-R BS.1770-4: momentary, short-term and integrated loudness, LRA, PLR and true peak. VST3, AU, CLAP and standalone for macOS, Windows and Linux.">
+  <meta property="og:title" content="A free LUFS meter that measures by the standard">
+  <meta property="og:description" content="A free LUFS meter that follows ITU-R BS.1770-4: momentary, short-term and integrated loudness, LRA, PLR and true peak. VST3, AU, CLAP and standalone for macOS, Windows and Linux.">
+  <meta property="og:type" content="article">
+  <meta property="og:image" content="https://ludensscope.pages.dev/assets/ui-preview.jpg">
+  <meta property="og:url" content="https://ludensscope.pages.dev/en/free-lufs-meter/">
+  <meta property="og:site_name" content="LudensScope">
+  <meta property="og:locale" content="en_US">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="theme-color" content="#01141b">
+  <link rel="canonical" href="https://ludensscope.pages.dev/en/free-lufs-meter/">
+  <link rel="icon" type="image/png" href="../../assets/logo.png">
+  <link rel="stylesheet" href="../../styles.css">
+  <script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"LudensScope","applicationCategory":"MultimediaApplication","operatingSystem":"macOS, Windows, Linux","url":"https://ludensscope.pages.dev/en/","description":"A free LUFS meter that follows ITU-R BS.1770-4: momentary, short-term and integrated loudness, LRA, PLR and true peak. VST3, AU, CLAP and standalone for macOS, Windows and Linux.","offers":[{"@type":"Offer","price":"0","priceCurrency":"EUR"},{"@type":"Offer","price":"19","priceCurrency":"EUR"}]}</script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="site-header" id="header">
+  <div class="wrap header-inner">
+    <a class="brand" href="../../" aria-label="LudensScope">
+      <img src="../../assets/logo.png" alt="" width="30" height="30">
+      <span>LudensScope</span>
+    </a>
+
+    <nav class="nav" id="nav" aria-label="Main">
+      <a href="../../">Overview</a>
+      <a href="../free-lufs-meter/" aria-current="page">LUFS meter</a>
+      <a href="../free-spectrum-analyzer/">Spectrum</a>
+      <a href="../gain-staging/">Gain staging</a>
+      <a href="../../#download">Download</a>
+    </nav>
+
+    <div class="header-actions">
+      <div class="lang" role="group" aria-label="Language"><a href="../../">RU</a><a class="active" href="./" aria-current="page">EN</a></div>
+      <a class="btn btn-primary header-cta" href="../../#download">Download Lite</a>
+      <button class="menu" id="menu-toggle" type="button" aria-label="Menu" aria-expanded="false" aria-controls="nav">
+        <span></span><span></span><span></span>
+      </button>
+    </div>
+  </div>
+</header>
+
+<main class="guide" id="main">
+  <div class="wrap">
+      <p class="eyebrow">GUIDE</p>
+      <h1>A free LUFS meter that measures by the standard</h1>
+      <p class="lead">LudensScope shows the four numbers that matter — momentary, short-term and gated integrated loudness, plus true peak — and the metering is free, with no time limit, no account and no telemetry.</p>
+      <figure>
+        <img src="../../assets/loudness.png" width="536" height="752" alt="LudensScope loudness panel showing momentary, short-term and integrated LUFS with true peak and LRA">
+        <figcaption>The loudness panel: BS.1770-4 momentary, short-term and integrated values with a selectable target, plus true peak, LRA, PLR, clip count and correlation.</figcaption>
+      </figure>
+
+      <h2>What LUFS measures</h2>
+      <p>LUFS is loudness normalised to full scale. The signal is K-weighted (a high-pass near 38&nbsp;Hz and a high shelf near 1.5&nbsp;kHz), squared, averaged over a window, and expressed relative to full scale. One unit of loudness, 1&nbsp;LU, equals 1&nbsp;dB. Because it averages over time and applies the weighting, it sits much closer to perceived level than a peak or RMS meter — and the low end counts less, the way it does in hearing.</p>
+      <p>The algorithm is defined in <strong>ITU-R BS.1770-4</strong>. EBU R128 uses the same measurement with a −23&nbsp;LUFS target for broadcast.</p>
+
+      <h2>The four numbers on the meter</h2>
+      <table>
+        <thead><tr><th>Reading</th><th>Window</th><th>What it tells you</th></tr></thead>
+        <tbody>
+          <tr><td>Momentary</td><td>400&nbsp;ms</td><td>What is happening right now. Useful for balance, useless as a delivery number.</td></tr>
+          <tr><td>Short-term</td><td>3&nbsp;s</td><td>The energy of a section: verse, chorus, drop.</td></tr>
+          <tr><td>Integrated</td><td>Whole programme, gated</td><td>The number delivery specs talk about.</td></tr>
+          <tr><td>LRA</td><td>EBU Tech 3342</td><td>How much loudness moves across the track.</td></tr>
+          <tr><td>PLR</td><td>Peak minus integrated</td><td>Headroom between the loudest peak and the average.</td></tr>
+          <tr><td>True peak</td><td>4× oversampled</td><td>Inter-sample peaks a sample meter cannot see.</td></tr>
+        </tbody>
+      </table>
+
+      <h2>Gating, and why the integrated number keeps moving</h2>
+      <p>Integrated loudness is not a plain average. BS.1770 gates it twice: an absolute gate discards everything below −70&nbsp;LUFS so silence does not drag the number down, and a relative gate discards anything more than 10&nbsp;LU below the ungated mean, so quiet intros and breakdowns do not pull it down either.</p>
+      <p>That is why the integrated value settles only after the track has played through. Measuring a 20-second loop will never match the finished number — and if you reset it mid-song, you are measuring the wrong thing.</p>
+
+      <h2>Delivery targets are not mix targets</h2>
+      <p>Streaming platforms normalise on playback, so a mix above the target simply gets turned down. The common references:</p>
+      <table>
+        <thead><tr><th>Target</th><th>Where it comes from</th></tr></thead>
+        <tbody>
+          <tr><td>−14&nbsp;LUFS</td><td>Spotify, YouTube, Amazon Music — normalisation reference</td></tr>
+          <tr><td>−16&nbsp;LUFS</td><td>Apple Podcasts and most podcast specs</td></tr>
+          <tr><td>−23&nbsp;LUFS</td><td>EBU R128 broadcast</td></tr>
+          <tr><td>−24&nbsp;LKFS</td><td>ATSC A/85 broadcast (US)</td></tr>
+        </tbody>
+      </table>
+      <p>Treat them as a delivery target, not as a reason to crush the mix. Mix for balance and dynamics, watch the short-term and integrated values, then adjust the master so the integrated lands where the delivery needs it.</p>
+
+      <h2>Sample peak is not true peak</h2>
+      <p>A sample meter reads the values at sample instants; reconstructed audio can overshoot between them. LudensScope measures true peak with 4× oversampling and a polyphase FIR, shows dBTP and turns red above −1&nbsp;dBTP — the usual ceiling for lossy encoders, which can add another 0.5–1&nbsp;dB on decode.</p>
+
+      <h2>What the free edition includes</h2>
+      <ul>
+        <li>Momentary, short-term and gated integrated loudness, LRA and PLR;</li>
+        <li>true peak with 4× oversampling, sample peak, clip counter;</li>
+        <li>60-second short-term history;</li>
+        <li>selectable targets −14, −16, −18 and −23&nbsp;LUFS with deviation in LU.</li>
+      </ul>
+      <p>PRO adds the reference workflow — load a track, match your integrated loudness to it, see its p10–p90 spread and EQ hints — plus gain-staging guides, snapshot slots and all seven palettes.</p>
+      <div class="guide-cta">
+        <p><strong>Lite is free</strong> — one installer, no account, no telemetry. PRO unlocks the reference workflow, gain staging and all seven palettes for €19.</p>
+        <div class="row">
+          <a class="btn btn-primary" href="../../#download">Download Lite — free</a>
+          <a class="btn btn-ghost" href="../../#pro">PRO — €19</a>
+        </div>
+      </div>
+      <div class="guide-more">
+        <h2>More guides</h2>
+        <ul>
+          <li><a href="../free-lufs-meter/">Free LUFS meter — ITU-R BS.1770-4 explained</a></li>
+          <li><a href="../free-spectrum-analyzer/">Free spectrum analyser — FFT size, windows, smoothing, waterfall</a></li>
+          <li><a href="../gain-staging/">Gain staging — what 0 VU means in dBFS</a></li>
+        </ul>
+      </div>
+  </div>
+</main>
+
+<footer class="footer">
+  <div class="wrap footer-inner">
+    <div class="footer-brand">
+      <a class="brand" href="../../"><img src="../../assets/logo.png" alt="" width="26" height="26"><span>LudensScope</span></a>
+      <p>Made with JUCE. VST3, AU, AAX &amp; CLAP. Lite free, PRO €19. No telemetry.</p>
+    </div>
+    <nav class="footer-nav" aria-label="Links">
+      <a href="https://github.com/ltillegal/ludensscope" target="_blank" rel="noopener">GitHub</a>
+      <a href="https://github.com/ltillegal/ludensscope/releases" target="_blank" rel="noopener">Releases</a>
+      <a href="https://komistore.app/" target="_blank" rel="noopener">Komi Store</a>
+      <a href="https://www.paypal.com/donate/?business=0eskimo0%40gmail.com&amp;item_name=Support&amp;currency_code=USD" target="_blank" rel="noopener">Donate</a>
+    </nav>
+    <p class="copy">© 2026 LudensScope</p>
+  </div>
+</footer>
+
+<script src="../../app.js"></script>
+</body>
+</html>

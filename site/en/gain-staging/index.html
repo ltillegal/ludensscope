@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Gain staging: 0 VU = −18 dBFS (EBU) or −20 dBFS (SMPTE) | LudensScope</title>
+  <meta name="description" content="What 0 VU means in a DAW, why EBU R68 puts it at −18 dBFS and SMPTE RP 155 at −20 dBFS, and how to use VU and gain-staging guides without losing headroom.">
+  <meta property="og:title" content="Gain staging: what 0 VU means in dBFS">
+  <meta property="og:description" content="What 0 VU means in a DAW, why EBU R68 puts it at −18 dBFS and SMPTE RP 155 at −20 dBFS, and how to use VU and gain-staging guides without losing headroom.">
+  <meta property="og:type" content="article">
+  <meta property="og:image" content="https://ludensscope.pages.dev/assets/ui-preview.jpg">
+  <meta property="og:url" content="https://ludensscope.pages.dev/en/gain-staging/">
+  <meta property="og:site_name" content="LudensScope">
+  <meta property="og:locale" content="en_US">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="theme-color" content="#01141b">
+  <link rel="canonical" href="https://ludensscope.pages.dev/en/gain-staging/">
+  <link rel="icon" type="image/png" href="../../assets/logo.png">
+  <link rel="stylesheet" href="../../styles.css">
+  <script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"LudensScope","applicationCategory":"MultimediaApplication","operatingSystem":"macOS, Windows, Linux","url":"https://ludensscope.pages.dev/en/","description":"What 0 VU means in a DAW, why EBU R68 puts it at −18 dBFS and SMPTE RP 155 at −20 dBFS, and how to use VU and gain-staging guides without losing headroom.","offers":[{"@type":"Offer","price":"0","priceCurrency":"EUR"},{"@type":"Offer","price":"19","priceCurrency":"EUR"}]}</script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="site-header" id="header">
+  <div class="wrap header-inner">
+    <a class="brand" href="../../" aria-label="LudensScope">
+      <img src="../../assets/logo.png" alt="" width="30" height="30">
+      <span>LudensScope</span>
+    </a>
+
+    <nav class="nav" id="nav" aria-label="Main">
+      <a href="../../">Overview</a>
+      <a href="../free-lufs-meter/">LUFS meter</a>
+      <a href="../free-spectrum-analyzer/">Spectrum</a>
+      <a href="../gain-staging/" aria-current="page">Gain staging</a>
+      <a href="../../#download">Download</a>
+    </nav>
+
+    <div class="header-actions">
+      <div class="lang" role="group" aria-label="Language"><a href="../../">RU</a><a class="active" href="./" aria-current="page">EN</a></div>
+      <a class="btn btn-primary header-cta" href="../../#download">Download Lite</a>
+      <button class="menu" id="menu-toggle" type="button" aria-label="Menu" aria-expanded="false" aria-controls="nav">
+        <span></span><span></span><span></span>
+      </button>
+    </div>
+  </div>
+</header>
+
+<main class="guide" id="main">
+  <div class="wrap">
+      <p class="eyebrow">GUIDE</p>
+      <h1>Gain staging: what 0 VU means in dBFS</h1>
+      <p class="lead">0 VU is an analogue reference, not a digital one. In a DAW it lands at −18 dBFS (EBU R68) or −20 dBFS (SMPTE RP 155) — and a meter that deflects with voltage, not dB, reads it the way the hardware did.</p>
+      <figure>
+        <img src="../../assets/vu.png" width="700" height="290" alt="LudensScope needle VU meters for left and right channels with a −20 to +3 scale">
+        <figcaption>Two needle VUs, one per channel: −20…+3 scale with 0&nbsp;VU calibrated to −18 or −20&nbsp;dBFS.</figcaption>
+      </figure>
+
+      <h2>dBu and dBFS are different scales</h2>
+      <p>0&nbsp;dBu is 0.775&nbsp;V RMS. 0&nbsp;VU is defined as +4&nbsp;dBu — about 1.228&nbsp;V RMS on a 1&nbsp;kHz tone. dBFS has no voltage at all: 0&nbsp;dBFS is the largest value the converter can store. The bridge between them is a calibration decision, which is exactly why two standards exist.</p>
+
+      <h2>Two calibrations</h2>
+      <table>
+        <thead><tr><th>Standard</th><th>0&nbsp;VU</th><th>Where it comes from</th></tr></thead>
+        <tbody>
+          <tr><td>EBU R68</td><td>−18&nbsp;dBFS</td><td>European broadcast convention, the usual DAW default</td></tr>
+          <tr><td>SMPTE RP 155</td><td>−20&nbsp;dBFS</td><td>US post convention, a little more headroom</td></tr>
+        </tbody>
+      </table>
+      <p>Pick one and stay consistent across a project. −18&nbsp;dBFS leaves 18&nbsp;dB above the reference before clipping, −20 leaves 20. Neither is more correct; a mismatch between sessions is what causes surprises.</p>
+
+      <h2>Why the needle is not linear</h2>
+      <p>A VU meter responds to voltage, not to dB. On a −20…+3&nbsp;VU scale, 0&nbsp;VU sits at roughly 68.5&nbsp;% of the arc and the spacing between marks grows towards the top. That is why a VU looks slow near −20 and quick near +3 — and why it matches the way analogue gear was actually driven.</p>
+
+      <h2>Ballistics, honestly</h2>
+      <p>IEC 60268-17 asks for a rise time of about 300&nbsp;ms to 99&nbsp;% of a step. LudensScope uses a second-order critically damped response (ζ&nbsp;=&nbsp;1.0), which reaches 99&nbsp;% in about 500&nbsp;ms with no overshoot, plus input smoothing of 40, 80 or 150&nbsp;ms (80&nbsp;ms by default).</p>
+      <p>It is deliberately slower than the letter of the standard: on modern bus-compressed material a shorter ballistic spends the whole chorus pinned at +3 and tells you nothing. If you want the textbook behaviour, drop the smoothing to 40&nbsp;ms.</p>
+
+      <h2>A practical gain-staging pass</h2>
+      <ol>
+        <li>Set the calibration — −18 or −20&nbsp;dBFS — and leave it for the whole project.</li>
+        <li>Put LudensScope on the master bus or the group you care about.</li>
+        <li>Play the loudest section and trim the bus so the needle peaks around 0&nbsp;VU, not above +1.</li>
+        <li>Check true peak and keep it under −1&nbsp;dBTP.</li>
+        <li>Compare integrated LUFS with the delivery target.</li>
+        <li>If the mix still sounds quiet next to a reference, fix balance and dynamics before raising the ceiling.</li>
+      </ol>
+
+      <h2>Where the guides are drawn</h2>
+      <p>The 0&nbsp;dBFS, −6, −12 and 0&nbsp;VU lines are drawn in <strong>both</strong> the spectrum and the oscilloscope, so the same reference is visible in the frequency and the time view. The gain-staging guides are a PRO feature; the VU meter itself is in the free edition.</p>
+      <div class="guide-cta">
+        <p><strong>Lite is free</strong> — one installer, no account, no telemetry. PRO unlocks the reference workflow, gain staging and all seven palettes for €19.</p>
+        <div class="row">
+          <a class="btn btn-primary" href="../../#download">Download Lite — free</a>
+          <a class="btn btn-ghost" href="../../#pro">PRO — €19</a>
+        </div>
+      </div>
+      <div class="guide-more">
+        <h2>More guides</h2>
+        <ul>
+          <li><a href="../free-lufs-meter/">Free LUFS meter — ITU-R BS.1770-4 explained</a></li>
+          <li><a href="../free-spectrum-analyzer/">Free spectrum analyser — FFT size, windows, smoothing, waterfall</a></li>
+          <li><a href="../gain-staging/">Gain staging — what 0 VU means in dBFS</a></li>
+        </ul>
+      </div>
+  </div>
+</main>
+
+<footer class="footer">
+  <div class="wrap footer-inner">
+    <div class="footer-brand">
+      <a class="brand" href="../../"><img src="../../assets/logo.png" alt="" width="26" height="26"><span>LudensScope</span></a>
+      <p>Made with JUCE. VST3, AU, AAX &amp; CLAP. Lite free, PRO €19. No telemetry.</p>
+    </div>
+    <nav class="footer-nav" aria-label="Links">
+      <a href="https://github.com/ltillegal/ludensscope" target="_blank" rel="noopener">GitHub</a>
+      <a href="https://github.com/ltillegal/ludensscope/releases" target="_blank" rel="noopener">Releases</a>
+      <a href="https://komistore.app/" target="_blank" rel="noopener">Komi Store</a>
+      <a href="https://www.paypal.com/donate/?business=0eskimo0%40gmail.com&amp;item_name=Support&amp;currency_code=USD" target="_blank" rel="noopener">Donate</a>
+    </nav>
+    <p class="copy">© 2026 LudensScope</p>
+  </div>
+</footer>
+
+<script src="../../app.js"></script>
+</body>
+</html>

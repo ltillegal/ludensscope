@@ -780,3 +780,36 @@ h2 {
   color: var(--mute);
 }
 .compare figcaption b { color: var(--text); font-weight: 600; }
+
+/* ---- guide pages ---- */
+.guide { padding: 108px 0 72px; }
+.guide .wrap { max-width: 800px; }
+.guide .eyebrow { margin-bottom: 10px; }
+.guide h1 { font-size: clamp(1.9rem, 4.4vw, 2.9rem); line-height: 1.08; letter-spacing: -.03em; margin: 0 0 18px; }
+.guide .lead { font-size: 17.5px; color: var(--dim); margin: 0 0 30px; }
+.guide h2 { font-size: 22px; letter-spacing: -.01em; margin: 44px 0 12px; }
+.guide h3 { font-size: 16.5px; margin: 26px 0 6px; color: var(--text); }
+.guide p { color: var(--dim); margin: 0 0 14px; }
+.guide ul, .guide ol { color: var(--dim); margin: 0 0 16px; padding-left: 22px; }
+.guide li { margin-bottom: 8px; }
+.guide strong { color: var(--text); }
+.guide code { font-family: var(--mono); font-size: .92em; color: var(--accent); }
+.guide figure { margin: 26px 0; }
+.guide figure img { display: block; width: auto; max-width: 100%; height: auto; margin: 0 auto; border: 1px solid var(--line); border-radius: 14px; background: var(--panel); }
+.guide figcaption { margin-top: 9px; font-size: 12.5px; color: var(--mute); }
+.guide table { width: 100%; border-collapse: collapse; margin: 18px 0 22px; font-size: 14.5px; }
+.guide th, .guide td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--line-soft); vertical-align: top; }
+.guide th { color: var(--mute); font-weight: 500; font-size: 12px; text-transform: uppercase; letter-spacing: .08em; }
+.guide td { color: var(--dim); }
+.guide-cta { margin: 44px 0 0; padding: 22px; border: 1px solid var(--line); border-radius: 16px; background: linear-gradient(180deg, rgba(1,54,67,.55), rgba(1,20,27,.2)); }
+.guide-cta p { margin: 0 0 14px; color: var(--dim); }
+.guide-cta .row { display: flex; gap: 10px; flex-wrap: wrap; }
+.guide-more { margin-top: 44px; padding-top: 22px; border-top: 1px solid var(--line-soft); }
+.guide-more h2 { margin: 0 0 12px; font-size: 15px; text-transform: uppercase; letter-spacing: .08em; color: var(--mute); }
+.guide-more ul { list-style: none; padding: 0; margin: 0; }
+.guide-more li { margin-bottom: 8px; }
+.guide-more a { color: var(--accent); text-decoration: none; }
+.guide-more a:hover { text-decoration: underline; }
+@media (max-width: 620px) {
+  .guide { padding-top: 92px; }
+}

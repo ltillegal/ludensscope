@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Free spectrum analyser for VST3, AU and CLAP (macOS, Windows, Linux) | LudensScope</title>
+  <meta name="description" content="A free spectrum analyser with 2048–16384-point FFT, waterfall, peak markers and FREEZE. VST3, AU, AAX, CLAP and standalone for macOS, Windows and Linux.">
+  <meta property="og:title" content="A free spectrum analyser that shows its settings">
+  <meta property="og:description" content="A free spectrum analyser with 2048–16384-point FFT, waterfall, peak markers and FREEZE. VST3, AU, AAX, CLAP and standalone for macOS, Windows and Linux.">
+  <meta property="og:type" content="article">
+  <meta property="og:image" content="https://ludensscope.pages.dev/assets/ui-preview.jpg">
+  <meta property="og:url" content="https://ludensscope.pages.dev/en/free-spectrum-analyzer/">
+  <meta property="og:site_name" content="LudensScope">
+  <meta property="og:locale" content="en_US">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="theme-color" content="#01141b">
+  <link rel="canonical" href="https://ludensscope.pages.dev/en/free-spectrum-analyzer/">
+  <link rel="icon" type="image/png" href="../../assets/logo.png">
+  <link rel="stylesheet" href="../../styles.css">
+  <script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"LudensScope","applicationCategory":"MultimediaApplication","operatingSystem":"macOS, Windows, Linux","url":"https://ludensscope.pages.dev/en/","description":"A free spectrum analyser with 2048–16384-point FFT, waterfall, peak markers and FREEZE. VST3, AU, AAX, CLAP and standalone for macOS, Windows and Linux.","offers":[{"@type":"Offer","price":"0","priceCurrency":"EUR"},{"@type":"Offer","price":"19","priceCurrency":"EUR"}]}</script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="site-header" id="header">
+  <div class="wrap header-inner">
+    <a class="brand" href="../../" aria-label="LudensScope">
+      <img src="../../assets/logo.png" alt="" width="30" height="30">
+      <span>LudensScope</span>
+    </a>
+
+    <nav class="nav" id="nav" aria-label="Main">
+      <a href="../../">Overview</a>
+      <a href="../free-lufs-meter/">LUFS meter</a>
+      <a href="../free-spectrum-analyzer/" aria-current="page">Spectrum</a>
+      <a href="../gain-staging/">Gain staging</a>
+      <a href="../../#download">Download</a>
+    </nav>
+
+    <div class="header-actions">
+      <div class="lang" role="group" aria-label="Language"><a href="../../">RU</a><a class="active" href="./" aria-current="page">EN</a></div>
+      <a class="btn btn-primary header-cta" href="../../#download">Download Lite</a>
+      <button class="menu" id="menu-toggle" type="button" aria-label="Menu" aria-expanded="false" aria-controls="nav">
+        <span></span><span></span><span></span>
+      </button>
+    </div>
+  </div>
+</header>
+
+<main class="guide" id="main">
+  <div class="wrap">
+      <p class="eyebrow">GUIDE</p>
+      <h1>A free spectrum analyser that shows its settings</h1>
+      <p class="lead">The spectrum is the most-used view in a mix session and the easiest to misread. LudensScope exposes FFT size, window, smoothing, tilt and waterfall history instead of hiding them behind one curve.</p>
+      <figure>
+        <img src="../../assets/spectrum.png" width="660" height="311" alt="LudensScope spectrum view with log frequency axis, peak markers and target curve">
+        <figcaption>Spectrum view: logarithmic axis, peak markers, energy pills and an optional target curve.</figcaption>
+      </figure>
+
+      <h2>FFT size: resolution against speed</h2>
+      <p>The FFT splits the signal into frequency bins. At 48&nbsp;kHz, 2048 points give roughly 23&nbsp;Hz per bin and react quickly; 16384 points give roughly 3&nbsp;Hz per bin and resolve individual low notes and harmonics, at the price of time resolution — the display answers more slowly.</p>
+      <p>Low frequencies almost always look smeared on a small FFT: at 40&nbsp;Hz, one 23&nbsp;Hz bin already spans more than half an octave. A practical default is 8192 for a broad view and 16384 when you work on the low end or hunt a resonance.</p>
+
+      <h2>Window functions</h2>
+      <p>The FFT assumes the signal repeats forever; a window tapers the edges to reduce leakage. <strong>Hann</strong> is the general-purpose choice. <strong>Blackman-Harris</strong> has lower sidelobes, so a quiet resonance next to a loud tone stays visible. <strong>Flat-top</strong> is amplitude-accurate and best when you need to read a level rather than a shape.</p>
+
+      <h2>Smoothing and tilt</h2>
+      <p>A raw FFT curve is spiky. 1/3-octave smoothing gives the familiar mix view, 1/6 keeps more detail, 1/1 shows broad tonal balance. Tilt compensates for music carrying far less energy per octave in the top end: +3&nbsp;dB/oct or +4.5&nbsp;dB/oct makes a balanced mix look roughly flat instead of falling away towards 20&nbsp;kHz.</p>
+      <p>Both are PRO controls. The free edition draws the same data with a fixed smoothing and a flat tilt, which is the honest default for judging balance.</p>
+
+      <h2>Waterfall</h2>
+      <p>The waterfall stacks spectra over time, so decays become visible: a snare tail, a room resonance, a cymbal that rings too long. LudensScope keeps 3, 7 or 14 seconds of history with adjustable height. <strong>FREEZE</strong> stops the spectrum and the waterfall only — loudness, true peak, scopes and channel meters keep updating, so you can hold a moment and still watch the levels.</p>
+
+      <h2>Reading a mix on a spectrum</h2>
+      <ul>
+        <li>A build-up around 200–400&nbsp;Hz usually reads as mud before you hear it as mud.</li>
+        <li>A wide shelf rising from 2–5&nbsp;kHz is often where harshness lives on distorted guitars and cymbals.</li>
+        <li>60–120&nbsp;Hz is where kick and bass fight; a single narrow peak that does not move with the arrangement is usually a resonance, not the mix.</li>
+        <li>A curve that falls smoothly towards 20&nbsp;kHz is normal. A curve that falls off a cliff means something above it is missing.</li>
+      </ul>
+      <p>Peak markers and the note grid make this concrete: the loudest bin is marked, and the grid shows which musical note a peak corresponds to.</p>
+
+      <h2>What is free and what is PRO</h2>
+      <table>
+        <thead><tr><th>Feature</th><th>Lite</th><th>PRO</th></tr></thead>
+        <tbody>
+          <tr><td>Spectrum and waterfall</td><td>Yes</td><td>Yes</td></tr>
+          <tr><td>Peak markers, FREEZE, PNG export</td><td>Yes</td><td>Yes</td></tr>
+          <tr><td>Smoothing, tilt, FFT overlap</td><td>—</td><td>Yes</td></tr>
+          <tr><td>Target curves, CSV export</td><td>—</td><td>Yes</td></tr>
+          <tr><td>Snapshot slots A–D</td><td>—</td><td>Yes</td></tr>
+          <tr><td>Reference curve with p10–p90 band</td><td>—</td><td>Yes</td></tr>
+        </tbody>
+      </table>
+      <div class="guide-cta">
+        <p><strong>Lite is free</strong> — one installer, no account, no telemetry. PRO unlocks the reference workflow, gain staging and all seven palettes for €19.</p>
+        <div class="row">
+          <a class="btn btn-primary" href="../../#download">Download Lite — free</a>
+          <a class="btn btn-ghost" href="../../#pro">PRO — €19</a>
+        </div>
+      </div>
+      <div class="guide-more">
+        <h2>More guides</h2>
+        <ul>
+          <li><a href="../free-lufs-meter/">Free LUFS meter — ITU-R BS.1770-4 explained</a></li>
+          <li><a href="../free-spectrum-analyzer/">Free spectrum analyser — FFT size, windows, smoothing, waterfall</a></li>
+          <li><a href="../gain-staging/">Gain staging — what 0 VU means in dBFS</a></li>
+        </ul>
+      </div>
+  </div>
+</main>
+
+<footer class="footer">
+  <div class="wrap footer-inner">
+    <div class="footer-brand">
+      <a class="brand" href="../../"><img src="../../assets/logo.png" alt="" width="26" height="26"><span>LudensScope</span></a>
+      <p>Made with JUCE. VST3, AU, AAX &amp; CLAP. Lite free, PRO €19. No telemetry.</p>
+    </div>
+    <nav class="footer-nav" aria-label="Links">
+      <a href="https://github.com/ltillegal/ludensscope" target="_blank" rel="noopener">GitHub</a>
+      <a href="https://github.com/ltillegal/ludensscope/releases" target="_blank" rel="noopener">Releases</a>
+      <a href="https://komistore.app/" target="_blank" rel="noopener">Komi Store</a>
+      <a href="https://www.paypal.com/donate/?business=0eskimo0%40gmail.com&amp;item_name=Support&amp;currency_code=USD" target="_blank" rel="noopener">Donate</a>
+    </nav>
+    <p class="copy">© 2026 LudensScope</p>
+  </div>
+</footer>
+
+<script src="../../app.js"></script>
+</body>
+</html>

@@ -9,7 +9,7 @@
 /404.html
   Cache-Control: public, max-age=0, must-revalidate
 
-/en/index.html
+/en/*
   Cache-Control: public, max-age=0, must-revalidate
 
 /assets/*
