@@ -2,8 +2,20 @@ name: build
 
 on:
   push:
+    paths-ignore:
+      - '**/*.md'
+      - 'docs/**'
+      - 'site/**'
   pull_request:
+    paths-ignore:
+      - '**/*.md'
+      - 'docs/**'
+      - 'site/**'
   workflow_dispatch:
+
+concurrency:
+  group: build-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build:
