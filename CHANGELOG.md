@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.1.0
+
+- Added a transparent fullscreen FFT toggle in the spectrum corner. The FFT fills the plugin window while the right button rail stays available, and the same corner or `Escape` restores the normal layout.
+- The toggle uses a square outline cue in both states.
+
 ## 1.0.11
 
 - Clarified the gain-staging menu item as `Reference lines`.
