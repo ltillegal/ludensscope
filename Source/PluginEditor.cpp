@@ -639,6 +639,14 @@ void LudensScopeEditor::resized()
         vectorScopeView.setBounds ({});
         vuMeterView.setBounds ({});
         oscilloscopeView.setBounds ({});
+        // These sit above the spectrum in z-order. Clearing their bounds keeps
+        // the FFT alone in the window and leaves the corner hotspot clickable
+        // in fullscreen too; the normal layout below restores them.
+        referenceStrip.setBounds ({});
+        origButton.setBounds ({});
+        refButton.setBounds ({});
+        themeButton.setBounds ({});
+        unlockButton.setBounds ({});
         waterfallDivider = {};
         leftColumnBounds = expandedArea;
         return;

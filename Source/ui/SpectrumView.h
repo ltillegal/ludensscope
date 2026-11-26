@@ -1043,31 +1043,17 @@ public:
         }
 
         // Drawn last so the cue stays above the plot, but deliberately faint:
-        // the corner is a hotspot, not a new labelled control.
+        // the corner is a hotspot, not a new labelled control. A plain square
+        // outline is the whole glyph; the fullscreen state adds a second one.
         {
             const auto button = expandButtonArea();
             const float alpha = fftExpanded ? 0.80f : (expandHover ? 0.70f : 0.26f);
-            const float inset = button.getWidth() * 0.30f;
-            const auto glyph = button.reduced (inset);
 
             g.setColour (theme::textDim.withAlpha (alpha));
+            g.drawRect (button.reduced (button.getWidth() * 0.18f).toNearestInt(), 1);
 
-            if (! fftExpanded)
-            {
-                g.drawRoundedRectangle (glyph, 2.0f, 1.0f);
-                g.drawLine (glyph.getRight(), glyph.getY(), button.getRight(), button.getY(), 1.0f);
-                g.drawLine (button.getRight(), button.getY(), button.getRight(), button.getY() + 4.0f, 1.0f);
-                g.drawLine (glyph.getRight(), glyph.getBottom(), button.getRight(), button.getBottom(), 1.0f);
-                g.drawLine (button.getRight(), button.getBottom(), button.getRight(), button.getBottom() - 4.0f, 1.0f);
-            }
-            else
-            {
-                g.drawRoundedRectangle (button.reduced (button.getWidth() * 0.12f), 2.0f, 1.0f);
-                g.drawLine (button.getX(), button.getY(), button.getX() + 4.0f, button.getY(), 1.0f);
-                g.drawLine (button.getX(), button.getY(), button.getX(), button.getY() + 4.0f, 1.0f);
-                g.drawLine (button.getX(), button.getBottom(), button.getX() + 4.0f, button.getBottom(), 1.0f);
-                g.drawLine (button.getX(), button.getBottom(), button.getX(), button.getBottom() - 4.0f, 1.0f);
-            }
+            if (fftExpanded)
+                g.drawRect (button.reduced (button.getWidth() * 0.36f).toNearestInt(), 1);
         }
     }
 
