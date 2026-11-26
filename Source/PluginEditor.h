@@ -100,6 +100,7 @@ private:
     void appendScope (const float* left, const float* right, int numSamples) noexcept;
     void resetDisplay();
     void cycleSpan();
+    void toggleFftExpanded();
     void applyRange (float lowHz, float highHz);
     void syncSnapshots();
     void chooseReferenceFile();
@@ -210,6 +211,7 @@ private:
     bool fileDragActive = false;
     int waterfallHistory = 2;
     int soloZone = -1;
+    bool fftExpanded = false;
     bool applyingSettings = false;
 
     // State captured before the last RESET.

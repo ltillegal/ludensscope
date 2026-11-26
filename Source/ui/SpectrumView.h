@@ -185,10 +185,35 @@ public:
     std::function<void (float, float)> onRangeChange;
     std::function<void()> onRangeReset;
 
+    // Transparent hotspot in the bottom-right corner of the spectrum panel.
+    // The editor swaps layouts; this view only reports the click and shows a
+    // barely visible cue for the current direction.
+    std::function<void()> onToggleExpand;
+
+    void setExpanded (bool shouldExpand) noexcept
+    {
+        if (fftExpanded == shouldExpand)
+            return;
+
+        fftExpanded = shouldExpand;
+        repaint();
+    }
+
     void mouseMove (const juce::MouseEvent& e) override
     {
         cursorActive = true;
         cursorPosition = e.position;
+
+        if (expandButtonArea().contains (e.position))
+        {
+            expandHover = true;
+            setMouseCursor (juce::MouseCursor::PointingHandCursor);
+            setTooltip (fftExpanded ? "Exit fullscreen FFT" : "Fullscreen FFT");
+            repaint();
+            return;
+        }
+
+        expandHover = false;
 
         bool overSnapshot = false;
 
@@ -224,6 +249,7 @@ public:
     void mouseExit (const juce::MouseEvent&) override
     {
         cursorActive = false;
+        expandHover = false;
         setMouseCursor (juce::MouseCursor::NormalCursor);
         repaint();
     }
@@ -265,12 +291,23 @@ public:
 
     void mouseDoubleClick (const juce::MouseEvent& e) override
     {
+        if (expandButtonArea().contains (e.position))
+            return;
+
         if (plotArea().contains (e.position) && onRangeReset)
             onRangeReset();
     }
 
     void mouseDown (const juce::MouseEvent& e) override
     {
+        if (expandButtonArea().contains (e.position))
+        {
+            if (onToggleExpand)
+                onToggleExpand();
+
+            return;
+        }
+
         for (int i = 0; i < snapshotCount; ++i)
         {
             if (snapshotLetterAreas[(size_t) i].contains (e.position))
@@ -1004,6 +1041,34 @@ public:
                             juce::Justification::centredLeft);
             }
         }
+
+        // Drawn last so the cue stays above the plot, but deliberately faint:
+        // the corner is a hotspot, not a new labelled control.
+        {
+            const auto button = expandButtonArea();
+            const float alpha = fftExpanded ? 0.80f : (expandHover ? 0.70f : 0.26f);
+            const float inset = button.getWidth() * 0.30f;
+            const auto glyph = button.reduced (inset);
+
+            g.setColour (theme::textDim.withAlpha (alpha));
+
+            if (! fftExpanded)
+            {
+                g.drawRoundedRectangle (glyph, 2.0f, 1.0f);
+                g.drawLine (glyph.getRight(), glyph.getY(), button.getRight(), button.getY(), 1.0f);
+                g.drawLine (button.getRight(), button.getY(), button.getRight(), button.getY() + 4.0f, 1.0f);
+                g.drawLine (glyph.getRight(), glyph.getBottom(), button.getRight(), button.getBottom(), 1.0f);
+                g.drawLine (button.getRight(), button.getBottom(), button.getRight(), button.getBottom() - 4.0f, 1.0f);
+            }
+            else
+            {
+                g.drawRoundedRectangle (button.reduced (button.getWidth() * 0.12f), 2.0f, 1.0f);
+                g.drawLine (button.getX(), button.getY(), button.getX() + 4.0f, button.getY(), 1.0f);
+                g.drawLine (button.getX(), button.getY(), button.getX(), button.getY() + 4.0f, 1.0f);
+                g.drawLine (button.getX(), button.getBottom(), button.getX() + 4.0f, button.getBottom(), 1.0f);
+                g.drawLine (button.getX(), button.getBottom(), button.getX(), button.getBottom() - 4.0f, 1.0f);
+            }
+        }
     }
 
 private:
@@ -1014,6 +1079,16 @@ private:
             .withTrimmedTop (16.0f)
             .withTrimmedBottom (14.0f)
             .withTrimmedRight (30.0f);
+    }
+
+    juce::Rectangle<float> expandButtonArea() const noexcept
+    {
+        const auto bounds = getLocalBounds().toFloat();
+        const float size = juce::jlimit (12.0f, 20.0f, 16.0f * uiScale);
+
+        return juce::Rectangle<float> (bounds.getRight() - size - 5.0f,
+                                       bounds.getBottom() - size - 5.0f,
+                                       size, size);
     }
 
     // Hit areas must be valid before the first paint, otherwise the first
@@ -1162,6 +1237,8 @@ private:
     bool showMatch = false;
     juce::StringArray matchLines;
     float uiScale = 1.0f;
+    bool fftExpanded = false;
+    bool expandHover = false;
     bool showPeakMarkers = true;
     bool showDifference = false;
     int differenceSource = 0;
