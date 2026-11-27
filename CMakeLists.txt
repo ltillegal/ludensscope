@@ -123,7 +123,10 @@ clap_juce_extensions_plugin(TARGET LudensScope
   CLAP_FEATURES audio-effect analyzer stereo utility)
 
 # LudensMatch: a second product sharing the analyser and the interface theme.
-option(LUDENSCOPE_BUILD_MATCH "Build the LudensMatch plug-in" ON)
+# Off by default while the product is WIP: releases must not drag an
+# unfinished plug-in into the build. Turn it on locally with
+# -DLUDENSCOPE_BUILD_MATCH=ON.
+option(LUDENSCOPE_BUILD_MATCH "Build the LudensMatch plug-in" OFF)
 
 if(LUDENSCOPE_BUILD_MATCH)
   juce_add_plugin(LudensMatch

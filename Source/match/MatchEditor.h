@@ -2,6 +2,7 @@
 
 #include <juce_audio_processors/juce_audio_processors.h>
 
+#include <cmath>
 #include <memory>
 #include <vector>
 
@@ -37,6 +38,7 @@ private:
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> outputAttachment;
 
     std::vector<float> readLeft, readRight;
+    double analyzerRate = 0.0;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (LudensMatchEditor)
 };

@@ -43,6 +43,8 @@ LudensMatchEditor::LudensMatchEditor (LudensMatchProcessor& p)
     readLeft.resize (4096);
     readRight.resize (4096);
 
+    analyzer.prepare (processor.getSampleRate() > 0.0 ? processor.getSampleRate() : 48000.0);
+
     startTimerHz (30);
 }
 
@@ -59,6 +61,14 @@ void LudensMatchEditor::styleSlider (juce::Slider& slider) const
 
 void LudensMatchEditor::timerCallback()
 {
+    const double rate = processor.getSampleRate();
+
+    if (rate > 0.0 && std::abs (rate - analyzerRate) > 1.0e-6)
+    {
+        analyzerRate = rate;
+        analyzer.prepare (rate);
+    }
+
     const int numRead = processor.readSamples (readLeft.data(), readRight.data(),
                                                (int) readLeft.size());
 
