@@ -1,4 +1,7 @@
+#include <juce_audio_formats/juce_audio_formats.h>
+
 #include "match/MatchProcessor.h"
+#include "match/MatchEditor.h"
 
 #include <cmath>
 #include <cstdio>
@@ -6,22 +9,51 @@
 
 namespace
 {
-    constexpr double pi = 3.14159265358979323846;
-
-    void renderTestSignal (juce::AudioBuffer<float>& buffer, int blockIndex)
+    // The mix is bright, the reference is dark: the correction should slope
+    // down, which is what the snapshot has to show.
+    void renderMix (juce::AudioBuffer<float>& buffer, juce::Random& rng, float lowpass)
     {
-        const double sampleRate = 48000.0;
+        static float left = 0.0f;
+        static float right = 0.0f;
 
         for (int i = 0; i < buffer.getNumSamples(); ++i)
         {
-            const double t = (double) (blockIndex * buffer.getNumSamples() + i) / sampleRate;
-            const float low = 0.20f * (float) std::sin (2.0 * pi * 70.0 * t);
-            const float mid = 0.16f * (float) std::sin (2.0 * pi * 900.0 * t);
-            const float high = 0.05f * (float) std::sin (2.0 * pi * 7000.0 * t);
+            left  = lowpass * left  + (1.0f - lowpass) * (rng.nextFloat() * 2.0f - 1.0f);
+            right = lowpass * right + (1.0f - lowpass) * (rng.nextFloat() * 2.0f - 1.0f);
 
-            buffer.setSample (0, i, low + mid + high);
-            buffer.setSample (1, i, low - mid + 0.8f * high);
+            buffer.setSample (0, i, 2.2f * left);
+            buffer.setSample (1, i, 1.9f * right);
         }
+    }
+
+    juce::File writeReferenceFile()
+    {
+        const int numSamples = 48000 * 6;
+        const double sampleRate = 48000.0;
+
+        juce::AudioBuffer<float> audio (2, numSamples);
+        juce::Random rng (20261127);
+        renderMix (audio, rng, 0.90f);   // dark
+
+        const auto file = juce::File::getSpecialLocation (juce::File::tempDirectory)
+                              .getChildFile ("ludensmatch-reference.wav");
+        file.deleteFile();
+
+        juce::WavAudioFormat format;
+        std::unique_ptr<juce::FileOutputStream> stream (file.createOutputStream());
+
+        if (stream == nullptr)
+            return {};
+
+        std::unique_ptr<juce::AudioFormatWriter> writer (
+            format.createWriterFor (stream.get(), sampleRate, 2, 24, {}, 0));
+
+        if (writer == nullptr)
+            return {};
+
+        stream.release();
+        writer->writeFromAudioSampleBuffer (audio, 0, numSamples);
+        return file;
     }
 }
 
@@ -32,7 +64,7 @@ int main()
     LudensMatchProcessor processor;
     processor.prepareToPlay (48000.0, 512);
 
-    std::unique_ptr<juce::AudioProcessorEditor> editor (processor.createEditor());
+    auto* editor = static_cast<LudensMatchEditor*> (processor.createEditor());
 
     if (editor == nullptr)
     {
@@ -40,18 +72,25 @@ int main()
         return 1;
     }
 
-    editor->setSize (980, 620);
+    std::unique_ptr<juce::AudioProcessorEditor> owner (editor);
+    editor->setSize (980, 660);
+
+    const auto reference = writeReferenceFile();
+
+    if (reference.existsAsFile())
+        editor->loadReferenceFile (reference);
 
     juce::AudioBuffer<float> buffer (2, 512);
     juce::MidiBuffer midi;
+    juce::Random rng (42);
 
-    for (int block = 0; block < 400; ++block)
+    for (int block = 0; block < 600; ++block)
     {
-        renderTestSignal (buffer, block);
+        renderMix (buffer, rng, 0.25f);   // bright
         processor.processBlock (buffer, midi);
     }
 
-    juce::MessageManager::getInstance()->runDispatchLoopUntil (600);
+    juce::MessageManager::getInstance()->runDispatchLoopUntil (1200);
 
     const auto image = editor->createComponentSnapshot (editor->getLocalBounds(), true, 1.0f);
     const auto file = juce::File::getCurrentWorkingDirectory().getChildFile ("docs/match-preview.png");

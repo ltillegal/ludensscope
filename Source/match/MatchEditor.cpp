@@ -2,13 +2,29 @@
 #include "MatchProcessor.h"
 
 #include "ui/Theme.h"
+#include "dsp/ReferenceAnalysis.h"
 
+#include <cmath>
+#include <thread>
 #include <utility>
 
 namespace
 {
     constexpr int editorWidth = 980;
-    constexpr int editorHeight = 620;
+    constexpr int editorHeight = 660;
+
+    constexpr float bandEdges[LudensMatchProcessor::numBands + 1] = {
+        20.0f, 60.0f, 120.0f, 250.0f, 500.0f, 1000.0f, 2500.0f, 6000.0f, 20000.0f
+    };
+
+    constexpr float minHz = 20.0f;
+    constexpr float maxHz = 20000.0f;
+
+    float binFrequency (int bin)
+    {
+        return minHz * std::pow (maxHz / minHz,
+                                 (float) bin / (float) (SpectrumAnalyzer::numBins - 1));
+    }
 }
 
 LudensMatchEditor::LudensMatchEditor (LudensMatchProcessor& p)
@@ -18,6 +34,19 @@ LudensMatchEditor::LudensMatchEditor (LudensMatchProcessor& p)
 
     addAndMakeVisible (spectrum);
     spectrum.setRange (20.0f, 20000.0f);
+
+    addAndMakeVisible (loadButton);
+    loadButton.onClick = [this] { chooseReference(); };
+    loadButton.setColour (juce::TextButton::buttonColourId, theme::panel);
+    loadButton.setColour (juce::TextButton::textColourOnId, theme::text);
+    loadButton.setColour (juce::TextButton::textColourOffId, theme::text);
+    loadButton.setTooltip ("Load a reference track - the correction follows its balance");
+
+    addAndMakeVisible (referenceLabel);
+    referenceLabel.setText ("no reference", juce::dontSendNotification);
+    referenceLabel.setFont (theme::labelFont (10.5f));
+    referenceLabel.setColour (juce::Label::textColourId, theme::textDim);
+    referenceLabel.setJustificationType (juce::Justification::centredLeft);
 
     auto setup = [this] (juce::Slider& slider, juce::Label& caption, const juce::String& text)
     {
@@ -59,6 +88,205 @@ void LudensMatchEditor::styleSlider (juce::Slider& slider) const
     slider.setColour (juce::Slider::thumbColourId, theme::accent);
 }
 
+void LudensMatchEditor::chooseReference()
+{
+    auto chooser = std::make_shared<juce::FileChooser> (
+        "Reference track", juce::File::getSpecialLocation (juce::File::userMusicDirectory),
+        "*.wav;*.aif;*.aiff;*.flac;*.mp3");
+
+    chooser->launchAsync (juce::FileBrowserComponent::openMode
+                              | juce::FileBrowserComponent::canSelectFiles,
+                          [this, chooser] (const juce::FileChooser& fc)
+                          {
+                              const auto file = fc.getResult();
+
+                              if (! file.existsAsFile())
+                                  return;
+
+                              referenceLabel.setText ("analysing " + file.getFileName(),
+                                                      juce::dontSendNotification);
+
+                              juce::Component::SafePointer<LudensMatchEditor> safe (this);
+                              const int generation = ++referenceGeneration;
+
+                              std::thread ([safe, file, generation]
+                              {
+                                  const auto analysis = analyzeReferenceFile (file);
+
+                                  // ReferenceAnalysis owns its audio buffer, so
+                                  // only the curve crosses threads.
+                                  const auto levels = analysis.levels;
+                                  const bool ok = analysis.ok;
+
+                                  juce::MessageManager::callAsync ([safe, levels, ok, file, generation]
+                                  {
+                                      if (safe == nullptr
+                                          || generation != safe->referenceGeneration)
+                                          return;
+
+                                      if (! ok)
+                                      {
+                                          safe->referenceLabel.setText ("could not read that file",
+                                                                        juce::dontSendNotification);
+                                          return;
+                                      }
+
+                                      safe->applyReference (levels, file.getFileName());
+                                  });
+                              }).detach();
+                          });
+}
+
+void LudensMatchEditor::applyReference (const std::array<float, SpectrumAnalyzer::numBins>& levels,
+                                        const juce::String& name)
+{
+    referenceCurve = levels;
+    hasReference = true;
+    spectrum.setReference (referenceCurve.data(), true);
+    referenceLabel.setText (name, juce::dontSendNotification);
+}
+
+void LudensMatchEditor::loadReferenceFile (const juce::File& file)
+{
+    const auto analysis = analyzeReferenceFile (file);
+
+    if (! analysis.ok)
+    {
+        referenceLabel.setText ("could not read that file", juce::dontSendNotification);
+        return;
+    }
+
+    ++referenceGeneration;
+    applyReference (analysis.levels, file.getFileName());
+}
+
+void LudensMatchEditor::updateBandGains()
+{
+    if (! hasReference)
+        return;
+
+    const auto& mixCurve = analyzer.averageLevels();
+
+    // Nothing to compare against until the input has produced a spectrum.
+    if (mixCurve[(size_t) (SpectrumAnalyzer::numBins / 2)] < -110.0f)
+        return;
+
+    std::array<float, LudensMatchProcessor::numBands> target {};
+
+    for (int band = 0; band < LudensMatchProcessor::numBands; ++band)
+    {
+        const float low = bandEdges[band];
+        const float high = bandEdges[band + 1];
+
+        float sum = 0.0f;
+        int count = 0;
+
+        for (int bin = 0; bin < SpectrumAnalyzer::numBins; ++bin)
+        {
+            const float hz = binFrequency (bin);
+
+            if (hz < low || hz >= high)
+                continue;
+
+            const float diff = referenceCurve[(size_t) bin] - mixCurve[(size_t) bin];
+
+            if (diff < -95.0f)
+                continue;
+
+            sum += diff;
+            ++count;
+        }
+
+        target[(size_t) band] = count > 0 ? sum / (float) count : 0.0f;
+    }
+
+    // A reference at a different loudness would otherwise turn into a global
+    // boost or cut, so the average difference is removed: the correction only
+    // changes the balance, never the level.
+    float mean = 0.0f;
+
+    for (const float value : target)
+        mean += value;
+
+    mean /= (float) LudensMatchProcessor::numBands;
+
+    for (auto& value : target)
+        value = juce::jlimit (-9.0f, 9.0f, value - mean);
+
+    bool changed = false;
+
+    for (int band = 0; band < LudensMatchProcessor::numBands; ++band)
+    {
+        float& current = bandGains[(size_t) band];
+        const float next = current + 0.25f * (target[(size_t) band] - current);
+
+        if (std::abs (next - current) > 0.01f)
+            changed = true;
+
+        current = next;
+    }
+
+    if (changed)
+        processor.setBandGains (bandGains.data(), LudensMatchProcessor::numBands);
+
+    // The correction is drawn as a curve over the spectrum: every bin takes the
+    // gain of the band it belongs to.
+    for (int bin = 0; bin < SpectrumAnalyzer::numBins; ++bin)
+    {
+        const float hz = binFrequency (bin);
+        int band = LudensMatchProcessor::numBands - 1;
+
+        for (int b = 0; b < LudensMatchProcessor::numBands; ++b)
+        {
+            if (hz >= bandEdges[b] && hz < bandEdges[b + 1])
+            {
+                band = b;
+                break;
+            }
+        }
+
+        correctionCurve[(size_t) bin] = bandGains[(size_t) band];
+    }
+
+    // The view's Y axis is dBFS, so the correction is drawn around -24 dBFS:
+    // 0 dB of correction sits there, +/-9 dB moves the line up and down.
+    for (int bin = 0; bin < SpectrumAnalyzer::numBins; ++bin)
+    {
+        const float hz = binFrequency (bin);
+
+        // Interpolate between band centres in log frequency, so the line reads
+        // as a curve rather than eight steps.
+        if (hz <= juce::MathConstants<float>::twoPi * 5.0f)
+        {
+            correctionCurve[(size_t) bin] = -24.0f + bandGains[0];
+            continue;
+        }
+
+        if (hz >= LudensMatchProcessor::bandCentreHz (LudensMatchProcessor::numBands - 1))
+        {
+            correctionCurve[(size_t) bin] = -24.0f + bandGains[LudensMatchProcessor::numBands - 1];
+            continue;
+        }
+
+        int upper = 1;
+
+        while (upper < LudensMatchProcessor::numBands
+               && LudensMatchProcessor::bandCentreHz (upper) < hz)
+            ++upper;
+
+        const float f0 = LudensMatchProcessor::bandCentreHz (upper - 1);
+        const float f1 = LudensMatchProcessor::bandCentreHz (upper);
+        const float t = juce::jlimit (0.0f, 1.0f,
+                                      std::log (hz / f0) / std::log (f1 / f0));
+        const float gain = bandGains[(size_t) (upper - 1)]
+                           + t * (bandGains[(size_t) upper] - bandGains[(size_t) (upper - 1)]);
+
+        correctionCurve[(size_t) bin] = -24.0f + gain;
+    }
+
+    spectrum.setTargetCurve (correctionCurve.data(), true, "MATCH");
+}
+
 void LudensMatchEditor::timerCallback()
 {
     const double rate = processor.getSampleRate();
@@ -72,12 +300,14 @@ void LudensMatchEditor::timerCallback()
     const int numRead = processor.readSamples (readLeft.data(), readRight.data(),
                                                (int) readLeft.size());
 
-    if (numRead <= 0)
-        return;
+    if (numRead > 0)
+    {
+        analyzer.push (readLeft.data(), readRight.data(), numRead);
+        analyzer.update();
+        spectrum.setData (analyzer.levels().data(), analyzer.peaks().data());
+    }
 
-    analyzer.push (readLeft.data(), readRight.data(), numRead);
-    analyzer.update();
-    spectrum.setData (analyzer.levels().data(), analyzer.peaks().data());
+    updateBandGains();
     spectrum.repaint();
 }
 
@@ -102,8 +332,11 @@ void LudensMatchEditor::resized()
 {
     auto area = getLocalBounds().reduced (18);
 
-    auto header = area.removeFromTop (44);
-    juce::ignoreUnused (header);
+    area.removeFromTop (44);                       // header
+    auto referenceRow = area.removeFromTop (34);   // reference controls
+
+    loadButton.setBounds (referenceRow.removeFromLeft (150).reduced (0, 4));
+    referenceLabel.setBounds (referenceRow.removeFromLeft (300).reduced (8, 4));
 
     auto controls = area.removeFromBottom (92);
     area.removeFromBottom (10);

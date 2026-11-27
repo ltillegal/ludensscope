@@ -149,7 +149,8 @@ if(LUDENSCOPE_BUILD_MATCH)
   target_sources(LudensMatch PRIVATE
     Source/match/MatchProcessor.cpp
     Source/match/MatchEditor.cpp
-    Source/dsp/SpectrumAnalyzer.cpp)
+    Source/dsp/SpectrumAnalyzer.cpp
+    Source/dsp/LoudnessMeter.cpp)
 
   target_include_directories(LudensMatch PRIVATE Source)
 
@@ -219,7 +220,8 @@ if(LUDENSCOPE_BUILD_TESTS)
       Tests/MatchSnapshot.cpp
       Source/match/MatchProcessor.cpp
       Source/match/MatchEditor.cpp
-      Source/dsp/SpectrumAnalyzer.cpp)
+      Source/dsp/SpectrumAnalyzer.cpp
+      Source/dsp/LoudnessMeter.cpp)
     target_include_directories(LudensMatchSnapshot PRIVATE Source)
     target_compile_definitions(LudensMatchSnapshot PRIVATE
       JUCE_STANDALONE_APPLICATION=1
