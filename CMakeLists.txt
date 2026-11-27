@@ -41,9 +41,12 @@ if(APPLE OR WIN32)
   list(APPEND LUDENSCOPE_FORMATS AAX)
 endif()
 
-set(LUDENSCOPE_COPY_PLUGIN TRUE)
+# Copying the bundles into the system plug-in folders needs admin rights on
+# macOS for the AAX path, so a local build can switch it off and keep the
+# artefacts in the build tree.
+option(LUDENSCOPE_COPY_PLUGIN "Copy built plug-ins into the system folders" ON)
 if(DEFINED ENV{CI})
-  set(LUDENSCOPE_COPY_PLUGIN FALSE)
+  set(LUDENSCOPE_COPY_PLUGIN OFF)
 endif()
 
 juce_add_plugin(LudensScope

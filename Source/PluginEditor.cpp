@@ -2116,13 +2116,13 @@ void LudensScopeEditor::runAutomaticUpdateCheck()
 
         juce::MessageManager::callAsync ([safe, info]
         {
-            auto state = updateState::load();
-            state.lastCheckSeconds = juce::Time::currentTimeMillis() / 1000;
+            auto fresh = updateState::load();
+            fresh.lastCheckSeconds = juce::Time::currentTimeMillis() / 1000;
 
             if (info.error.isEmpty())
-                state.latestVersion = info.available ? info.latestVersion : juce::String();
+                fresh.latestVersion = info.available ? info.latestVersion : juce::String();
 
-            updateState::save (state);
+            updateState::save (fresh);
 
             if (safe == nullptr)
                 return;

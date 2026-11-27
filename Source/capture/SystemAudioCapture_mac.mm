@@ -139,7 +139,7 @@ SystemAudioCapture::~SystemAudioCapture()
 
 bool SystemAudioCapture::isPlatformSupported()
 {
-    if (@available (macOS 12.3, *))
+    if (@available (macOS 13.0, *))
         return true;
 
     return false;
@@ -147,16 +147,16 @@ bool SystemAudioCapture::isPlatformSupported()
 
 juce::String SystemAudioCapture::platformNote()
 {
-    if (@available (macOS 12.3, *))
+    if (@available (macOS 13.0, *))
         return "System audio needs the \"Screen & System Audio Recording\" permission: "
                "System Settings -> Privacy & Security.";
 
-    return "System audio capture needs macOS 12.3 or newer.";
+    return "System audio capture needs macOS 13.0 or newer.";
 }
 
 bool SystemAudioCapture::start (double sampleRate, Callback callbackIn, juce::String& error)
 {
-    if (@available (macOS 12.3, *))
+    if (@available (macOS 13.0, *))
     {
         stop();
 
@@ -278,7 +278,7 @@ void SystemAudioCapture::stop()
 
     impl->running = false;
 
-    if (@available (macOS 12.3, *))
+    if (@available (macOS 13.0, *))
     {
         if (impl->stream != nil)
         {
