@@ -1,4 +1,5 @@
 #include "PluginEditor.h"
+#include "report/ReportPdf.h"
 #include "ui/CurvePresets.h"
 #include "dsp/ReferenceAnalysis.h"
 #include "PluginProcessor.h"
@@ -148,9 +149,227 @@ namespace
             const float highGain = 0.2f + 0.8f * (0.5f + 0.5f * (float) std::sin ((double) blockIndex * 0.01));
             const float high = 0.05f * highGain * (float) std::sin (2.0 * pi * 9000.0 * t);
 
-            buffer.setSample (0, i, low + mid + high);
-            buffer.setSample (1, i, low - mid + 0.8f * high);
+            // Quiet broadband bed: the three tones alone leave every band
+            // above 1 kHz as leakage of the anti-phase tone, which is not what
+            // a per-band stereo view is meant to show.
+            static juce::Random bedRandom { 20261127 };
+            const float bedCommon = 0.04f * (bedRandom.nextFloat() * 2.0f - 1.0f);
+            const float bedL = bedCommon + 0.04f * (bedRandom.nextFloat() * 2.0f - 1.0f);
+            const float bedR = bedCommon + 0.04f * (bedRandom.nextFloat() * 2.0f - 1.0f);
+
+            buffer.setSample (0, i, low + mid + high + bedL);
+            buffer.setSample (1, i, low - mid + 0.8f * high + bedR);
         }
+    }
+
+    // Update plumbing: version comparison and the daily throttle.
+    bool testUpdateLogic()
+    {
+        const bool newerOk = isNewerVersion ("1.2.1", "1.2.0")
+                             && isNewerVersion ("v1.3", "1.2.0")
+                             && isNewerVersion ("2.0", "1.9.9")
+                             && ! isNewerVersion ("1.2.0", "1.2.0")
+                             && ! isNewerVersion ("1.1.9", "1.2.0")
+                             && ! isNewerVersion (juce::String(), "1.2.0");
+
+        updateState::State never;
+        const bool staleOk = updateState::isStale (never);
+
+        updateState::State recent;
+        recent.lastCheckSeconds = juce::Time::currentTimeMillis() / 1000 - 3600;
+        const bool freshOk = ! updateState::isStale (recent);
+
+        updateState::State old;
+        old.lastCheckSeconds = juce::Time::currentTimeMillis() / 1000 - 25 * 3600;
+        const bool oldOk = updateState::isStale (old);
+
+        const bool ok = newerOk && staleOk && freshOk && oldOk;
+
+        std::printf ("update logic: compare %s, throttle %s: %s\n",
+                     newerOk ? "ok" : "FAIL",
+                     (staleOk && freshOk && oldOk) ? "ok" : "FAIL",
+                     ok ? "ok" : "FAIL");
+        return ok;
+    }
+
+    // Offline report: a known sine gives a predictable integrated loudness, and
+    // the PDF must come out as a valid file.
+    bool testTrackReport (const juce::File& scratchDir)
+    {
+        const double sr = 48000.0;
+        const double seconds = 8.0;
+        const int n = (int) (sr * seconds);
+
+        juce::AudioBuffer<float> audio (2, n);
+
+        for (int i = 0; i < n; ++i)
+        {
+            const double t = (double) i / sr;
+            // -23 dBFS for 4 s, then -8 dBFS for 2 s, then -30 dBFS.
+            const float gain = t < 4.0 ? 0.0708f : (t < 6.0 ? 0.398f : 0.0316f);
+            const float value = gain * (float) std::sin (2.0 * pi * 1000.0 * t);
+            audio.setSample (0, i, value);
+            audio.setSample (1, i, value);
+        }
+
+        const auto wav = scratchDir.getChildFile ("report-test.wav");
+        wav.deleteFile();
+
+        {
+            juce::WavAudioFormat format;
+            std::unique_ptr<juce::FileOutputStream> stream (wav.createOutputStream());
+
+            if (stream == nullptr)
+                return false;
+
+            std::unique_ptr<juce::AudioFormatWriter> writer (
+                format.createWriterFor (stream.get(), sr, 2, 24, {}, 0));
+
+            if (writer == nullptr)
+                return false;
+
+            stream.release();
+            writer->writeFromAudioSampleBuffer (audio, 0, n);
+        }
+
+        const auto report = analyzeTrackFile (wav, -14.0f, 720.0);
+
+        const auto pdfFile = scratchDir.getChildFile ("report-test.pdf");
+        const bool pdfOk = writeTrackReportPdf (report, nullptr, pdfFile, "test");
+
+        char head[4] {};
+        {
+            juce::FileInputStream in (pdfFile);
+            in.read (head, 4);
+        }
+
+        const bool headerOk = std::memcmp (head, "%PDF", 4) == 0;
+
+        // Gated integrated loudness lands between the quiet and the loud
+        // section; the true peak must match the -8 dBFS burst.
+        const bool loudnessOk = report.integratedLufs > -14.0f && report.integratedLufs < -11.0f;
+        const bool peakOk = report.truePeakDbtp > -9.0f && report.truePeakDbtp < -7.0f;
+        const bool excursionOk = report.excursionCount >= 1 && report.timeAboveTarget > 1.0;
+
+        // The average spectrum must peak at the test tone.
+        int peakBin = 0;
+        for (int i = 0; i < SpectrumAnalyzer::numBins; ++i)
+            if (report.spectrum[(size_t) i] > report.spectrum[(size_t) peakBin])
+                peakBin = i;
+
+        const float peakHz = 20.0f * std::pow (1000.0f, (float) peakBin / 511.0f);
+        const bool spectrumOk = report.spectrum[(size_t) peakBin] > -50.0f
+                                && peakHz > 800.0f && peakHz < 1250.0f;
+
+        const auto longName = scratchDir.getChildFile (
+            "client-session-2026-11-final-master-v12-bounced-44k1-24bit-approved.wav");
+        longName.deleteFile();
+        wav.copyFileTo (longName);
+
+        const auto longReport = analyzeTrackFile (longName, -14.0f, 720.0);
+        const auto longPdf = scratchDir.getChildFile ("report-long-name.pdf");
+        const bool longNameOk = writeTrackReportPdf (longReport, nullptr, longPdf, "test");
+
+        const bool ok = report.ok && pdfOk && headerOk && loudnessOk && peakOk
+                        && excursionOk && spectrumOk && longNameOk;
+
+        std::printf ("track report: integrated %.2f LUFS, LRA %.1f, PLR %.1f, TP %.1f dBTP, "
+                     "%d passages, spectrum %s, pdf %s: %s\n",
+                     report.integratedLufs, report.lraLu, report.plrLu, report.truePeakDbtp,
+                     report.excursionCount, spectrumOk ? "ok" : "FAIL", headerOk ? "ok" : "FAIL",
+                     ok ? "ok" : "FAIL");
+        return ok;
+    }
+
+    // Correlation and side/mid maths: identical channels must read +1 and the
+    // side at the floor, inverted must read -1, decorrelated must read near 0.
+    bool testStereoField()
+    {
+        const double sr = 48000.0;
+        const int n = 4096;
+
+        auto measure = [&] (int mode, float& corr, float& sideMid)
+        {
+            StereoFieldAnalyzer a;
+            a.setFftSize (4096);
+            a.prepare (sr);
+
+            std::vector<float> l ((size_t) n), r ((size_t) n);
+            juce::Random rng (7);
+
+            for (int i = 0; i < n; ++i)
+            {
+                const float tone = 0.3f * (float) std::sin (2.0 * pi * 1000.0 * (double) i / sr);
+                l[(size_t) i] = tone;
+                r[(size_t) i] = mode == 0 ? tone
+                             : mode == 1 ? -tone
+                                         : 0.3f * (rng.nextFloat() * 2.0f - 1.0f);
+            }
+
+            a.push (l.data(), r.data(), n);
+            a.update();
+
+            int bin = 0;
+            for (int b = 0; b < StereoFieldAnalyzer::numBins; ++b)
+                if (a.frequencyForBin (b) < 1000.0f)
+                    bin = b;
+
+            corr = a.correlation()[(size_t) bin];
+            sideMid = a.sideMid()[(size_t) bin];
+        };
+
+        float corrMono = 0.0f, sideMono = 0.0f;
+        float corrInvert = 0.0f, sideInvert = 0.0f;
+        float corrRandom = 0.0f, sideRandom = 0.0f;
+
+        measure (0, corrMono, sideMono);
+        measure (1, corrInvert, sideInvert);
+        measure (2, corrRandom, sideRandom);
+
+        // Broadband bed like the snapshot material: corr should sit near 0.5.
+        float corrBed = 0.0f, sideBed = 0.0f;
+        {
+            StereoFieldAnalyzer bed;
+            bed.setFftSize (4096);
+            bed.prepare (sr);
+
+            juce::Random rng (20261127);
+            std::vector<float> l ((size_t) n), r ((size_t) n);
+
+            for (int i = 0; i < n; ++i)
+            {
+                const float common = 0.05f * (rng.nextFloat() * 2.0f - 1.0f);
+                l[(size_t) i] = common + 0.05f * (rng.nextFloat() * 2.0f - 1.0f);
+                r[(size_t) i] = common + 0.05f * (rng.nextFloat() * 2.0f - 1.0f);
+            }
+
+            for (int k = 0; k < 20; ++k)
+            {
+                bed.push (l.data(), r.data(), n);
+                bed.update();
+            }
+
+            int bin = 0;
+            for (int b = 0; b < StereoFieldAnalyzer::numBins; ++b)
+                if (bed.frequencyForBin (b) < 1000.0f)
+                    bin = b;
+
+            corrBed = bed.correlation()[(size_t) bin];
+            sideBed = bed.sideMid()[(size_t) bin];
+
+        }
+
+        std::printf ("stereo bed: corr %.2f S/M %.1f dB\n", corrBed, sideBed);
+
+        const bool ok = corrMono > 0.95f
+                        && sideMono < -30.0f
+                        && corrInvert < -0.95f
+                        && std::abs (corrRandom) < 0.25f;
+
+        std::printf ("stereo field: mono %.2f/%.1f dB, inverted %.2f/%.1f dB, random %.2f/%.1f dB: %s\n",
+                     corrMono, sideMono, corrInvert, sideInvert, corrRandom, sideRandom,
+                     ok ? "ok" : "FAIL");
+        return ok;
     }
 
     // Keeps audio flowing into the processor while the message loop runs, so
@@ -164,10 +383,12 @@ namespace
         {
             for (int i = 0; i < 8; ++i)
             {
-                renderTestSignal (buffer, blockIndex++);
+                renderTestSignal (buffer, blockIndex);
+                ++blockIndex;
                 processor.processBlock (buffer, midi);
             }
         }
+
 
         LudensScopeProcessor& processor;
         juce::AudioBuffer<float>& buffer;
@@ -475,6 +696,15 @@ int main (int argc, char** argv)
         processor.processBlock (buffer, midi);
     }
 
+    const auto scratchDir = juce::File::getSpecialLocation (juce::File::tempDirectory)
+                                .getChildFile ("ludensscope-report-test");
+    scratchDir.createDirectory();
+
+    const bool trackReportOk = testTrackReport (scratchDir);
+    const bool updateLogicOk = testUpdateLogic();
+
+    const bool stereoFieldOk = testStereoField();
+
     std::printf ("momentary %.2f LUFS, integrated %.2f LUFS\n",
                  processor.momentaryLufs(), processor.integratedLufs());
 
@@ -484,6 +714,15 @@ int main (int argc, char** argv)
     themeFile.deleteFile();
     theme::setSettingsFileForTesting (themeFile);
     theme::saveTheme (4);
+
+    // PRO view flags come from the saved project state, so set them before the
+    // editor is built: the stereo field needs live data from the feeder below.
+    {
+        auto view = processor.getViewSettings();
+        view.stereoField = 1;
+        view.sideCurve = 1;
+        processor.setViewSettings (view);
+    }
 
     std::unique_ptr<juce::AudioProcessorEditor> editor (processor.createEditor());
     const bool themeLoaded = theme::getTheme() == 4;
@@ -500,8 +739,7 @@ int main (int argc, char** argv)
 
         if (auto* ludens = dynamic_cast<LudensScopeEditor*> (editor.get()))
         {
-            auto* drop = static_cast<juce::FileDragAndDropTarget*> (ludens);
-            drop->filesDropped ({ referenceFile.getFullPathName() }, 0, 0);
+            ludens->handleDroppedFile (referenceFile, false);
         }
     });
 
@@ -683,6 +921,7 @@ int main (int argc, char** argv)
     {
         ludens->captureReference();
         ludens->setGuidesEnabled (true);
+        ludens->setShowStereoField (true);
     }
 
     // Exercise the spectrum inspector so the snapshot also covers that path.
@@ -1093,6 +1332,7 @@ int main (int argc, char** argv)
     testView.guidesEnabled = 1;
     testView.guidePreset = 2;
     testView.sideCurve = 1;
+    testView.stereoField = 1;
     testView.peakMarkers = 0;
     testView.difference = 1;
     testView.differenceSource = 1;
@@ -1136,6 +1376,7 @@ int main (int argc, char** argv)
     const bool viewPersisted = restoredView.guidesEnabled == 1
         && restoredView.guidePreset == 2
         && restoredView.sideCurve == 1
+        && restoredView.stereoField == 1
         && restoredView.peakMarkers == 0
         && restoredView.difference == 1
         && restoredView.differenceSource == 1

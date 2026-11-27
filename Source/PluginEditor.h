@@ -12,6 +12,7 @@
 #include "ui/CurvePresets.h"
 #include "ui/UpdateChecker.h"
 #include "dsp/SpectrumAnalyzer.h"
+#include "dsp/StereoFieldAnalyzer.h"
 #include "dsp/TruePeakDetector.h"
 #include "ui/MeterPanel.h"
 #include "ui/OscilloscopeView.h"
@@ -93,6 +94,13 @@ public:
 
     void setGuidesEnabled (bool enabled);
 
+    // Snapshot/QA hook: same path as the Display menu, PRO gate included.
+    void setShowStereoField (bool shouldShow);
+
+    // One entry point for a dropped file: false loads it as reference, true
+    // runs the offline report.
+    void handleDroppedFile (const juce::File& file, bool asReport);
+
     void timerCallback() override;
     bool keyPressed (const juce::KeyPress& key) override;
 
@@ -105,6 +113,10 @@ private:
     void syncSnapshots();
     void chooseReferenceFile();
     void loadReferenceFile (const juce::File& file);
+
+    // Offline analysis of a whole file, then a PDF report card.
+    void exportTrackReport (const juce::File& file);
+
     void selectSource (bool reference);
     void toggleReferencePlay();
     void toggleReferenceLoop();
@@ -133,6 +145,8 @@ private:
     void updateMatchSuggestions();
     static juce::Array<juce::Component::SafePointer<LudensScopeEditor>>& openEditors();
     void checkForUpdates();
+    void runAutomaticUpdateCheck();
+    void refreshUpdateCue();
     void handleUpdateResult (const UpdateInfo& info);
     void downloadUpdate (const UpdateInfo& info);
     void saveCurvePreset();
@@ -189,6 +203,7 @@ private:
     bool showPeakMarkers = true;
     bool showDifference = false;
     bool showSide = false;
+    bool showStereoField = false;
     bool gainStaging = false;
     int vuZeroDbfs = -18;
     int vuInputSmoothingMs = 80;
@@ -245,6 +260,7 @@ private:
     std::unique_ptr<juce::FileChooser> pngChooser;
     std::unique_ptr<juce::TooltipWindow> tooltipWindow;
     bool updateCheckRunning = false;
+    juce::String pendingUpdateVersion;
     void handleDownloadFinished (bool succeeded, const juce::String& message);
     void handleReferenceLoaded (const juce::File& file, int targetSlot, ReferenceAnalysis& analysis);
 
@@ -277,6 +293,7 @@ private:
 
     SpectrumAnalyzer analyzer;
     SpectrumAnalyzer sideAnalyzer;
+    StereoFieldAnalyzer stereoAnalyzer;
     std::vector<float> sideBuffer;
     TruePeakDetector truePeakLeft, truePeakRight;
 

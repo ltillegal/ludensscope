@@ -7,7 +7,7 @@ if(CMAKE_HOST_SYSTEM_NAME STREQUAL "Darwin")
 endif()
 
 if(NOT DEFINED LUDENSCOPE_VERSION)
-  set(LUDENSCOPE_VERSION "1.1.0")
+  set(LUDENSCOPE_VERSION "1.2.0")
 endif()
 project(LudensScope VERSION ${LUDENSCOPE_VERSION} LANGUAGES C CXX)
 add_compile_definitions (LUDENSCOPE_VERSION_STRING="${LUDENSCOPE_VERSION}")
@@ -48,11 +48,12 @@ endif()
 
 juce_add_plugin(LudensScope
   COMPANY_NAME "LudensScope"
-  BUNDLE_ID "local.ludensscope"
+  BUNDLE_ID "com.ltillegal.ludensscope"
   PLUGIN_MANUFACTURER_CODE LDNS
   PLUGIN_CODE LDSC
   FORMATS ${LUDENSCOPE_FORMATS}
   PRODUCT_NAME "LudensScope"
+  VERSION ${LUDENSCOPE_VERSION}
   DESCRIPTION "Stereo spectrum, loudness and scope analyzer"
   IS_SYNTH FALSE
   NEEDS_MIDI_INPUT FALSE

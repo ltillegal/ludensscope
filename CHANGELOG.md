@@ -1,5 +1,20 @@
 # Changelog
 
+## 1.2.0
+
+- Added a track report: drop an audio file onto the window (or
+  `OPTIONS -> Export -> Track report`) and the whole file is analysed offline
+  and saved as a one-page PDF - integrated LUFS, LRA, PLR, true peak, the
+  short-term loudness timeline against the target with every passage above it,
+  the average spectrum with the band balance, and a table of the longest
+  excursions. Rendered as vector PDF, no external libraries.
+- Added a per-band stereo field under the spectrum (PRO, `OPTIONS -> Display ->
+  Stereo field by band`). The strip height is side/mid energy in dB, so the
+  bottom is mono and the 0 dB line means the band is as wide as it is mono; the
+  outline colour is correlation, from red on anti-phase bands to cyan on
+  mono-compatible ones. Hovering the spectrum reports correlation and side/mid
+  for the band under the cursor. Project state is version 18.
+
 ## 1.1.0
 
 - Added a transparent fullscreen FFT toggle in the spectrum corner. The FFT fills the plugin window while the right button rail stays available, and the same corner or `Escape` restores the normal layout.

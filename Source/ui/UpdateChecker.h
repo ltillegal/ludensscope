@@ -65,6 +65,58 @@ inline juce::String readUrlTextWithTimeout (const juce::URL& url, int timeoutMs)
    #endif
 }
 
+// The automatic check runs at most once a day and remembers what it found, so
+// the menu can show "update available" without touching the network again.
+namespace updateState
+{
+    inline juce::File stateFile()
+    {
+        return juce::File::getSpecialLocation (juce::File::userApplicationDataDirectory)
+            .getChildFile ("LudensScope")
+            .getChildFile ("update-check.txt");
+    }
+
+    struct State
+    {
+        juce::int64 lastCheckSeconds = 0;   // since epoch, 0 = never
+        juce::String latestVersion;         // newest release seen, may be empty
+    };
+
+    inline State load()
+    {
+        State state;
+        const auto text = stateFile().loadFileAsString().trim();
+        juce::StringArray lines;
+        lines.addTokens (text, "\n", "");
+
+        if (lines.size() > 0)
+            state.lastCheckSeconds = lines[0].trim().getLargeIntValue();
+
+        if (lines.size() > 1)
+            state.latestVersion = lines[1].trim();
+
+        return state;
+    }
+
+    inline void save (const State& state)
+    {
+        const auto file = stateFile();
+        file.getParentDirectory().createDirectory();
+        file.replaceWithText (juce::String (state.lastCheckSeconds) + "\n"
+                              + state.latestVersion + "\n");
+    }
+
+    inline bool isStale (const State& state, int hours = 24)
+    {
+        if (state.lastCheckSeconds <= 0)
+            return true;
+
+        const auto now = juce::Time::currentTimeMillis() / 1000;
+
+        return now - state.lastCheckSeconds >= (juce::int64) hours * 3600;
+    }
+}
+
 inline bool isNewerVersion (const juce::String& candidate, const juce::String& current)
 {
     const auto parse = [] (juce::String text)

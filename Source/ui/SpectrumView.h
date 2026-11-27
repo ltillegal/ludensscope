@@ -138,6 +138,20 @@ public:
         repaint();
     }
 
+    // Per-band stereo image: correlation (-1..1) and side/mid ratio in dB.
+    void setStereoField (const float* corr, const float* sideMid) noexcept
+    {
+        std::copy (corr, corr + numBins, stereoCorrelation.begin());
+        std::copy (sideMid, sideMid + numBins, stereoSideMid.begin());
+        hasStereoField = true;
+    }
+
+    void setShowStereoField (bool shouldShow) noexcept
+    {
+        showStereoField = shouldShow;
+        repaint();
+    }
+
     bool hasReferenceCurve() const noexcept { return hasReference; }
 
     void setReferencePlaceholder (const juce::String& text)
@@ -235,7 +249,26 @@ public:
         else if (plotArea().contains (e.position))
         {
             setMouseCursor (juce::MouseCursor::CrosshairCursor);
-            setTooltip ("Wheel: zoom. Double-click: reset. Shift/Alt-click: solo a guide zone.");
+
+            juce::String tip ("Wheel: zoom. Double-click: reset. Shift/Alt-click: solo a guide zone.");
+
+            if (showStereoField && hasStereoField)
+            {
+                const auto plot = plotArea();
+                const float fraction = juce::jlimit (0.0f, 1.0f,
+                                                     (e.position.x - plot.getX()) / plot.getWidth());
+                const float hz = frequencyForFraction (fraction);
+                const float corr = levelAt (stereoCorrelation, fraction);
+                const float sideMid = levelAt (stereoSideMid, fraction);
+
+                tip << "\n"
+                    << (hz < 1000.0f ? juce::String (juce::roundToInt (hz)) + " Hz"
+                                     : juce::String (hz / 1000.0f, 1) + " kHz")
+                    << "   corr " << juce::String (corr, 2)
+                    << "   S/M " << juce::String (sideMid, 1) << " dB";
+            }
+
+            setTooltip (tip);
         }
         else
         {
@@ -357,7 +390,9 @@ public:
 
         g.setFont (theme::detailFont (10.5f, uiScale));
         g.setColour (theme::textDim);
-        g.drawText ("SPECTRUM  " + rangeText(), titleRow, juce::Justification::centredLeft);
+        g.drawText ("SPECTRUM  " + rangeText()
+                        + (showStereoField && hasStereoField ? "   + STEREO" : juce::String()),
+                    titleRow, juce::Justification::centredLeft);
 
         // Snapshot slots A-D, scaled with the rest of the UI.
         const float snapScale = uiScale;
@@ -428,6 +463,64 @@ public:
         }
 
         // Placement guides: where the fundamental of each element usually sits.
+        if (showStereoField && hasStereoField)
+        {
+            constexpr int corrSteps = 220;
+            const float stripHeight = juce::jlimit (6.0f,
+                                                    juce::jmax (6.0f, plot.getHeight() * 0.55f),
+                                                    juce::jlimit (18.0f, 34.0f, 30.0f * uiScale));
+            const auto strip = plot.withTop (plot.getBottom() - stripHeight);
+
+            g.setColour (theme::bg.withAlpha (0.35f));
+            g.fillRect (strip);
+
+            // Silhouette height reads side/mid in dB: the bottom is mono
+            // (-30 dB), the 0 dB line means the band is as wide as it is mono.
+            const auto widthToY = [&] (float fraction)
+            {
+                const float sideMid = levelAt (stereoSideMid, fraction);
+                const float t = juce::jlimit (0.0f, 1.0f, (sideMid + 30.0f) / 40.0f);
+                return strip.getBottom() - strip.getHeight() * t;
+            };
+
+            // Calm silhouette: the fill only says "this much side energy". The
+            // correlation lives on the outline, so a red edge is immediately
+            // readable against a neutral body.
+            juce::Path body;
+            body.startNewSubPath (strip.getX(), strip.getBottom());
+
+            for (int c = 0; c <= corrSteps; ++c)
+            {
+                const float fraction = (float) c / (float) corrSteps;
+                body.lineTo (strip.getX() + strip.getWidth() * fraction, widthToY (fraction));
+            }
+
+            body.lineTo (strip.getRight(), strip.getBottom());
+            body.closeSubPath();
+
+            g.setColour (theme::cold.withAlpha (0.22f));
+            g.fillPath (body);
+
+            const float zeroLineY = strip.getBottom() - strip.getHeight() * 0.75f;
+            g.setColour (theme::textDim.withAlpha (0.40f));
+            g.fillRect (strip.getX(), zeroLineY, strip.getWidth(), 1.0f);
+
+            // Outline segment by segment: colour follows correlation, so the
+            // band-mono-compatibility is read off the edge.
+            for (int s2 = 1; s2 < corrSteps; ++s2)
+            {
+                const float f0 = (float) (s2 - 1) / (float) (corrSteps - 1);
+                const float f1 = (float) s2 / (float) (corrSteps - 1);
+                const float corr = 0.5f * (levelAt (stereoCorrelation, f0)
+                                           + levelAt (stereoCorrelation, f1));
+
+                g.setColour (colourForCorrelation (corr).withAlpha (0.95f));
+                g.drawLine (strip.getX() + strip.getWidth() * f0, widthToY (f0),
+                            strip.getX() + strip.getWidth() * f1, widthToY (f1), 1.4f);
+            }
+
+        }
+
         if (showGuides)
         {
             for (size_t zoneIndex = 0; zoneIndex < guideZones.size(); ++zoneIndex)
@@ -1108,6 +1201,19 @@ private:
         return std::log (hz / rangeLow) / std::log (rangeHigh / rangeLow);
     }
 
+    // Red when a band is anti-phase, amber near decorrelated, cyan when it is
+    // fully mono-compatible.
+    static juce::Colour colourForCorrelation (float corr) noexcept
+    {
+        if (corr <= 0.0f)
+            return theme::hot;
+
+        if (corr < 0.5f)
+            return theme::hot.interpolatedWith (theme::accent2, corr / 0.5f);
+
+        return theme::accent2.interpolatedWith (theme::accent, (corr - 0.5f) / 0.5f);
+    }
+
     float levelAt (const std::array<float, numBins>& data, float fraction) const noexcept
     {
         const float hz = frequencyForFraction (fraction);
@@ -1200,6 +1306,11 @@ private:
     std::array<float, numBins> sidePeaks {};
     bool hasSide = false;
     bool showSide = false;
+
+    std::array<float, numBins> stereoCorrelation {};
+    std::array<float, numBins> stereoSideMid {};
+    bool hasStereoField = false;
+    bool showStereoField = false;
 
     std::array<std::array<float, numBins>, snapshotCount> snapshots {};
     std::array<bool, snapshotCount> snapshotPresent {};

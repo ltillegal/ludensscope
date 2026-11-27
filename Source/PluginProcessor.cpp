@@ -7,7 +7,7 @@
 namespace
 {
     constexpr int snapshotMagic = 0x4c444e53; // 'LDNS'
-    constexpr int snapshotVersion = 17;
+    constexpr int snapshotVersion = 18;
 }
 
 LudensScopeProcessor::LudensScopeProcessor()
@@ -815,6 +815,7 @@ void LudensScopeProcessor::getStateInformation (juce::MemoryBlock& destData)
     stream.writeInt (viewSettingsValue.showMatch);
     stream.writeInt (viewSettingsValue.uiScalePercent);
     stream.writeInt (viewSettingsValue.vuInputSmoothing);
+    stream.writeInt (viewSettingsValue.stereoField);
 
     syncActiveReferenceSlot();
 
@@ -849,7 +850,7 @@ void LudensScopeProcessor::setStateInformation (const void* data, int sizeInByte
     const int selected = stream.readInt();
 
     if (magic != snapshotMagic
-        || (version < 1 || version > 17)
+        || (version < 1 || version > 18)
         || slots != snapshotSlots || bins != snapshotBins)
         return;
 
@@ -949,6 +950,9 @@ void LudensScopeProcessor::setStateInformation (const void* data, int sizeInByte
             const int smoothing = stream.readInt();
             view.vuInputSmoothing = (smoothing == 40 || smoothing == 150) ? smoothing : 80;
         }
+
+        if (version >= 18)
+            view.stereoField = stream.readInt() != 0 ? 1 : 0;
 
         if (view.waterfallHistory != 1 && view.waterfallHistory != 2
             && view.waterfallHistory != 4)

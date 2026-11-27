@@ -31,6 +31,8 @@ One installer, two editions.
 | Colour themes | Blue | all 7 |
 | Tilt, smoothing, FFT overlap | - | yes |
 | Peak markers, side/difference/note grid | - | yes |
+| Per-band stereo field (width + correlation) | - | yes |
+| Track report to PDF | - | yes |
 | Target curves and curve presets | - | yes |
 | CSV export | - | yes |
 
@@ -121,7 +123,11 @@ cmake --build --preset dev -j$(nproc)
    2x/4x and the C1–C8 note grid. The three strongest peaks are labelled
    automatically; turn them off with Peak markers. The same menu has the
    difference shading with a selectable second curve (next snapshot, REF FILE or
-   live), the M/S side curve and PNG export of the whole view. Curve presets:
+   live), the M/S side curve and PNG export of the whole view. `Export -> Track
+   report (PDF)` analyses a file offline and writes a one-page card: integrated
+   LUFS, LRA, PLR, true peak, the short-term timeline against the target with
+   every passage above it, the average spectrum, and the longest excursions.
+   Dropping a file onto the window offers the same choice: reference or report. Curve presets:
    `Save current curve` stores the averaged spectrum as a named target curve
    (globally, in `~/.config/LudensScope/curve-presets.json`), `Load curve` draws
    it as an amber dashed line with a TARGET chip, `Delete curve` removes it. The
@@ -134,8 +140,13 @@ cmake --build --preset dev -j$(nproc)
 4. TRUE PEAK — 4x oversampling, dBTP. Red above −1 dBTP. LRA — loudness range
    (EBU 3342), PLR — peak-to-loudness, CLIP — the number of samples ≥ 0 dBFS
    plus intersample overs.
-5. STEREO IMAGE — goniometer with a trail; OSCILLOSCOPE — zero-crossing
-   triggered. Mouse wheel over the scope changes the time window (up to ~2.7 s),
+5. STEREO IMAGE — goniometer with a trail. `OPTIONS -> Display -> Stereo field
+   by band` (PRO) draws a strip under the spectrum: its height is the side/mid
+   ratio per band (the bottom is mono, the 0 dB line means the band is as wide
+   as it is mono) and the outline colour is correlation — red where a band goes
+   anti-phase, amber near decorrelated, cyan when mono-compatible. Hovering the
+   spectrum shows the correlation and side/mid of the band under the cursor.
+   OSCILLOSCOPE — zero-crossing triggered. Mouse wheel over the scope changes the time window (up to ~2.7 s),
    Shift+wheel the vertical gain, double-click resets. The badge shows PEAK /
    RMS / CREST / LUFS over the visible window. `MONO` analyses the channel sum
    to check mono compatibility.
@@ -165,8 +176,9 @@ cmake --build --preset dev -j$(nproc)
    levels A–D).
 
    The project state stores the snapshots, all FFT settings, the view (guide
-   genre and visibility, M/S curve, peak markers, difference shading, LUFS
-   target, SPAN range, waterfall speed, scope window/gain, target curve) and the
+   genre and visibility, M/S curve, per-band stereo field, peak markers,
+   difference shading, LUFS target, SPAN range, waterfall speed, scope
+   window/gain, target curve) and the
    reference metadata.
 
 Hotkeys: `A` — REF/MIX, `F` — freeze, `Esc` — clear the band solo.

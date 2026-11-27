@@ -201,6 +201,7 @@ public:
         int guidesEnabled = 0;
         int guidePreset = 0;
         int sideCurve = 0;
+        int stereoField = 0;
         int peakMarkers = 1;
         int difference = 0;
         int spanIndex = 0;

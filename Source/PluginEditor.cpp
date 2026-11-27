@@ -1,4 +1,8 @@
 #include "PluginEditor.h"
+
+#include "report/ReportPdf.h"
+
+#include <thread>
 #include "BinaryData.h"
 
 #include <cmath>
@@ -350,7 +354,16 @@ LudensScopeEditor::LudensScopeEditor (LudensScopeProcessor& p)
     fftButton.onClick = [this] { showFftMenu(); };
     addAndMakeVisible (fftButton);
 
-    fftButton.setTooltip ("FFT size/window, ballistics, tilt, smoothing, overlap, note grid, CSV, updates");
+    fftButton.setTooltip ("FFT size/window, ballistics, tilt, smoothing, overlap, "
+                          "note grid, CSV, updates  -  v" + juce::String (LUDENSCOPE_VERSION_STRING));
+
+   #if ! defined (LUDENSCOPE_TEST_HOOKS)
+    juce::Timer::callAfterDelay (4000, [safe = juce::Component::SafePointer<LudensScopeEditor> (this)]
+    {
+        if (safe != nullptr)
+            safe->runAutomaticUpdateCheck();
+    });
+   #endif
     guidesButton.setTooltip ("Placement guides; Shift/Alt-click a zone to solo that band");
     spanButton.setTooltip ("Frequency span in octaves (wheel over the spectrum zooms)");
     monoButton.setTooltip ("Meters and scopes use the mono sum; the spectrum is always the mono sum");
@@ -397,6 +410,7 @@ LudensScopeEditor::LudensScopeEditor (LudensScopeProcessor& p)
     preparedSampleRate = processor.getSampleRate() > 0.0 ? processor.getSampleRate() : 48000.0;
     analyzer.prepare (preparedSampleRate);
     sideAnalyzer.prepare (preparedSampleRate);
+    stereoAnalyzer.prepare (preparedSampleRate);
     oscilloscopeView.setSampleRate (preparedSampleRate);
 
     applyFftSettings (processor.getFftSettings());
@@ -748,6 +762,7 @@ void LudensScopeEditor::timerCallback()
         preparedSampleRate = sampleRate;
         analyzer.prepare (sampleRate);
         sideAnalyzer.prepare (sampleRate);
+        stereoAnalyzer.prepare (sampleRate);
         oscilloscopeView.setSampleRate (sampleRate);
 
         // Cached reference audio is at the old rate; reload it.
@@ -978,6 +993,29 @@ void LudensScopeEditor::timerCallback()
             sideAnalyzer.pushMono (sideBuffer.data(), numRead);
             sideAnalyzer.update();
             spectrumView.setSideData (sideAnalyzer.levels().data(), sideAnalyzer.peaks().data());
+        }
+    }
+
+    // Per-band stereo image. Correlation needs both channels and a single
+    // window, so it is a separate analyser from the mono spectrum.
+    if (showStereoField)
+    {
+        stereoAnalyzer.setFftSize (analyzer.getFftSize());
+        stereoAnalyzer.setWindow ((int) analyzer.getWindow());
+
+        if (timingPreset == 0)
+            stereoAnalyzer.setTiming (0.85f, 0.30f);
+        else if (timingPreset == 1)
+            stereoAnalyzer.setTiming (0.55f, 0.12f);
+        else
+            stereoAnalyzer.setTiming (0.25f, 0.03f);
+
+        if (numRead > 0)
+        {
+            stereoAnalyzer.push (readLeft.data(), readRight.data(), numRead);
+            stereoAnalyzer.update();
+            spectrumView.setStereoField (stereoAnalyzer.correlation().data(),
+                                         stereoAnalyzer.sideMid().data());
         }
     }
 
@@ -1258,6 +1296,7 @@ void LudensScopeEditor::showFftMenu()
     displayMenu.addItem (600, full ? "Peak markers" : "Peak markers [PRO]", full, showPeakMarkers);
     displayMenu.addItem (602, full ? "Side (M/S) curve" : "Side (M/S) curve [PRO]", full, showSide);
     displayMenu.addItem (603, full ? "Note grid" : "Note grid [PRO]", full, showNoteGrid);
+    displayMenu.addItem (604, full ? "Stereo field by band" : "Stereo field by band [PRO]", full, showStereoField);
 
     displayMenu.addSeparator();
     displayMenu.addSectionHeader (full ? "Gain staging" : "Gain staging (PRO)");
@@ -1306,10 +1345,15 @@ void LudensScopeEditor::showFftMenu()
     exportMenu.addItem (500, full ? "Export snapshots (CSV)..." : "Export snapshots (CSV) [PRO]",
                         full && anySnapshot);
     exportMenu.addItem (501, "Export view (PNG)...", true);
+    exportMenu.addItem (502, full ? "Track report (PDF)..." : "Track report (PDF) [PRO]",
+                        full);
     menu.addSubMenu ("Export", exportMenu);
 
     menu.addSeparator();
-    menu.addItem (630, "Check for updates...", true, false);
+    menu.addItem (630, pendingUpdateVersion.isNotEmpty()
+                            ? "Update to " + pendingUpdateVersion + "..."
+                            : juce::String ("Check for updates..."),
+                  true, false);
 
     if (! full)
         menu.addItem (640, "Unlock PRO - EUR 19 (was EUR 29)...", true, false);
@@ -1460,6 +1504,12 @@ void LudensScopeEditor::applyFftMenu (int result)
         spectrumView.setNoteGrid (showNoteGrid);
         saveFftSettings();
     }
+    else if (result == 604)
+    {
+        showStereoField = ! showStereoField;
+        spectrumView.setShowStereoField (showStereoField);
+        saveViewSettings();
+    }
     else if (result >= 900 && result < 903)
     {
         overlapPreset = result - 900;
@@ -1469,6 +1519,22 @@ void LudensScopeEditor::applyFftMenu (int result)
     else if (result == 501)
     {
         exportViewPng();
+    }
+    else if (result == 502)
+    {
+        auto chooser = std::make_shared<juce::FileChooser> (
+            "Audio file to analyse", juce::File::getSpecialLocation (juce::File::userMusicDirectory),
+            "*.wav;*.aif;*.aiff;*.flac;*.mp3");
+
+        chooser->launchAsync (juce::FileBrowserComponent::openMode
+                                  | juce::FileBrowserComponent::canSelectFiles,
+                              [this, chooser] (const juce::FileChooser& fc)
+                              {
+                                  const auto file = fc.getResult();
+
+                                  if (file.existsAsFile())
+                                      exportTrackReport (file);
+                              });
     }
     else if (result >= 700 && result < 703)
     {
@@ -1786,6 +1852,9 @@ void LudensScopeEditor::applyViewSettings (const LudensScopeProcessor::ViewSetti
     showSide = full && settings.sideCurve != 0;
     spectrumView.setShowSide (showSide);
 
+    showStereoField = full && settings.stereoField != 0;
+    spectrumView.setShowStereoField (showStereoField);
+
     gainStaging = full && settings.gainStaging != 0;
     vuZeroDbfs = settings.vuZeroDbfs == -20 ? -20 : -18;
     vuInputSmoothingMs = (settings.vuInputSmoothing == 40 || settings.vuInputSmoothing == 150)
@@ -1853,6 +1922,7 @@ void LudensScopeEditor::saveViewSettings()
     settings.guidesEnabled = guidesEnabled ? 1 : 0;
     settings.guidePreset = guidePreset;
     settings.sideCurve = full ? (showSide ? 1 : 0) : preserved.sideCurve;
+    settings.stereoField = full ? (showStereoField ? 1 : 0) : preserved.stereoField;
     settings.peakMarkers = full ? (showPeakMarkers ? 1 : 0) : preserved.peakMarkers;
     settings.difference = full ? (showDifference ? 1 : 0) : preserved.difference;
     settings.differenceSource = full ? differenceSource : preserved.differenceSource;
@@ -1876,6 +1946,13 @@ void LudensScopeEditor::saveViewSettings()
 
     processor.setViewSettings (settings);
     persistUiState (processor);
+}
+
+void LudensScopeEditor::setShowStereoField (bool shouldShow)
+{
+    showStereoField = shouldShow && isFull();
+    spectrumView.setShowStereoField (showStereoField);
+    repaint();
 }
 
 void LudensScopeEditor::setGuidesEnabled (bool enabled)
@@ -1991,6 +2068,67 @@ void LudensScopeEditor::syncSnapshots()
     snapshotGeneration = processor.snapshotGeneration();
 
     spectrumView.setSnapshots (snapshots, snapshotFilled, snapshotSlot);
+}
+
+void LudensScopeEditor::runAutomaticUpdateCheck()
+{
+    auto state = updateState::load();
+
+    // A release found during an earlier session is shown immediately.
+    if (isNewerVersion (state.latestVersion, LUDENSCOPE_VERSION_STRING))
+    {
+        pendingUpdateVersion = state.latestVersion;
+        refreshUpdateCue();
+    }
+
+    if (! updateState::isStale (state) || updateCheckRunning)
+        return;
+
+    updateCheckRunning = true;
+
+    juce::Component::SafePointer<LudensScopeEditor> safe (this);
+
+    const bool started = juce::Thread::launch ([safe]
+    {
+        const auto info = performUpdateCheck();
+
+        juce::MessageManager::callAsync ([safe, info]
+        {
+            auto state = updateState::load();
+            state.lastCheckSeconds = juce::Time::currentTimeMillis() / 1000;
+
+            if (info.error.isEmpty())
+                state.latestVersion = info.available ? info.latestVersion : juce::String();
+
+            updateState::save (state);
+
+            if (safe == nullptr)
+                return;
+
+            safe->updateCheckRunning = false;
+
+            // Automatic checks stay quiet: no dialogs, ever.
+            if (info.error.isEmpty() && info.available)
+            {
+                safe->pendingUpdateVersion = info.latestVersion;
+                safe->refreshUpdateCue();
+            }
+        });
+    });
+
+    if (! started)
+        updateCheckRunning = false;
+}
+
+void LudensScopeEditor::refreshUpdateCue()
+{
+    const juce::String base ("FFT size/window, ballistics, tilt, smoothing, overlap, "
+                             "note grid, CSV, updates  -  v"
+                             + juce::String (LUDENSCOPE_VERSION_STRING));
+
+    fftButton.setTooltip (pendingUpdateVersion.isEmpty()
+                              ? base
+                              : base + " - LudensScope " + pendingUpdateVersion + " is available");
 }
 
 void LudensScopeEditor::checkForUpdates()
@@ -2265,6 +2403,8 @@ void LudensScopeEditor::applyEdition()
         applyTheme();
 
         showSide = false;
+        showStereoField = false;
+        spectrumView.setShowStereoField (false);
         showPeakMarkers = false;
         showDifference = false;
         showNoteGrid = false;
@@ -2835,11 +2975,105 @@ void LudensScopeEditor::filesDropped (const juce::StringArray& files, int, int)
 
     const juce::File file (files[0]);
 
-    if (file.existsAsFile())
+    if (! file.existsAsFile())
+        return;
+
+    juce::PopupMenu dropMenu;
+    dropMenu.addSectionHeader (file.getFileName());
+    dropMenu.addItem (1, "Load as reference");
+    dropMenu.addItem (2, "Track report (PDF)...");
+
+    dropMenu.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (this),
+                            [safe = juce::Component::SafePointer<LudensScopeEditor> (this), file] (int choice)
+                            {
+                                if (safe == nullptr || choice < 1)
+                                    return;
+
+                                safe->handleDroppedFile (file, choice == 2);
+                            });
+}
+
+void LudensScopeEditor::handleDroppedFile (const juce::File& file, bool asReport)
+{
+    if (! file.existsAsFile())
+        return;
+
+    if (asReport)
     {
-        pendingReferenceLoopStart = -1.0;
-        loadReferenceFile (file);
+        exportTrackReport (file);
+        return;
     }
+
+    pendingReferenceLoopStart = -1.0;
+    loadReferenceFile (file);
+}
+
+void LudensScopeEditor::exportTrackReport (const juce::File& file)
+{
+    const float target = meterPanel.getTarget();
+    const bool hasTarget = targetCurveActive;
+    const auto curve = targetCurve;
+    const auto name = file.getFileNameWithoutExtension();
+
+    juce::Component::SafePointer<LudensScopeEditor> safe (this);
+
+    juce::MouseCursor::showWaitCursor();
+
+    // Decoding and analysing a whole track takes seconds; keep the message
+    // thread free.
+    std::thread ([safe, file, target, hasTarget, curve, name]
+    {
+        auto report = analyzeTrackFile (file, target);
+
+        juce::MessageManager::callAsync ([safe, report, hasTarget, curve, name]
+        {
+            juce::MouseCursor::hideWaitCursor();
+
+            if (safe == nullptr)
+                return;
+
+            if (! report.ok)
+            {
+                juce::AlertWindow::showMessageBoxAsync (juce::MessageBoxIconType::WarningIcon,
+                                                        "Track report",
+                                                        "Could not read " + report.fileName);
+                return;
+            }
+
+            auto suggested = juce::File::getSpecialLocation (juce::File::userMusicDirectory)
+                                 .getChildFile (name + "-report.pdf");
+
+            auto chooser = std::make_shared<juce::FileChooser> ("Save track report",
+                                                                suggested, "*.pdf");
+
+            chooser->launchAsync (juce::FileBrowserComponent::saveMode
+                                      | juce::FileBrowserComponent::canSelectFiles
+                                      | juce::FileBrowserComponent::warnAboutOverwriting,
+                                  [chooser, report, hasTarget, curve] (const juce::FileChooser& fc)
+                                  {
+                                      auto result = fc.getResult();
+
+                                      if (result == juce::File())
+                                          return;
+
+                                      if (result.getFileExtension().isEmpty())
+                                          result = result.withFileExtension ("pdf");
+
+                                      if (writeTrackReportPdf (report, hasTarget ? &curve : nullptr,
+                                                               result, LUDENSCOPE_VERSION_STRING))
+                                      {
+                                          result.revealToUser();
+                                      }
+                                      else
+                                      {
+                                          juce::AlertWindow::showMessageBoxAsync (
+                                              juce::MessageBoxIconType::WarningIcon,
+                                              "Track report",
+                                              "Could not write " + result.getFullPathName());
+                                      }
+                                  });
+        });
+    }).detach();
 }
 
 void LudensScopeEditor::mouseMove (const juce::MouseEvent& e)
