@@ -30,7 +30,7 @@ private:
     void chooseReference();
     void updateBandGains();
     void applyReference (const std::array<float, SpectrumAnalyzer::numBins>& levels,
-                         const juce::String& name);
+                         float lufs, const juce::String& name);
 
     LudensMatchProcessor& processor;
 
@@ -39,6 +39,7 @@ private:
 
     juce::TextButton loadButton { "LOAD REFERENCE" };
     juce::Label referenceLabel;
+    juce::Label levelLabel;
     juce::Slider amount, mix, output;
     juce::Label amountCaption, mixCaption, outputCaption;
 
@@ -53,6 +54,8 @@ private:
     std::array<float, SpectrumAnalyzer::numBins> correctionCurve {};
     std::array<float, LudensMatchProcessor::numBands> bandGains {};
     bool hasReference = false;
+    float referenceLufs = -100.0f;
+    float levelOffsetDb = 0.0f;
     int referenceGeneration = 0;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (LudensMatchEditor)

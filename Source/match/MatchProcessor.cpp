@@ -59,6 +59,7 @@ float LudensMatchProcessor::bandCentreHz (int band) noexcept
 void LudensMatchProcessor::prepareToPlay (double sampleRate, int)
 {
     preparedRate = sampleRate > 0.0 ? sampleRate : 48000.0;
+    loudness.prepare (preparedRate);
     appliedVersion = -1;
     builtAmount = -1.0f;
     rebuildCoefficients (smoothedAmount);
@@ -183,6 +184,8 @@ void LudensMatchProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce:
     const float smoothing = 1.0f - std::exp (-(float) numSamples / (float) (preparedRate * 0.02));
     smoothedAmount += smoothing * (amountTarget - smoothedAmount);
     smoothedMix += smoothing * (mixTarget - smoothedMix);
+
+    loudness.process (left, right, numSamples);
 
     if (gainsVersion.load (std::memory_order_acquire) != appliedVersion
         || std::abs (smoothedAmount - builtAmount) > 0.002f)

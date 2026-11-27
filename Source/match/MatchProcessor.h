@@ -6,6 +6,7 @@
 #include <atomic>
 
 #include "dsp/SpectrumAnalyzer.h"
+#include "dsp/LoudnessMeter.h"
 
 // LudensMatch: a reference-matching EQ.
 //
@@ -55,6 +56,11 @@ public:
     float bandGain (int band) const noexcept;
     static float bandCentreHz (int band) noexcept;
 
+    // Loudness of the material under analysis, so the correction can ignore
+    // the level difference between the mix and the reference.
+    float shortTermLufs() const noexcept { return loudness.shortTermLufs(); }
+    float integratedLufs() const noexcept { return loudness.integratedLufs(); }
+
 private:
     static juce::AudioProcessorValueTreeState::ParameterLayout makeLayout();
     void rebuildCoefficients (float amountScale) noexcept;
@@ -84,6 +90,7 @@ private:
     std::atomic<float> gainsDb[numBands] {};
     std::atomic<int> gainsVersion { 0 };
 
+    LoudnessMeter loudness;
     std::array<Biquad, numBands> filters {};
     int appliedVersion = 0;
     float builtAmount = -1.0f;

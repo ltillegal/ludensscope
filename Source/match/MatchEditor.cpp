@@ -42,6 +42,11 @@ LudensMatchEditor::LudensMatchEditor (LudensMatchProcessor& p)
     loadButton.setColour (juce::TextButton::textColourOffId, theme::text);
     loadButton.setTooltip ("Load a reference track - the correction follows its balance");
 
+    addAndMakeVisible (levelLabel);
+    levelLabel.setFont (theme::detailMonoFont (10.0f, 1.0f));
+    levelLabel.setColour (juce::Label::textColourId, theme::textDim);
+    levelLabel.setJustificationType (juce::Justification::centredRight);
+
     addAndMakeVisible (referenceLabel);
     referenceLabel.setText ("no reference", juce::dontSendNotification);
     referenceLabel.setFont (theme::labelFont (10.5f));
@@ -117,8 +122,9 @@ void LudensMatchEditor::chooseReference()
                                   // only the curve crosses threads.
                                   const auto levels = analysis.levels;
                                   const bool ok = analysis.ok;
+                                  const float lufs = analysis.lufs;
 
-                                  juce::MessageManager::callAsync ([safe, levels, ok, file, generation]
+                                  juce::MessageManager::callAsync ([safe, levels, ok, lufs, file, generation]
                                   {
                                       if (safe == nullptr
                                           || generation != safe->referenceGeneration)
@@ -131,16 +137,17 @@ void LudensMatchEditor::chooseReference()
                                           return;
                                       }
 
-                                      safe->applyReference (levels, file.getFileName());
+                                      safe->applyReference (levels, lufs, file.getFileName());
                                   });
                               }).detach();
                           });
 }
 
 void LudensMatchEditor::applyReference (const std::array<float, SpectrumAnalyzer::numBins>& levels,
-                                        const juce::String& name)
+                                        float lufs, const juce::String& name)
 {
     referenceCurve = levels;
+    referenceLufs = lufs;
     hasReference = true;
     spectrum.setReference (referenceCurve.data(), true);
     referenceLabel.setText (name, juce::dontSendNotification);
@@ -157,7 +164,7 @@ void LudensMatchEditor::loadReferenceFile (const juce::File& file)
     }
 
     ++referenceGeneration;
-    applyReference (analysis.levels, file.getFileName());
+    applyReference (analysis.levels, analysis.lufs, file.getFileName());
 }
 
 void LudensMatchEditor::updateBandGains()
@@ -200,18 +207,20 @@ void LudensMatchEditor::updateBandGains()
         target[(size_t) band] = count > 0 ? sum / (float) count : 0.0f;
     }
 
-    // A reference at a different loudness would otherwise turn into a global
-    // boost or cut, so the average difference is removed: the correction only
-    // changes the balance, never the level.
+    // Removing the level difference must not use LUFS: K-weighting lifts the
+    // top end, so a dark reference reads as "quieter" even when it is not, and
+    // subtracting that would cut the treble by several dB. The mean of the band
+    // differences is the honest normaliser - it conserves broadband energy, so
+    // the correction changes the balance and nothing else.
     float mean = 0.0f;
 
     for (const float value : target)
         mean += value;
 
-    mean /= (float) LudensMatchProcessor::numBands;
+    levelOffsetDb = mean / (float) LudensMatchProcessor::numBands;
 
     for (auto& value : target)
-        value = juce::jlimit (-9.0f, 9.0f, value - mean);
+        value = juce::jlimit (-9.0f, 9.0f, value - levelOffsetDb);
 
     bool changed = false;
 
@@ -308,6 +317,18 @@ void LudensMatchEditor::timerCallback()
     }
 
     updateBandGains();
+
+    const float mixLufs = processor.shortTermLufs() > -60.0f ? processor.shortTermLufs()
+                                                             : processor.integratedLufs();
+
+    if (hasReference && mixLufs > -60.0f)
+    {
+        levelLabel.setText ("ref " + juce::String (referenceLufs, 1) + " LUFS   mix "
+                                + juce::String (mixLufs, 1) + " LUFS   balance offset "
+                                + (levelOffsetDb >= 0.0f ? "+" : "") + juce::String (levelOffsetDb, 1) + " dB",
+                            juce::dontSendNotification);
+    }
+
     spectrum.repaint();
 }
 
@@ -336,7 +357,8 @@ void LudensMatchEditor::resized()
     auto referenceRow = area.removeFromTop (34);   // reference controls
 
     loadButton.setBounds (referenceRow.removeFromLeft (150).reduced (0, 4));
-    referenceLabel.setBounds (referenceRow.removeFromLeft (300).reduced (8, 4));
+    referenceLabel.setBounds (referenceRow.removeFromLeft (260).reduced (8, 4));
+    levelLabel.setBounds (referenceRow.reduced (8, 4));
 
     auto controls = area.removeFromBottom (92);
     area.removeFromBottom (10);

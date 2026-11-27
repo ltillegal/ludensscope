@@ -21,8 +21,8 @@ namespace
             left  = lowpass * left  + (1.0f - lowpass) * (rng.nextFloat() * 2.0f - 1.0f);
             right = lowpass * right + (1.0f - lowpass) * (rng.nextFloat() * 2.0f - 1.0f);
 
-            buffer.setSample (0, i, 2.2f * left);
-            buffer.setSample (1, i, 1.9f * right);
+            buffer.setSample (0, i, 0.30f * left);
+            buffer.setSample (1, i, 0.26f * right);
         }
     }
 
