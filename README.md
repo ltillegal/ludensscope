@@ -14,6 +14,13 @@ advanced FFT/display options. No subscriptions and no telemetry. The project
 state stores FFT snapshots, analyser settings, the UI state and the reference
 metadata. There are no general plugin presets — only named target curves.
 
+## Repository layout
+
+- `main` — released LudensScope only. Tags `v*` are its releases.
+- `dsh` — LudensScope work in progress; merges into `main` when it ships.
+- `ludensmatch` — the second product (reference-matching EQ), developed
+  separately so its tags and releases cannot collide with LudensScope.
+
 ## Lite and PRO
 
 One installer, two editions.
