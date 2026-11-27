@@ -3,6 +3,7 @@
 
 #include "ui/Theme.h"
 #include "dsp/ReferenceAnalysis.h"
+#include "Licence.h"
 
 #include <cmath>
 #include <thread>
@@ -43,6 +44,20 @@ LudensMatchEditor::LudensMatchEditor (LudensMatchProcessor& p)
     loadButton.setTooltip ("Load a reference track - the correction follows its balance");
 
     addAndMakeVisible (levelLabel);
+
+    addAndMakeVisible (editionLabel);
+    editionLabel.setFont (theme::labelFont (10.0f));
+    editionLabel.setJustificationType (juce::Justification::centredRight);
+
+    addAndMakeVisible (unlockButton);
+    unlockButton.onClick = []
+    {
+        juce::URL ("mailto:alek.ludens@gmail.com?subject=LudensMatch%20FULL%20licence")
+            .launchInDefaultBrowser();
+    };
+    unlockButton.setColour (juce::TextButton::buttonColourId, theme::accent);
+    unlockButton.setColour (juce::TextButton::textColourOffId, theme::bg);
+    unlockButton.setColour (juce::TextButton::textColourOnId, theme::bg);
     levelLabel.setFont (theme::detailMonoFont (10.0f, 1.0f));
     levelLabel.setColour (juce::Label::textColourId, theme::textDim);
     levelLabel.setJustificationType (juce::Justification::centredRight);
@@ -78,6 +93,9 @@ LudensMatchEditor::LudensMatchEditor (LudensMatchProcessor& p)
     readRight.resize (4096);
 
     analyzer.prepare (processor.getSampleRate() > 0.0 ? processor.getSampleRate() : 48000.0);
+
+    LudensScopeLicence::setProduct ("LudensMatch");
+    refreshEdition();
 
     startTimerHz (30);
 }
@@ -296,6 +314,23 @@ void LudensMatchEditor::updateBandGains()
     spectrum.setTargetCurve (correctionCurve.data(), true, "MATCH");
 }
 
+void LudensMatchEditor::refreshEdition()
+{
+    isFull = LudensScopeLicence::isUnlocked();
+    processor.setFullVersion (isFull);
+
+    editionLabel.setText (isFull ? "FULL" : "LITE - VIEW ONLY", juce::dontSendNotification);
+    editionLabel.setColour (juce::Label::textColourId, isFull ? theme::accent : theme::textDim);
+
+    for (auto* slider : { &amount, &mix, &output })
+    {
+        slider->setEnabled (isFull);
+        slider->setAlpha (isFull ? 1.0f : 0.45f);
+    }
+
+    unlockButton.setVisible (! isFull);
+}
+
 void LudensMatchEditor::timerCallback()
 {
     const double rate = processor.getSampleRate();
@@ -357,7 +392,9 @@ void LudensMatchEditor::resized()
     auto referenceRow = area.removeFromTop (34);   // reference controls
 
     loadButton.setBounds (referenceRow.removeFromLeft (150).reduced (0, 4));
-    referenceLabel.setBounds (referenceRow.removeFromLeft (260).reduced (8, 4));
+    referenceLabel.setBounds (referenceRow.removeFromLeft (240).reduced (8, 4));
+    unlockButton.setBounds (referenceRow.removeFromRight (110).reduced (0, 4));
+    editionLabel.setBounds (referenceRow.removeFromRight (130).reduced (4, 4));
     levelLabel.setBounds (referenceRow.reduced (8, 4));
 
     auto controls = area.removeFromBottom (92);

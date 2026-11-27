@@ -1,9 +1,12 @@
 #include <juce_audio_formats/juce_audio_formats.h>
 
+#include "Licence.h"
+
 #include "match/MatchProcessor.h"
 #include "match/MatchEditor.h"
 
 #include <cmath>
+#include <cstdlib>
 #include <cstdio>
 #include <vector>
 
@@ -60,6 +63,20 @@ namespace
 int main()
 {
     juce::ScopedJuceInitialiser_GUI init;
+
+    // Optional: render the FULL state with a real key.
+    LudensScopeLicence::setProduct ("LudensMatch");
+
+    const auto licenceDir = juce::File::getSpecialLocation (juce::File::tempDirectory)
+                                .getChildFile ("ludensmatch-licence-test");
+    licenceDir.createDirectory();
+    LudensScopeLicence::setLicenceDirectoryForTesting (licenceDir);
+
+    if (auto* key = std::getenv ("LUDENSCOPE_MATCH_KEY"))
+        LudensScopeLicence::save (key);
+    else
+        licenceDir.getChildFile ("licence.txt").deleteFile();   // clean machine
+
 
     LudensMatchProcessor processor;
     processor.prepareToPlay (48000.0, 512);

@@ -24,7 +24,15 @@
 class LudensScopeLicence
 {
 public:
-    static constexpr const char* kProduct = "LudensScope";
+    // Each product carries its own tag inside the signed payload and its own
+    // config folder, so a LudensScope key can never unlock LudensMatch.
+    inline static juce::String productName { "LudensScope" };
+
+    static void setProduct (const juce::String& product)
+    {
+        productName = product;
+        resetCache();
+    }
 
     // Keys issued on or before this date predate activation and stay unlimited.
     static constexpr const char* kActivationCutoffDate = "2026-11-19";
@@ -68,7 +76,7 @@ public:
         const auto parts = juce::StringArray::fromTokens (key.trim(), "|", "");
         if (parts.size() != 3 || parts[0] != "LS1")
         {
-            info.error = "Not a LudensScope licence key.";
+            info.error = "Not a " + productName + " licence key.";
             return info;
         }
 
@@ -78,9 +86,9 @@ public:
             (int) payloadBytes.getSize());
 
         const auto fields = juce::StringArray::fromTokens (payload, "|", "");
-        if (fields.size() != 4 || fields[0] != kProduct || fields[1] != "FULL")
+        if (fields.size() != 4 || fields[0] != productName || fields[1] != "FULL")
         {
-            info.error = "Licence payload is not a LudensScope PRO key.";
+            info.error = "Licence payload is not a " + productName + " PRO key.";
             return info;
         }
 
@@ -145,7 +153,7 @@ public:
        #endif
 
         return juce::File::getSpecialLocation (juce::File::userApplicationDataDirectory)
-                   .getChildFile ("LudensScope")
+                   .getChildFile (productName)
                    .getChildFile ("licence.txt");
     }
 

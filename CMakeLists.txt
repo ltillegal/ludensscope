@@ -164,6 +164,7 @@ if(LUDENSCOPE_BUILD_MATCH)
   target_link_libraries(LudensMatch PRIVATE
     juce::juce_audio_utils
     juce::juce_dsp
+    juce::juce_cryptography
     LudensScopeBinaryData
     PUBLIC
     juce::juce_recommended_config_flags
@@ -224,12 +225,14 @@ if(LUDENSCOPE_BUILD_TESTS)
       Source/dsp/LoudnessMeter.cpp)
     target_include_directories(LudensMatchSnapshot PRIVATE Source)
     target_compile_definitions(LudensMatchSnapshot PRIVATE
+      LUDENSCOPE_TEST_HOOKS=1
       JUCE_STANDALONE_APPLICATION=1
       JUCE_MODAL_LOOPS_PERMITTED=1
       JUCE_WEB_BROWSER=0)
     target_link_libraries(LudensMatchSnapshot PRIVATE
       juce::juce_audio_utils
       juce::juce_dsp
+      juce::juce_cryptography
       LudensScopeBinaryData
       juce::juce_recommended_config_flags)
   endif()

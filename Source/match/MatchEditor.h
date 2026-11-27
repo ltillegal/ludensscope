@@ -29,6 +29,7 @@ private:
     void styleSlider (juce::Slider&) const;
     void chooseReference();
     void updateBandGains();
+    void refreshEdition();
     void applyReference (const std::array<float, SpectrumAnalyzer::numBins>& levels,
                          float lufs, const juce::String& name);
 
@@ -40,6 +41,8 @@ private:
     juce::TextButton loadButton { "LOAD REFERENCE" };
     juce::Label referenceLabel;
     juce::Label levelLabel;
+    juce::Label editionLabel;
+    juce::TextButton unlockButton { "UNLOCK 29 EUR" };
     juce::Slider amount, mix, output;
     juce::Label amountCaption, mixCaption, outputCaption;
 
@@ -54,6 +57,7 @@ private:
     std::array<float, SpectrumAnalyzer::numBins> correctionCurve {};
     std::array<float, LudensMatchProcessor::numBands> bandGains {};
     bool hasReference = false;
+    bool isFull = false;
     float referenceLufs = -100.0f;
     float levelOffsetDb = 0.0f;
     int referenceGeneration = 0;

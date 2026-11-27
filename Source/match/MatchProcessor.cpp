@@ -97,6 +97,12 @@ void LudensMatchProcessor::setBandGains (const float* gainsDbIn, int count) noex
     gainsVersion.fetch_add (1, std::memory_order_release);
 }
 
+void LudensMatchProcessor::setFullVersion (bool shouldBeFull) noexcept
+{
+    if (fullVersion.exchange (shouldBeFull, std::memory_order_relaxed) != shouldBeFull)
+        gainsVersion.fetch_add (1, std::memory_order_release);
+}
+
 float LudensMatchProcessor::bandGain (int band) const noexcept
 {
     return gainsDb[juce::jlimit (0, numBands - 1, band)].load (std::memory_order_relaxed);
@@ -105,11 +111,12 @@ float LudensMatchProcessor::bandGain (int band) const noexcept
 void LudensMatchProcessor::rebuildCoefficients (float amountScale) noexcept
 {
     builtAmount = amountScale;
+    appliedFull = fullVersion.load (std::memory_order_relaxed);
 
     for (int i = 0; i < numBands; ++i)
     {
         const float gainDb = gainsDb[i].load (std::memory_order_relaxed) * amountScale;
-        bandActive[(size_t) i] = std::abs (gainDb) >= 0.01f;
+        bandActive[(size_t) i] = appliedFull && std::abs (gainDb) >= 0.01f;
         const float frequency = bandCentreHz (i);
         const float bandwidth = bandEdges[i + 1] - bandEdges[i];
         const float q = juce::jlimit (0.4f, 4.0f, frequency / juce::jmax (1.0f, bandwidth));
@@ -175,10 +182,6 @@ void LudensMatchProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce:
 
     const float amountTarget = amountParam != nullptr ? amountParam->get() * 0.01f : 1.0f;
     const float mixTarget = mixParam != nullptr ? mixParam->get() * 0.01f : 1.0f;
-    const float outputGain = juce::Decibels::decibelsToGain (outputParam != nullptr
-                                                                 ? outputParam->get() : 0.0f,
-                                                             0.0f);
-
     // Amount scales every band, so the coefficients are rebuilt when it moves
     // by more than a fraction of a percent - once per block, not per sample.
     const float smoothing = 1.0f - std::exp (-(float) numSamples / (float) (preparedRate * 0.02));
@@ -190,6 +193,12 @@ void LudensMatchProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce:
     if (gainsVersion.load (std::memory_order_acquire) != appliedVersion
         || std::abs (smoothedAmount - builtAmount) > 0.002f)
         rebuildCoefficients (smoothedAmount);
+
+    // Lite is a viewer: the audio must pass through untouched, trim included.
+    // Read after the rebuild so the flag is never one block stale.
+    const float outputGain = appliedFull && outputParam != nullptr
+                                 ? juce::Decibels::decibelsToGain (outputParam->get(), 0.0f)
+                                 : 1.0f;
 
     auto* outL = buffer.getWritePointer (0);
     auto* outR = numChannels > 1 ? buffer.getWritePointer (1) : nullptr;

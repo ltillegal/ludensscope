@@ -53,6 +53,10 @@ public:
     // UI thread: eight correction gains in dB, plus the band centre
     // frequencies they belong to.
     void setBandGains (const float* gainsDb, int count) noexcept;
+
+    // Lite draws the correction but does not apply it; FULL is the paid tier.
+    void setFullVersion (bool shouldBeFull) noexcept;
+    bool isFullVersion() const noexcept { return fullVersion.load (std::memory_order_relaxed); }
     float bandGain (int band) const noexcept;
     static float bandCentreHz (int band) noexcept;
 
@@ -89,10 +93,12 @@ private:
 
     std::atomic<float> gainsDb[numBands] {};
     std::atomic<int> gainsVersion { 0 };
+    std::atomic<bool> fullVersion { false };
 
     LoudnessMeter loudness;
     std::array<Biquad, numBands> filters {};
     int appliedVersion = 0;
+    bool appliedFull = false;
     float builtAmount = -1.0f;
     std::array<bool, numBands> bandActive {};
     double preparedRate = 48000.0;
