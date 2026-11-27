@@ -1,93 +1,184 @@
-# AAX: подпись PACE
+# AAX: как получить подпись PACE и заставить Pro Tools грузить плагин
 
-AAX-плагин в наших `.pkg` / `.exe` собран, но **не подписан**. Pro Tools
-загружает только подписанный AAX; подпись — это не отдельный файл, а
-PACE-«wrap» сертификатом через `wraptool`.
+AAX уже собирается (SDK входит в JUCE 8), но розничный Pro Tools грузит
+только AAX, подписанный PACE. Неподписанный плагин не появляется в списке, на
+части сборок с ошибкой **-7054**. Подпись делает `wraptool` из PACE Eden.
 
-## Что нужно получить
+Заявку в PACE подаёт **Avid**, а не вы. Порядок ниже — фактический, по кейсу
+марта 2026 ([[1]](https://note.com/kawato3/n/ne11473420ad5) и
+[[2]](https://developer.avid.com/aax/)).
 
-1. **Avid Developer / AAX SDK** — https://developer.avid.com/  
-   AAX SDK уже входит в JUCE 8; для релиза AAX нужно одобрение Avid.
-2. **PACE Eden** — доступ к PACE Anti-Piracy (opens через iLok):  
-   https://www.paceap.com/ · https://www.ilok.com/
-3. **PACE Central** — создать *wrap configuration* (GUID); открывается
-   кнопкой из iLok License Manager.
-4. **DSIG identity** (signing ID) — то, что подставляется в `--signid`.
-5. **iLok** с лицензией Pro Tools Developer — для проверки до релиза.
+## Стоимость и сроки
 
-Процесс хорошо расписан в [Dplug AAX Guide](https://github.com/AuburnSounds/Dplug/wiki/Dplug-AAX-Guide)
-и на [JUCE forum](https://forum.juce.com/t/aax-plugin-eden-pace-wraptool-signid-your-dsig-id-what-exactly-is-dsig-id/59907).
+| Пункт | Цена |
+|---|---|
+| Avid-аккаунт, AAX SDK, регистрация разработчика | 0 |
+| Pro Tools Developer (для тестов неподписанного AAX) | 0 |
+| PACE Eden Tools + PACE Central | 0 (платит Avid) |
+| iLok 3 USB | ~50 € |
+| Apple Developer Program | 99 $/год, нужен для нотаризации `.pkg` |
+| Pro Tools | не нужен, хватает Developer-сборки |
 
-## Сборка AAX
+Лицензии Eden Tools и PACE Central выдаются **на год** и продлеваются. Подпись
+в течение года не ограничена по количеству.
 
-AAX собирается на macOS/Windows (на Linux — нет):
+Сроки: в удачном кейсе — неделя от заявки до подписи. По сообщениям на форумах
+бывает и два месяца: Avid отвечает вручную. Планировать стоит на недели.
 
-```bash
-cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
-cmake --build build --target LudensScope_AAX --config Release
+## Шаг 1. Avid-аккаунт и AAX SDK
+
+1. Зарегистрируйте аккаунт на https://my.avid.com/
+2. Откройте https://my.avid.com/cpp/sdk/aax — это click-through лицензия.
+3. Примите соглашение. После этого SDK доступен в аккаунте, и вы —
+   **зарегистрированный AAX-разработчик**. Качать SDK не нужно: он уже в JUCE,
+   нужен только сам факт регистрации.
+
+## Шаг 2. Лицензия Pro Tools Developer
+
+Нужна, чтобы тестировать **неподписанный** AAX до получения PACE. Заявка:
+
+- форма: https://forms.cloud.microsoft/r/Hgnye2RRYU
+- либо письмо на `devauth@avid.com`
+
+В письме ровно три пункта:
+
+```
+Subject: Pro Tools Developer license request
+
+- Avid Developer account email: <email вашего my.avid.com>
+- Number of licenses: 1
+- Purpose: AAX plug-in development and testing
 ```
 
-Результат: `build/LudensScope_artefacts/Release/AAX/LudensScope.aaxplugin`.
+Автоответ обещает 5 рабочих дней, на практике активация приходит в тот же или
+на следующий день. Лицензия кладётся на iLok (или iLok Cloud).
 
-## Подпись одной командой
+## Шаг 3. Заявка на PACE signing tools
 
-macOS:
+Важно: **PACE напрямую заявку не принимает** — Avid связывается с ними за вас.
+
+- форма: https://forms.cloud.microsoft/r/hCYdLUGaEt
+- если регистрация разработчика свежая, подождите два рабочих дня
+- либо письмо на `audiosdk@avid.com` с темой `PACE Eden Signing Tools Request`
+
+Данные, которые спросят (готовьте сразу):
+
+```
+Company name:              LudensScope
+Admin full name:           <имя фамилия>
+Admin email:               alek.ludens@gmail.com
+Phone (with country code): +<код><номер>
+Website:                   https://ludensscope.pages.dev
+Plugin description:        Stereo spectrum, loudness (BS.1770), VU and
+                           stereo-field analyzer for mixing and mastering.
+                           AU, VST3, AAX, CLAP, standalone.
+Avid Developer email:      <email вашего my.avid.com>
+Manufacturer code:         LDNS
+Plugin code:               LDSC
+```
+
+`Company name` — это имя издателя, оно попадёт в PACE Central и в подпись.
+Менять потом неприятно, выберите один раз. Для соло-разработчика нормально
+указать собственный бренд: `LudensScope`.
+
+Manufacturer и plugin code — те же, что в `CMakeLists.txt`. Они регистрируются
+у Avid при выдаче инструментов подписи и после релиза меняться не должны:
+по ним Pro Tools находит плагин в старых сессиях.
+
+## Шаг 4. Что приходит от PACE
+
+PACE присылает письмо со ссылкой на форму (на заполнение ~72 часа) и после неё:
+
+- администраторский аккаунт **PACE Central** (central.paceap.com);
+- лицензия **PACE Central Access** — на iLok-аккаунт;
+- лицензия **Eden Tools** — на iLok-аккаунт.
+
+Дальше:
+
+1. В iLok License Manager перенести обе лицензии на **USB-ключ**.
+2. **Правый клик по ключу → Synchronize.** Если пропустить, сертификат подписи
+   не скачается на ключ и `wraptool` упадёт с ошибкой авторизации. Это главная
+   ловушка всего процесса.
+3. Установить **Eden SDK** — в нём `wraptool`.
+4. В PACE Central создать *wrap configuration*, получить GUID (`--wcguid`).
+
+## Шаг 5. Подпись
+
+macOS (нужен Developer ID, если собираетесь нотаризовать):
 
 ```bash
-export AAX_SIGN_ID="<DSIG identity>"
-export AAX_WRAP_CONFIG="<PACE Central wrap configuration GUID>"
-# если wraptool не в PATH:
-export AAX_WRAP_TOOL="/Applications/PACEAntiPiracy/Eden/Fusion/Versions/5/bin/wraptool"
+export AAX_ACCOUNT="<iLok account>"
+export AAX_KEYFILE="$HOME/.pace/eden.p12"
+export AAX_KEYPASSWORD="<password>"
+export AAX_WRAP_CONFIG="<wrap configuration GUID>"
+export APPLE_SIGN_ID="Developer ID Application: ... (TEAMID)"
 
 scripts/sign-aax-macos.sh
-# → dist/LudensScope.aaxplugin
 ```
 
-Windows (PowerShell):
+Windows:
 
 ```powershell
-$env:AAX_SIGN_ID="<DSIG identity>"
-$env:AAX_WRAP_CONFIG="<PACE Central wrap configuration GUID>"
-$env:AAX_WRAP_TOOL="C:\Program Files\PACE Anti-Piracy\...\wraptool.exe"
+$env:AAX_ACCOUNT="..."; $env:AAX_KEYFILE="C:\pace\eden.p12"
+$env:AAX_KEYPASSWORD="..."; $env:AAX_WRAP_CONFIG="..."
 
 .\scripts\sign-aax-windows.ps1
 ```
 
 Скрипты вызывают:
 
-```bash
-wraptool --signid "$AAX_SIGN_ID" --wrapConfig "$AAX_WRAP_CONFIG" dist/LudensScope.aaxplugin
+```
+wraptool sign --verbose --account <acct> --keyfile <p12> --keypassword <pw> \
+  --wcguid <GUID> --dsigharden --in <binary> --out <binary>
 ```
 
-Флаги `wraptool` зависят от версии Eden — если ваша версия просит другой
-синтаксис, поправьте `WRAP_ARGS` в скрипте (или выполните команду из
-`wraptool --help` вручную; скрипт — обёртка, не магия).
+`--dsigharden` выставляет hardened runtime, нужный Apple для нотаризации.
+Порядок жёсткий: **Apple-подпись → wraptool → и больше ничего**. Повторный
+`codesign` после `wraptool` стирает PACE-wrap, и Pro Tools перестаёт видеть
+плагин.
 
 ## Проверка
 
 ```bash
-codesign -dv --verbose=2 dist/LudensScope.aaxplugin
+codesign -dv --verbose=4 dist/LudensScope.aaxplugin   # Developer ID + runtime
 ```
 
-Затем — Pro Tools Developer build с iLok: плагин должен появиться и
-загрузиться. На обычном Pro Tools без подписи его не будет.
+Затем Pro Tools: плагин должен появиться в меню и загрузиться. Нет плагина или
+**-7054** — подпись не встала.
 
-## Упаковка релиза
+## Локальная сборка релиза
 
-Подписанный `dist/LudensScope.aaxplugin` нужно положить в установщик
-вместо неподписанного:
+CI и локальная сборка используют один скрипт, поэтому установщик одинаковый:
 
-- macOS `.pkg`: заменить `pkgroot/Library/Application Support/Avid/Audio/Plug-Ins/LudensScope.aaxplugin`
-  и пересобрать `pkgbuild`/`productbuild`;
-- Windows `.exe`: заменить файл в NSIS-скрипте (`$COMMONFILES64\Avid\Audio\Plug-Ins`)
-  и пересобрать `makensis`.
+```bash
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build --config Release --target LudensScope_AAX
 
-Либо добавить шаг подписи в CI (секреты `AAX_SIGN_ID` / `AAX_WRAP_CONFIG` /
-`AAX_WRAP_TOOL`), но сертификат PACE в GitHub Secrets — на ваш риск.
+scripts/sign-aax-macos.sh build/LudensScope_artefacts/Release/AAX/LudensScope.aaxplugin \
+                          dist/LudensScope.aaxplugin
+
+AAX_SIGNED_BUNDLE=dist/LudensScope.aaxplugin scripts/package-macos.sh 1.1.0 build dist
+
+gh release upload v1.1.0 dist/LudensScope-macos.pkg --clobber
+```
+
+Нотаризуется `.pkg`, а не плагин: без этого macOS ругается на установщик, но на
+загрузку AAX в Pro Tools это не влияет.
+
+## Про CI
+
+GitHub-hosted runner подписать AAX не может: `wraptool` работает только там, где
+воткнут iLok с лицензией `Eden Tools`. Поэтому CI собирает и пакует как обычно
+(AAX внутри остаётся неподписанным), а подпись делается локально. Класть
+PACE-сертификат в GitHub Secrets бессмысленно — без ключа он не работает.
 
 ## Границы
 
-- Подпись AAX не делает плагин доступным без одобрения Avid.
-- Linux-сборка AAX не поддерживается (Pro Tools — macOS/Windows).
-- Наша `.pkg`/`.exe` сейчас содержат неподписанный AAX; это ожидаемо до
-  получения PACE-доступа.
+- Linux не поддерживается: Avid не выпускает AAX SDK под Linux.
+- Windows-AAX собирается только под хост-архитектуру.
+- Сертификацию плагина Avid **не** требует: соглашение — это click-through при
+  получении SDK, после подписи можно публиковать (FAQ 4–5).
+- iLok-защита продукта не обязательна, у нас свой офлайн-ключ (FAQ 11).
+- Облачная подпись через Avid не выдаётся, только локальная; cloud signing —
+  отдельный разговор с PACE (~1000 $), не нужен.
+- Подпись привязана к конкретному бинарю: каждый релиз подписывается заново.

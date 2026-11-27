@@ -97,31 +97,7 @@ jobs:
       - name: Package (macOS .pkg)
         if: runner.os == 'macOS'
         shell: bash
-        run: |
-          set -euo pipefail
-          cd "$GITHUB_WORKSPACE"
-          for bundle in build/LudensScope_artefacts/Release/VST3/LudensScope.vst3 \
-                        build/LudensScope_artefacts/Release/AU/LudensScope.component \
-                        build/LudensScope_artefacts/Release/CLAP/LudensScope.clap \
-                        build/LudensScope_artefacts/Release/AAX/LudensScope.aaxplugin \
-                        build/LudensScope_artefacts/Release/Standalone/LudensScope.app; do
-            if [ -e "$bundle" ]; then
-              codesign --force --deep --sign - "$bundle"
-            fi
-          done
-          rm -rf pkgroot
-          mkdir -p pkgroot/Library/Audio/Plug-Ins/VST3 \
-                   pkgroot/Library/Audio/Plug-Ins/Components \
-                   pkgroot/Library/Audio/Plug-Ins/CLAP \
-                   "pkgroot/Library/Application Support/Avid/Audio/Plug-Ins" \
-                   pkgroot/Applications
-          cp -R build/LudensScope_artefacts/Release/VST3/LudensScope.vst3 pkgroot/Library/Audio/Plug-Ins/VST3/
-          cp -R build/LudensScope_artefacts/Release/AU/LudensScope.component pkgroot/Library/Audio/Plug-Ins/Components/
-          cp -R build/LudensScope_artefacts/Release/CLAP/LudensScope.clap pkgroot/Library/Audio/Plug-Ins/CLAP/
-          cp -R build/LudensScope_artefacts/Release/AAX/LudensScope.aaxplugin "pkgroot/Library/Application Support/Avid/Audio/Plug-Ins/"
-          cp -R build/LudensScope_artefacts/Release/Standalone/LudensScope.app pkgroot/Applications/
-          pkgbuild --root pkgroot --identifier com.ltillegal.ludensscope \
-                   --version "$LUDENSCOPE_VERSION" --install-location / LudensScope-macos.pkg
+        run: scripts/package-macos.sh "$LUDENSCOPE_VERSION" build .
 
       - name: Package (Windows .exe)
         if: runner.os == 'Windows'
@@ -134,6 +110,12 @@ jobs:
           !include "MUI2.nsh"
           Name "LudensScope"
           OutFile "LudensScope-windows.exe"
+          VIProductVersion "__VERSION4__"
+          VIAddVersionKey "ProductName" "LudensScope"
+          VIAddVersionKey "ProductVersion" "__VERSION__"
+          VIAddVersionKey "FileVersion" "__VERSION__"
+          VIAddVersionKey "FileDescription" "LudensScope stereo analyzer"
+          VIAddVersionKey "CompanyName" "LudensScope"
           InstallDir "$COMMONFILES64\VST3"
           RequestExecutionLevel admin
           Unicode true
@@ -169,6 +151,8 @@ jobs:
             Delete "$SMPROGRAMS\LudensScope.lnk"
           SectionEnd
           '@
+          $version4 = "$($env:LUDENSCOPE_VERSION).0"
+          $script = $script.Replace("__VERSION__", $env:LUDENSCOPE_VERSION).Replace("__VERSION4__", $version4)
           Set-Content -Path installer.nsi -Value $script -Encoding UTF8
           & $nsis installer.nsi
           if (!(Test-Path LudensScope-windows.exe)) { exit 1 }
