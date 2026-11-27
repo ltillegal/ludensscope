@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.3.2
+
+- System audio no longer greets you with a raw macOS error. Until the
+  permission is granted the menu item reads "needs macOS permission...", and
+  clicking it opens a dialog that explains what to switch on, with a button
+  that goes straight to Privacy & Security. The backend checks the permission
+  before touching ScreenCaptureKit, so a refusal never surfaces as the system's
+  own "the user declined..." text.
+
 ## 1.3.1
 
 - Menus and tooltips now use the same rounded corners as the rest of the
