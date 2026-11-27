@@ -746,6 +746,7 @@ void LudensScopeEditor::resized()
     {
         auto stripBand = r.removeFromBottom (stripHeight);
         auto sourceBand = stripBand.removeFromRight (railWidth);
+        stripBand.removeFromRight (gap);   // same gutter as every other panel
         referenceStrip.setBounds (stripBand);
 
         // ORIG/REF span the whole height of the reference panel.

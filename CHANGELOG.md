@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.3.3
+
+- The reference strip now ends with the same gutter as every other panel: it
+  ran straight into the ORIG/REF column, while the scope row above it kept its
+  gap. Same layout code, one missing `removeFromRight (gap)`.
+
 ## 1.3.2
 
 - System audio no longer greets you with a raw macOS error. Until the
