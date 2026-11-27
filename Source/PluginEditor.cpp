@@ -3060,6 +3060,10 @@ void LudensScopeEditor::toggleSystemAudio()
 
     juce::String error;
 
+    // The macOS permission prompt blocks until the user answers, so show that
+    // something is happening instead of a frozen window.
+    juce::MouseCursor::showWaitCursor();
+
     const bool started = systemCapture.start (rate,
         [this] (const float* left, const float* right, int frames)
         {
@@ -3075,6 +3079,8 @@ void LudensScopeEditor::toggleSystemAudio()
             captureMidi.clear();
             processor.processBlock (view, captureMidi);
         }, error);
+
+    juce::MouseCursor::hideWaitCursor();
 
     if (! started)
     {
