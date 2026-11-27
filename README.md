@@ -236,7 +236,10 @@ version exists, the plugin downloads the installer for the current OS to
 release and reveals the folder. The plugin never replaces its own loaded binary:
 quit the DAW and run the downloaded installer.
 
-Releases are built by `.github/workflows/release.yml` from a `vX.Y.Z` tag:
+Releases are built by `.github/workflows/release.yml` from a `vX.Y.Z` tag. The
+release page text comes from `scripts/release-notes.py`, which takes the matching
+section of `CHANGELOG.md` and appends the download table and links — write the
+changelog entry before tagging:
 Linux — `.deb`, macOS — `.pkg` (VST3 + AU), Windows — `.exe`, plus
 `SHA256SUMS.txt`. There are no zip assets. The build version comes from
 `-DLUDENSCOPE_VERSION`, so the tag and the version must match. The update check
