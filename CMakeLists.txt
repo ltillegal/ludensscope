@@ -7,7 +7,7 @@ if(CMAKE_HOST_SYSTEM_NAME STREQUAL "Darwin")
 endif()
 
 if(NOT DEFINED LUDENSCOPE_VERSION)
-  set(LUDENSCOPE_VERSION "1.3.0")
+  set(LUDENSCOPE_VERSION "1.3.1")
 endif()
 project(LudensScope VERSION ${LUDENSCOPE_VERSION} LANGUAGES C CXX)
 add_compile_definitions (LUDENSCOPE_VERSION_STRING="${LUDENSCOPE_VERSION}")
@@ -122,6 +122,54 @@ clap_juce_extensions_plugin(TARGET LudensScope
   CLAP_ID "com.ltillegal.ludensscope"
   CLAP_FEATURES audio-effect analyzer stereo utility)
 
+# LudensMatch: a second product sharing the analyser and the interface theme.
+option(LUDENSCOPE_BUILD_MATCH "Build the LudensMatch plug-in" ON)
+
+if(LUDENSCOPE_BUILD_MATCH)
+  juce_add_plugin(LudensMatch
+    COMPANY_NAME "LudensScope"
+    BUNDLE_ID "com.ltillegal.ludensmatch"
+    PLUGIN_MANUFACTURER_CODE LDNS
+    PLUGIN_CODE LDMT
+    FORMATS ${LUDENSCOPE_FORMATS}
+    PRODUCT_NAME "LudensMatch"
+    VERSION ${LUDENSCOPE_VERSION}
+    DESCRIPTION "Reference matching equaliser"
+    IS_SYNTH FALSE
+    NEEDS_MIDI_INPUT FALSE
+    NEEDS_MIDI_OUTPUT FALSE
+    IS_MIDI_EFFECT FALSE
+    EDITOR_WANTS_KEYBOARD_FOCUS FALSE
+    COPY_PLUGIN_AFTER_BUILD ${LUDENSCOPE_COPY_PLUGIN}
+    VST3_CATEGORIES "Fx Eq")
+
+  target_sources(LudensMatch PRIVATE
+    Source/match/MatchProcessor.cpp
+    Source/match/MatchEditor.cpp
+    Source/dsp/SpectrumAnalyzer.cpp)
+
+  target_include_directories(LudensMatch PRIVATE Source)
+
+  target_compile_definitions(LudensMatch PUBLIC
+    JUCE_WEB_BROWSER=0
+    JUCE_MODAL_LOOPS_PERMITTED=1
+    JUCE_VST3_CAN_REPLACE_VST2=0
+    JUCE_DISPLAY_SPLASH_SCREEN=0
+    JUCE_REPORT_APP_USAGE=0)
+
+  target_link_libraries(LudensMatch PRIVATE
+    juce::juce_audio_utils
+    juce::juce_dsp
+    LudensScopeBinaryData
+    PUBLIC
+    juce::juce_recommended_config_flags
+    juce::juce_recommended_warning_flags)
+
+  clap_juce_extensions_plugin(TARGET LudensMatch
+    CLAP_ID "com.ltillegal.ludensmatch"
+    CLAP_FEATURES audio-effect equalizer)
+endif()
+
 option(LUDENSCOPE_BUILD_TESTS "Build the offline calibration test" OFF)
 
 if(LUDENSCOPE_BUILD_TESTS)
@@ -161,6 +209,25 @@ if(LUDENSCOPE_BUILD_TESTS)
     juce::juce_cryptography
     LudensScopeBinaryData
     juce::juce_recommended_config_flags)
+
+  if(LUDENSCOPE_BUILD_MATCH)
+    juce_add_console_app(LudensMatchSnapshot PRODUCT_NAME "LudensMatchSnapshot")
+    target_sources(LudensMatchSnapshot PRIVATE
+      Tests/MatchSnapshot.cpp
+      Source/match/MatchProcessor.cpp
+      Source/match/MatchEditor.cpp
+      Source/dsp/SpectrumAnalyzer.cpp)
+    target_include_directories(LudensMatchSnapshot PRIVATE Source)
+    target_compile_definitions(LudensMatchSnapshot PRIVATE
+      JUCE_STANDALONE_APPLICATION=1
+      JUCE_MODAL_LOOPS_PERMITTED=1
+      JUCE_WEB_BROWSER=0)
+    target_link_libraries(LudensMatchSnapshot PRIVATE
+      juce::juce_audio_utils
+      juce::juce_dsp
+      LudensScopeBinaryData
+      juce::juce_recommended_config_flags)
+  endif()
 
   add_test(NAME loudness COMMAND LudensScopeLoudnessCalibration)
   add_test(NAME spectrum COMMAND LudensScopeCalibration)

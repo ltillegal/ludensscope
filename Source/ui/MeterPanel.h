@@ -254,6 +254,14 @@ public:
         else
             filled = { centreX + halfWidth * value, bar.getY(), -halfWidth * value, bar.getHeight() };
 
+        // Clip the fill to the rounded track, otherwise its ends stay square
+        // inside a pill-shaped bar.
+        juce::Path track;
+        track.addRoundedRectangle (bar, 4.0f);
+
+        juce::Graphics::ScopedSaveState save (g);
+        g.reduceClipRegion (track, {});
+
         g.setColour (value < -0.1f ? theme::hot : theme::accent);
         g.fillRect (filled);
     }

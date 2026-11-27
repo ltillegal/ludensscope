@@ -84,6 +84,55 @@ public:
         }
     }
 
+    // The menus and tooltips are JUCE defaults: plain rectangles next to a
+    // rounded interface. Panels get the same radius as the rest of the UI.
+    void drawPopupMenuBackground (juce::Graphics& g, int width, int height) override
+    {
+        const auto bounds = juce::Rectangle<float> (0.0f, 0.0f, (float) width, (float) height)
+                                .reduced (0.5f);
+        const float corner = 8.0f;
+
+        g.setColour (theme::panel);
+        g.fillRoundedRectangle (bounds, corner);
+        g.setColour (theme::panelLine);
+        g.drawRoundedRectangle (bounds, corner, 1.0f);
+    }
+
+    void drawPopupMenuItem (juce::Graphics& g, const juce::Rectangle<int>& area,
+                            bool isSeparator, bool isActive, bool isHighlighted,
+                            bool isTicked, bool hasSubMenu, const juce::String& text,
+                            const juce::String& shortcutKeyText, const juce::Drawable* icon,
+                            const juce::Colour* textColour) override
+    {
+        if (! isSeparator && isHighlighted)
+        {
+            // A pill inside the menu: a square row fill would poke out of the
+            // rounded corners on the first and last items.
+            g.setColour (theme::accent.withAlpha (0.14f));
+            g.fillRoundedRectangle (area.toFloat().reduced (4.0f, 1.0f), 6.0f);
+        }
+
+        juce::LookAndFeel_V4::drawPopupMenuItem (g, area, isSeparator, isActive, false,
+                                                 isTicked, hasSubMenu, text, shortcutKeyText,
+                                                 icon, textColour);
+    }
+
+    void drawTooltip (juce::Graphics& g, const juce::String& text, int width, int height) override
+    {
+        const auto bounds = juce::Rectangle<float> (0.0f, 0.0f, (float) width, (float) height)
+                                .reduced (0.5f);
+
+        g.setColour (theme::bg.withAlpha (0.96f));
+        g.fillRoundedRectangle (bounds, 6.0f);
+        g.setColour (theme::panelLine);
+        g.drawRoundedRectangle (bounds, 6.0f, 1.0f);
+
+        g.setFont (theme::detailFont (11.0f, uiScale));
+        g.setColour (theme::text);
+        g.drawFittedText (text, bounds.reduced (8.0f, 4.0f).toNearestInt(),
+                          juce::Justification::centredLeft, 6, 1.0f);
+    }
+
     void drawButtonText (juce::Graphics& g, juce::TextButton& button,
                          bool, bool) override
     {

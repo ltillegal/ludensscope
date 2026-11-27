@@ -444,6 +444,13 @@ public:
 
         g.setFont (theme::detailMonoFont (9.0f, uiScale));
 
+        // Everything drawn over the plot (grid, guide zones, the stereo band)
+        // is clipped to the plot's rounded corners.
+        juce::Graphics::ScopedSaveState plotState (g);
+        juce::Path plotClip;
+        plotClip.addRoundedRectangle (plot, 6.0f * uiScale);
+        g.reduceClipRegion (plotClip);
+
         // Note grid: octave C markers for tonal checks.
         if (showNoteGrid)
         {

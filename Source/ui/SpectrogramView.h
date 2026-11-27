@@ -200,6 +200,13 @@ public:
         if (! image.isValid())
             return;
 
+        // The waterfall is a block inside a rounded panel, so its own corners
+        // are rounded too - otherwise it reads as a square pasted on.
+        juce::Graphics::ScopedSaveState plotState (g);
+        juce::Path plotClip;
+        plotClip.addRoundedRectangle (plot, 6.0f * uiScale);
+        g.reduceClipRegion (plotClip);
+
         const int oldestRows = height - writeRow;
 
         if (oldestRows > 0)
@@ -217,7 +224,7 @@ public:
         juce::ColourGradient scale (heat (1.0f), legendX, plot.getY(),
                                     heat (0.0f), legendX, plot.getBottom(), false);
         g.setGradientFill (scale);
-        g.fillRect (legend);
+        g.fillRoundedRectangle (legend.withWidth (legend.getWidth()), 3.0f * uiScale);
 
         g.setFont (theme::detailMonoFont (8.0f, uiScale));
         g.setColour (theme::textDim);

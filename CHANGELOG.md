@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.3.1
+
+- Menus and tooltips now use the same rounded corners as the rest of the
+  interface. They were drawn by JUCE's defaults, so every popup (OPTIONS,
+  GUIDES, THEME, REF and the submenus) was a plain rectangle, and the
+  highlighted row was a square block. The highlight is a pill inside the menu,
+  which also keeps the first and last rows clear of the rounded corners.
+- The correlation bar's fill is clipped to its rounded track; before, a value
+  near the ends painted square corners inside a pill.
+
 ## 1.3.0
 
 - The standalone app can analyse the computer's own audio output: a browser, a
