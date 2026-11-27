@@ -5,6 +5,7 @@
 #import <Foundation/Foundation.h>
 #import <ScreenCaptureKit/ScreenCaptureKit.h>
 #import <CoreMedia/CoreMedia.h>
+#import <CoreGraphics/CoreGraphics.h>
 
 #include <atomic>
 #include <vector>
@@ -145,6 +146,29 @@ bool SystemAudioCapture::isPlatformSupported()
     return false;
 }
 
+bool SystemAudioCapture::hasPermission()
+{
+    if (@available (macOS 10.15, *))
+        return CGPreflightScreenCaptureAccess();
+
+    return false;
+}
+
+void SystemAudioCapture::openPermissionSettings()
+{
+    juce::URL ("x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture")
+        .launchInDefaultBrowser();
+}
+
+juce::String SystemAudioCapture::permissionHelp()
+{
+    return "macOS has to allow audio capture before LudensScope can listen to the "
+           "system output.\n\n"
+           "Turn on LudensScope under System Settings -> Privacy & Security -> "
+           "Screen & System Audio Recording, then press Try again. If the switch was "
+           "already off, kill and reopen the app after changing it.";
+}
+
 juce::String SystemAudioCapture::platformNote()
 {
     if (@available (macOS 13.0, *))
@@ -159,6 +183,19 @@ bool SystemAudioCapture::start (double sampleRate, Callback callbackIn, juce::St
     if (@available (macOS 13.0, *))
     {
         stop();
+
+        if (! hasPermission())
+        {
+            // This shows the system prompt once; if it was declined before, the
+            // call returns false without asking again.
+            CGRequestScreenCaptureAccess();
+
+            if (! hasPermission())
+            {
+                error = "permission";
+                return false;
+            }
+        }
 
         impl->callback = std::move (callbackIn);
 
@@ -193,6 +230,12 @@ bool SystemAudioCapture::start (double sampleRate, Callback callbackIn, juce::St
 
         if (content == nil || content.displays.count == 0)
         {
+            if (contentError != nil && contentError.code == -3801)
+            {
+                error = "permission";
+                return false;
+            }
+
             error = contentError != nil ? juce::String::fromUTF8 (contentError.localizedDescription.UTF8String)
                                         : juce::String ("No display available for audio capture.");
             return false;

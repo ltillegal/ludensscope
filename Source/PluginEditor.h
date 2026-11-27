@@ -105,6 +105,7 @@ public:
     // Standalone only: meter what the computer plays instead of a DAW.
     void toggleSystemAudio();
     void stopSystemAudio();
+    void showSystemAudioPermissionDialog();
 
     void timerCallback() override;
     bool keyPressed (const juce::KeyPress& key) override;

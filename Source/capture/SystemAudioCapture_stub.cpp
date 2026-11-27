@@ -30,6 +30,20 @@ juce::String SystemAudioCapture::platformNote()
    #endif
 }
 
+bool SystemAudioCapture::hasPermission()
+{
+    return false;
+}
+
+void SystemAudioCapture::openPermissionSettings()
+{
+}
+
+juce::String SystemAudioCapture::permissionHelp()
+{
+    return platformNote();
+}
+
 bool SystemAudioCapture::start (double, Callback, juce::String& error)
 {
     error = platformNote();

@@ -1417,8 +1417,13 @@ void LudensScopeEditor::showFftMenu()
 
     if (processor.wrapperType == juce::AudioProcessor::wrapperType_Standalone)
     {
-        menu.addItem (650, systemAudioOn ? "System audio: on (click to stop)"
-                                         : "System audio: off (click to start)",
+        const juce::String systemAudioLabel =
+            systemAudioOn ? juce::String ("System audio: on (click to stop)")
+                          : (SystemAudioCapture::hasPermission()
+                                 ? juce::String ("System audio: off (click to start)")
+                                 : juce::String ("System audio: needs macOS permission..."));
+
+        menu.addItem (650, systemAudioLabel,
                       systemAudioOn || SystemAudioCapture::isPlatformSupported(), false);
     }
 
@@ -3095,6 +3100,12 @@ void LudensScopeEditor::toggleSystemAudio()
         return;
     }
 
+    if (! SystemAudioCapture::hasPermission())
+    {
+        showSystemAudioPermissionDialog();
+        return;
+    }
+
     const double rate = preparedSampleRate > 0.0 ? preparedSampleRate : 48000.0;
 
     // Big enough for any block a capture backend hands over.
@@ -3138,12 +3149,43 @@ void LudensScopeEditor::toggleSystemAudio()
             holder->deviceManager.restartLastAudioDevice();
        #endif
 
-        juce::AlertWindow::showMessageBoxAsync (juce::MessageBoxIconType::WarningIcon,
-                                                "System audio", error);
+        if (error == "permission")
+        {
+            showSystemAudioPermissionDialog();
+        }
+        else
+        {
+            juce::AlertWindow::showMessageBoxAsync (juce::MessageBoxIconType::WarningIcon,
+                                                    "System audio", error);
+        }
+
         return;
     }
 
     systemAudioOn = true;
+}
+
+void LudensScopeEditor::showSystemAudioPermissionDialog()
+{
+    juce::AlertWindow::showAsync (
+        juce::MessageBoxOptions()
+            .withIconType (juce::MessageBoxIconType::InfoIcon)
+            .withTitle ("System audio")
+            .withMessage (SystemAudioCapture::permissionHelp())
+            .withButton ("Open Settings")
+            .withButton ("Try again")
+            .withButton ("Cancel"),
+        [safe = juce::Component::SafePointer<LudensScopeEditor> (this)] (int result)
+        {
+            if (result == 1)
+            {
+                SystemAudioCapture::openPermissionSettings();
+            }
+            else if (result == 2 && safe != nullptr)
+            {
+                safe->toggleSystemAudio();
+            }
+        });
 }
 
 void LudensScopeEditor::stopSystemAudio()

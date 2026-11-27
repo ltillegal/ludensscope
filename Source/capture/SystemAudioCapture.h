@@ -27,6 +27,17 @@ public:
     // Explains what is missing, for tooltips and error boxes.
     static juce::String platformNote();
 
+    // True once the OS has granted audio capture. On macOS this is the
+    // "Screen & System Audio Recording" permission, and asking for it before
+    // start() is what keeps a refusal from surfacing as a raw system error.
+    static bool hasPermission();
+
+    // Opens the OS pane where the permission is granted, when there is one.
+    static void openPermissionSettings();
+
+    // Text for the settings dialog: what to switch on and when to restart.
+    static juce::String permissionHelp();
+
     // Requests permission if the OS requires it. Returns false and fills
     // `error` when the user declines or the stream cannot start.
     bool start (double sampleRate, Callback callback, juce::String& error);
