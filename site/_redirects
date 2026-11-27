@@ -1,0 +1,10 @@
+# English is the default at /, Russian lives at /ru/.
+/en/                        /                        301
+/en                         /                        301
+/en/index.html              /                        301
+/en/free-lufs-meter/        /free-lufs-meter/        301
+/en/free-lufs-meter         /free-lufs-meter/        301
+/en/free-spectrum-analyzer/ /free-spectrum-analyzer/ 301
+/en/free-spectrum-analyzer  /free-spectrum-analyzer/ 301
+/en/gain-staging/           /gain-staging/           301
+/en/gain-staging            /gain-staging/           301

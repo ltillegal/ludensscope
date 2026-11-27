@@ -6,22 +6,22 @@
     <priority>1.0</priority>
   </url>
   <url>
-    <loc>https://ludensscope.pages.dev/en/</loc>
+    <loc>https://ludensscope.pages.dev/ru/</loc>
     <changefreq>weekly</changefreq>
-    <priority>0.8</priority>
+    <priority>0.9</priority>
   </url>
   <url>
-    <loc>https://ludensscope.pages.dev/en/free-lufs-meter/</loc>
+    <loc>https://ludensscope.pages.dev/free-lufs-meter/</loc>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://ludensscope.pages.dev/en/free-spectrum-analyzer/</loc>
+    <loc>https://ludensscope.pages.dev/free-spectrum-analyzer/</loc>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://ludensscope.pages.dev/en/gain-staging/</loc>
+    <loc>https://ludensscope.pages.dev/gain-staging/</loc>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>

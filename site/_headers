@@ -9,7 +9,16 @@
 /404.html
   Cache-Control: public, max-age=0, must-revalidate
 
-/en/*
+/ru/*
+  Cache-Control: public, max-age=0, must-revalidate
+
+/free-lufs-meter/*
+  Cache-Control: public, max-age=0, must-revalidate
+
+/free-spectrum-analyzer/*
+  Cache-Control: public, max-age=0, must-revalidate
+
+/gain-staging/*
   Cache-Control: public, max-age=0, must-revalidate
 
 /press/*

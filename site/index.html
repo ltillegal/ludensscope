@@ -1,26 +1,45 @@
 <!DOCTYPE html>
-<html lang="ru"><head>
+<html lang="en"><head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>LudensScope — стерео-анализатор. Lite бесплатно, PRO 19 €</title>
-  <meta name="description" content="Стерео-анализатор VST3/AU: спектр, громкость BS.1770, референс A–D, gain staging и VU. Бесплатный Lite, PRO за 19 € (было 29 €) — офлайн, без аккаунта и телеметрии.">
-  <meta property="og:title" content="LudensScope — увидеть то, что слышишь">
-  <meta property="og:description" content="Бесплатный Lite, PRO 19 € (было 29 €): спектр, BS.1770, референс A–D, gain staging и VU.">
+  <title>LudensScope — stereo analyser. Free Lite, PRO €19</title>
+  <meta name="description" content="A free stereo analyzer for VST3 and AU: spectrum, BS.1770 loudness, four reference slots, gain staging and a standard VU meter.">
+  <meta property="og:title" content="LudensScope — see what you hear">
+  <meta property="og:description" content="A free stereo analyzer for VST3 and AU. Spectrum, loudness, reference, gain staging and VU.">
   <meta property="og:type" content="website">
-  <meta property="og:image" content="https://ludensscope.pages.dev/assets/ui-preview.jpg">
+  <meta property="og:image" content="https://ludensscope.pages.dev/assets/og-en.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
   <meta property="og:url" content="https://ludensscope.pages.dev/">
   <meta property="og:site_name" content="LudensScope">
-  <meta property="og:locale" content="ru_RU">
-  <meta property="og:locale:alternate" content="en_US">
+  <meta property="og:locale" content="en_US">
+  <meta property="og:locale:alternate" content="ru_RU">
   <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:image" content="https://ludensscope.pages.dev/assets/og-en.png">
   <meta name="theme-color" content="#01141b">
   <meta name="yandex-verification" content="302ff2bb98989cea">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "LudensScope",
+  "description": "Stereo analyser for VST3, AU, CLAP and AAX: spectrum, BS.1770 loudness, four reference slots, gain staging and a needle VU meter. Free Lite, PRO €19.",
+  "applicationCategory": "MultimediaApplication",
+  "operatingSystem": "Windows, macOS, Linux",
+  "softwareVersion": "1.1.0",
+  "url": "https://ludensscope.pages.dev/",
+  "offers": [
+    { "@type": "Offer", "name": "Lite", "price": "0", "priceCurrency": "EUR", "availability": "https://schema.org/InStock" },
+    { "@type": "Offer", "name": "PRO", "price": "19", "priceCurrency": "EUR", "url": "https://www.paypal.com/ncp/payment/9LQYYZMR7TW7G", "availability": "https://schema.org/InStock" }
+  ]
+}
+</script>
   <link rel="canonical" href="https://ludensscope.pages.dev/">
   <link rel="icon" type="image/png" href="assets/logo.png">
   <link rel="stylesheet" href="styles.css">
   <noscript><style>.reveal{opacity:1;transform:none}</style></noscript>
-<link rel="alternate" hreflang="ru" href="https://ludensscope.pages.dev/">
-<link rel="alternate" hreflang="en" href="https://ludensscope.pages.dev/en/">
+<link rel="alternate" hreflang="ru" href="https://ludensscope.pages.dev/ru/">
+<link rel="alternate" hreflang="en" href="https://ludensscope.pages.dev/">
 <link rel="alternate" hreflang="x-default" href="https://ludensscope.pages.dev/">
 </head>
 <body>
@@ -34,22 +53,22 @@
     </a>
 
     <nav class="nav" id="nav" aria-label="Main">
-      <a href="#features">Возможности</a>
-      <a href="#reference">Референс</a>
+      <a href="#features">Features</a>
+      <a href="#reference">Reference</a>
       <a href="#gain">Gain staging</a>
-      <a href="#themes">Темы</a>
+      <a href="#themes">Themes</a>
       <a href="#pro">PRO</a>
-      <a href="#download">Скачать</a>
+      <a href="#download">Download</a>
     </nav>
 
     <div class="header-actions">
-      <div class="lang" role="group" aria-label="Язык"><a class="active" href="./" aria-current="page">RU</a><a href="en/">EN</a></div>
+      <div class="lang" role="group" aria-label="Language"><a href="ru/">RU</a><a class="active" href="./" aria-current="page">EN</a></div>
       <a class="btn btn-donate" href="https://www.paypal.com/donate/?business=0eskimo0%40gmail.com&amp;item_name=Support&amp;currency_code=USD" target="_blank" rel="noopener">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20s-7-4.35-7-9a4 4 0 0 1 7-2.65A4 4 0 0 1 19 11c0 4.65-7 9-7 9Z"></path></svg>
-        <span>Донат</span>
+        <span>Donate</span>
       </a>
-      <a class="btn btn-ghost header-cta" href="#download">Скачать Lite</a>
-      <a class="btn btn-primary header-cta" href="#pro">PRO — 19 €</a>
+      <a class="btn btn-ghost header-cta" href="#download">Download Lite</a>
+      <a class="btn btn-primary header-cta" href="#pro">PRO — €19</a>
       <button class="menu" id="menu-toggle" type="button" aria-label="Menu" aria-expanded="false" aria-controls="nav">
         <span></span><span></span><span></span>
       </button>
@@ -61,14 +80,14 @@
   <section class="hero" id="top">
     <div class="wrap hero-grid">
       <div class="hero-copy">
-        <p class="eyebrow reveal visible">Стерео-анализатор · Lite бесплатно · <span class="nw">PRO 19 €</span></p>
-        <h1 class="reveal visible"><span>Увидеть</span> <span class="accent">звук.</span></h1>
-        <p class="lead reveal visible">Спектр, громкость BS.1770, референс A–D, gain staging и стрелочный VU. Бесплатный Lite, PRO за 19 € (было 29 €) — офлайн, без подписок и аккаунта.</p>
+        <p class="eyebrow reveal visible">Stereo analyser · Free Lite · <span class="nw">PRO €19</span></p>
+        <h1 class="reveal visible"><span>See what</span> <span class="accent">you hear.</span></h1>
+        <p class="lead reveal visible">Spectrum, BS.1770 loudness, reference A–D, gain staging and a VU meter. Free Lite, PRO for €19 (was €29) — offline, no subscriptions, no account.</p>
         <div class="hero-actions reveal">
-          <a class="btn btn-primary" href="#download">Скачать Lite — бесплатно</a>
-          <a class="btn btn-ghost" href="#pro">PRO — 19 €</a>
+          <a class="btn btn-primary" href="#download">Download Lite — free</a>
+          <a class="btn btn-ghost" href="#pro">PRO — €19</a>
         </div>
-        <p class="fine reveal">Lite бесплатно · PRO 19 € (было 29 €) · Офлайн · Без телеметрии</p>
+        <p class="fine reveal">Lite free · PRO €19 (was €29) · Offline · No telemetry</p>
       </div>
 
       <div class="hero-visual reveal">
@@ -77,7 +96,10 @@
             <span class="dot"></span><span class="dot"></span><span class="dot"></span>
             <em>LudensScope <span class="js-version">v1.0.11</span></em>
           </div>
-          <img src="assets/ui-preview.jpg" alt="LudensScope interface: spectrum, loudness, reference, VU meter and oscilloscope" width="1060" height="700">
+          <video autoplay muted loop playsinline preload="metadata" poster="assets/ui-preview.jpg" width="848" height="560" aria-label="Animated preview of the LudensScope interface cycling through seven themes">
+            <source src="assets/preview-themes.webm" type="video/webm">
+            <source src="assets/preview-themes.mp4" type="video/mp4">
+          </video>
         </div>
         <div class="glow" aria-hidden="true"></div>
       </div>
@@ -87,30 +109,30 @@
 
   <section class="section" id="features">
     <div class="wrap">
-      <p class="eyebrow reveal">Обзор</p>
-      <h2 class="reveal">Всё, чтобы видеть микс.</h2>
-      <p class="section-lead reveal">Спектр, громкость, референс и gain staging в одном быстром интерфейсе — без лишних окон.</p>
+      <p class="eyebrow reveal">The scope</p>
+      <h2 class="reveal">Everything you need to see the mix.</h2>
+      <p class="section-lead reveal">Spectrum, loudness, reference and gain staging in one fast interface — no extra windows.</p>
 
       <div class="cards">
         <article class="card reveal">
           <div class="icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 19V9M7 19V5M11 19v-7M15 19V8M19 19v-4"></path></svg></div>
-          <h3>Спектр</h3>
-          <p>FFT 2048–16384, окна Hann, Blackman-Harris и flat-top; снапшоты A–D, target-кривые и нотная сетка.</p>
+          <h3>Spectrum</h3>
+          <p>FFT 2048–16384, Hann, Blackman-Harris and flat-top windows; A–D snapshots, target curves and a note grid.</p>
         </article>
         <article class="card reveal">
           <div class="icon"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="9" width="18" height="6" rx="3"></rect><path d="M7 9v6M12 9v6M17 9v6"></path></svg></div>
-          <h3>Громкость</h3>
-          <p>ITU-R BS.1770-4: momentary, short-term и integrated LUFS, LRA, PLR, true peak и корреляция.</p>
+          <h3>Loudness</h3>
+          <p>ITU-R BS.1770-4 momentary, short-term and integrated LUFS, LRA, PLR, true peak and correlation.</p>
         </article>
         <article class="card reveal">
           <div class="icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 17c3-7 6-9 8-9s5 2 8 9"></path><path d="M4 13c3-4 6-5 8-5s5 1 8 5" opacity=".5"></path></svg></div>
-          <h3>Референс</h3>
-          <p>Четыре слота A–D с транспортом, LUFS level match, полосой p10–p90 и suggested EQ.</p>
+          <h3>Reference</h3>
+          <p>Four A–D slots with waveform transport, LUFS level match, a p10–p90 band and suggested EQ.</p>
         </article>
         <article class="card reveal">
           <div class="icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18M3 12h18M3 18h18"></path><path d="M7 4v4M15 10v4M10 16v4"></path></svg></div>
           <h3>Gain staging</h3>
-          <p>Линии 0 dBFS, −6, −12 и 0 VU с калибровкой EBU −18 / SMPTE −20, стрелочный VU по L/R с настраиваемым сглаживанием.</p>
+          <p>0 dBFS, −6, −12 and 0 VU lines with EBU −18 / SMPTE −20 calibration, plus an L/R needle meter with adjustable smoothing.</p>
         </article>
       </div>
     </div>
@@ -119,39 +141,37 @@
   <section class="section" id="pro">
     <div class="wrap">
       <p class="eyebrow reveal">PRO</p>
-      <h2 class="reveal">Lite бесплатно. PRO — 19 €.</h2>
-      <p class="section-lead reveal">Один бинарь. PRO открывается офлайн-ключом — без аккаунта и подписки. В Lite панели референса нет: спектр и громкость занимают её место.</p>
-
+      <h2 class="reveal">Free Lite. PRO €19.</h2>
+      <p class="section-lead reveal">One binary. PRO unlocks with an offline key — no account, no subscription. Lite has no reference panel: the spectrum and loudness take that room.</p>
             <div class="compare reveal">
         <figure>
           <img src="assets/ui-preview-lite.png" width="1060" height="700"
-               alt="Lite: спектр и громкость занимают всю высоту, панели референса нет">
-          <figcaption><b>Lite</b> — без панели референса: спектр и громкость выше</figcaption>
+               alt="Lite: spectrum and loudness use the full height, no reference panel">
+          <figcaption><b>Lite</b> — no reference panel, taller spectrum and loudness</figcaption>
         </figure>
         <figure>
           <img src="assets/ui-preview.jpg" width="1060" height="700"
-               alt="PRO: панель референса с транспортом, ORIG/REF и подсказками EQ">
-          <figcaption><b>PRO</b> — панель референса, ORIG/REF, подсказки EQ</figcaption>
+               alt="PRO: reference panel with transport, ORIG/REF and EQ hints">
+          <figcaption><b>PRO</b> — reference panel, ORIG/REF, EQ hints</figcaption>
         </figure>
       </div>
 
 <table class="price-table reveal">
-        <thead><tr><th></th><th>Lite</th><th>PRO · 19 €</th></tr></thead>
+        <thead><tr><th></th><th>Lite</th><th>PRO · €19</th></tr></thead>
         <tbody>
-          <tr><td>Спектр, waterfall, LUFS/TP/LRA</td><td>✓</td><td>✓</td></tr>
-          <tr><td>VU, осциллограф, векторскоп</td><td>✓</td><td>✓</td></tr>
-          <tr><td>Референс A–D, MATCH/MIRROR</td><td>—</td><td>✓</td></tr>
-          <tr><td>Снапшоты A–D</td><td>—</td><td>✓</td></tr>
+          <tr><td>Spectrum, waterfall, LUFS/TP/LRA</td><td>✓</td><td>✓</td></tr>
+          <tr><td>VU, oscilloscope, vectorscope</td><td>✓</td><td>✓</td></tr>
+          <tr><td>Reference A–D, MATCH/MIRROR</td><td>—</td><td>✓</td></tr>
+          <tr><td>Snapshots A–D</td><td>—</td><td>✓</td></tr>
           <tr><td>Gain staging</td><td>—</td><td>✓</td></tr>
-          <tr><td>Темы</td><td>Blue</td><td>Все 7</td></tr>
-          <tr><td>Tilt, smoothing, overlap, target, CSV</td><td>—</td><td>✓</td></tr>
+          <tr><td>Themes</td><td>Blue</td><td>All 7</td></tr>
+          <tr><td>Tilt, smoothing, overlap, target curves, CSV</td><td>—</td><td>✓</td></tr>
         </tbody>
       </table>
-
       <div class="full-actions reveal">
-        <p>Праздничная цена: 19 € (было 29 €). Оплата через PayPal, письмо на <a href="mailto:alek.ludens@gmail.com">alek.ludens@gmail.com</a> — придёт ключ. Нажми UNLOCK в плагине, вставь — готово. Офлайн-ключ активируется на 2 машинах, обновления 1.x.</p>
-        <p class="fine">Пользователи 0.4.x сохраняют PRO бесплатно — плагин выдаёт legacy-лицензию, либо напиши за ключом.</p>
-        <a class="btn btn-primary" href="https://www.paypal.com/ncp/payment/9LQYYZMR7TW7G" target="_blank" rel="noopener">Купить PRO — 19 €</a>
+        <p>Holiday price: €19 (was €29). Pay via PayPal, email <a href="mailto:alek.ludens@gmail.com">alek.ludens@gmail.com</a> and you will receive a key. Press UNLOCK in the plugin, paste it — done. The offline key activates on 2 machines, 1.x updates.</p>
+        <p class="fine">Existing 0.4.x users keep PRO for free — the plugin grants a legacy licence, or email for a key.</p>
+        <a class="btn btn-primary" href="https://www.paypal.com/ncp/payment/9LQYYZMR7TW7G" target="_blank" rel="noopener">Buy PRO — €19</a>
       </div>
     </div>
   </section>
@@ -159,32 +179,32 @@
   <section class="section split" id="reference">
     <div class="wrap split-grid">
       <div class="split-copy">
-        <p class="eyebrow reveal">Референс</p>
-        <h2 class="reveal">Сравнивайте осознанно.</h2>
-        <p class="section-lead reveal">Загружайте до четырёх референсов, выравнивайте громкость, смотрите разброс 10–90 % по частотам и получайте подсказки по EQ — не выходя из микса.</p>
+        <p class="eyebrow reveal">Reference</p>
+        <h2 class="reveal">Compare with intent.</h2>
+        <p class="section-lead reveal">Load up to four references, match their loudness, see the 10–90 % spread per frequency and get EQ hints — without leaving the mix.</p>
         <ul class="ticks reveal">
-          <li>Четыре слота A–D с транспортом и петлёй</li>
+          <li>Four A–D slots with transport and looping</li>
           <li>LUFS level match</li>
-          <li>Разброс 10–90 % по частотам</li>
-          <li>Подсказки EQ: CUT / BOOST</li>
-          <li>MIRROR / FREE</li>
+          <li>10–90 % spread per frequency</li>
+          <li>EQ hints: CUT / BOOST</li>
+          <li>MIRROR / FREE transport modes</li>
         </ul>
       </div>
-      <div class="shot reveal"><img src="assets/spectrum.png" alt="Спектр LudensScope: полосы LOW/MID/HIGH, шкала dBFS и подписи частот" ></div>
+      <div class="shot reveal"><img src="assets/spectrum.png" alt="LudensScope spectrum: LOW/MID/HIGH bands, dBFS scale and frequency labels" ></div>
     </div>
   </section>
 
   <section class="section split reverse" id="gain">
     <div class="wrap split-grid">
-      <div class="shot vu reveal"><img src="assets/vu.png" alt="Стерео VU-метр LudensScope с указателями L и R" ></div>
+      <div class="shot vu reveal"><img src="assets/vu.png" alt="LudensScope stereo VU meter with L and R needles" ></div>
       <div class="split-copy">
         <p class="eyebrow reveal">Gain staging</p>
-        <h2 class="reveal">Выставьте уровень до микса.</h2>
-        <p class="section-lead reveal">Опорные линии в спектре и осциллографе, 0 VU на −18 dBFS (EBU) или −20 dBFS (SMPTE) и стрелочный VU со шкалой −20…+3.</p>
+        <h2 class="reveal">Set the level before you mix.</h2>
+        <p class="section-lead reveal">Reference lines in the spectrum and oscilloscope, 0 VU at −18 dBFS (EBU) or −20 dBFS (SMPTE), and a needle VU with a −20…+3 scale.</p>
         <ul class="ticks reveal">
-          <li>0 VU = +4 dBu = 1.228 В RMS</li>
-          <li>Баллистика ~500 мс, сглаживание 40/80/150 мс</li>
-          <li>Шкала −20…+3 VU</li>
+          <li>0 VU = +4 dBu = 1.228 V RMS</li>
+          <li>~500 ms ballistics, 40/80/150 ms smoothing</li>
+          <li>−20…+3 VU scale</li>
         </ul>
       </div>
     </div>
@@ -192,23 +212,23 @@
 
   <section class="section" id="themes">
     <div class="wrap">
-      <p class="eyebrow reveal">Интерфейс</p>
-      <h2 class="reveal">Семь палитр. Один плагин.</h2>
-      <p class="section-lead reveal">Blue, Dark, Light, Magenta, Green, Red и Orange — жми на цвет и смотри, как меняется плагин. Плюс UI scale для 4K и компактная вёрстка.</p>
+      <p class="eyebrow reveal">Look</p>
+      <h2 class="reveal">Seven palettes. One plugin.</h2>
+      <p class="section-lead reveal">Blue, Dark, Light, Magenta, Green, Red and Orange — tap a colour and see the plugin change. Plus UI scale for 4K and a compact layout.</p>
 
       <div class="theme-preview reveal">
         <img id="theme-shot" src="assets/themes/blue.jpg" width="1060" height="700"
-             alt="LudensScope — тема Blue" data-alt-prefix="LudensScope — тема">
+             alt="LudensScope — theme Blue" data-alt-prefix="LudensScope — theme">
       </div>
 
-      <div class="swatches reveal" data-theme-picker role="group" aria-label="Тема интерфейса">
-        <button class="swatch" type="button" data-shot="assets/themes/blue.jpg" data-name="Blue" aria-pressed="true" style="--sw-bg:#012d3a;--sw-panel:#014e68;--sw-accent:#7beeff;--sw-text:#eaf8fb"><span>Blue</span><i></i><i></i><i></i></button>
-        <button class="swatch" type="button" data-shot="assets/themes/dark.jpg" data-name="Dark" aria-pressed="false" style="--sw-bg:#07080a;--sw-panel:#141922;--sw-accent:#5ee1cf;--sw-text:#c3ccd6"><span>Dark</span><i></i><i></i><i></i></button>
-        <button class="swatch" type="button" data-shot="assets/themes/light.jpg" data-name="Light" aria-pressed="false" style="--sw-bg:#dfe6ea;--sw-panel:#ffffff;--sw-accent:#0b7f96;--sw-text:#17262e"><span>Light</span><i></i><i></i><i></i></button>
-        <button class="swatch" type="button" data-shot="assets/themes/magenta.jpg" data-name="Magenta" aria-pressed="false" style="--sw-bg:#1a0a15;--sw-panel:#33132a;--sw-accent:#ff5fbf;--sw-text:#f6d9ea"><span>Magenta</span><i></i><i></i><i></i></button>
-        <button class="swatch" type="button" data-shot="assets/themes/green.jpg" data-name="Green" aria-pressed="false" style="--sw-bg:#071a10;--sw-panel:#0f2e1f;--sw-accent:#4fe08a;--sw-text:#d6f2e0"><span>Green</span><i></i><i></i><i></i></button>
-        <button class="swatch" type="button" data-shot="assets/themes/red.jpg" data-name="Red" aria-pressed="false" style="--sw-bg:#1a0808;--sw-panel:#331111;--sw-accent:#ff7a5c;--sw-text:#f6dada"><span>Red</span><i></i><i></i><i></i></button>
-        <button class="swatch" type="button" data-shot="assets/themes/orange.jpg" data-name="Orange" aria-pressed="false" style="--sw-bg:#1a0f05;--sw-panel:#33200c;--sw-accent:#ff9f43;--sw-text:#f6e6d2"><span>Orange</span><i></i><i></i><i></i></button>
+      <div class="swatches reveal" data-theme-picker role="group" aria-label="Interface theme">
+        <button class="swatch" type="button" data-shot="../assets/themes/blue.jpg" data-name="Blue" aria-pressed="true" style="--sw-bg:#012d3a;--sw-panel:#014e68;--sw-accent:#7beeff;--sw-text:#eaf8fb"><span>Blue</span><i></i><i></i><i></i></button>
+        <button class="swatch" type="button" data-shot="../assets/themes/dark.jpg" data-name="Dark" aria-pressed="false" style="--sw-bg:#07080a;--sw-panel:#141922;--sw-accent:#5ee1cf;--sw-text:#c3ccd6"><span>Dark</span><i></i><i></i><i></i></button>
+        <button class="swatch" type="button" data-shot="../assets/themes/light.jpg" data-name="Light" aria-pressed="false" style="--sw-bg:#dfe6ea;--sw-panel:#ffffff;--sw-accent:#0b7f96;--sw-text:#17262e"><span>Light</span><i></i><i></i><i></i></button>
+        <button class="swatch" type="button" data-shot="../assets/themes/magenta.jpg" data-name="Magenta" aria-pressed="false" style="--sw-bg:#1a0a15;--sw-panel:#33132a;--sw-accent:#ff5fbf;--sw-text:#f6d9ea"><span>Magenta</span><i></i><i></i><i></i></button>
+        <button class="swatch" type="button" data-shot="../assets/themes/green.jpg" data-name="Green" aria-pressed="false" style="--sw-bg:#071a10;--sw-panel:#0f2e1f;--sw-accent:#4fe08a;--sw-text:#d6f2e0"><span>Green</span><i></i><i></i><i></i></button>
+        <button class="swatch" type="button" data-shot="../assets/themes/red.jpg" data-name="Red" aria-pressed="false" style="--sw-bg:#1a0808;--sw-panel:#331111;--sw-accent:#ff7a5c;--sw-text:#f6dada"><span>Red</span><i></i><i></i><i></i></button>
+        <button class="swatch" type="button" data-shot="../assets/themes/orange.jpg" data-name="Orange" aria-pressed="false" style="--sw-bg:#1a0f05;--sw-panel:#33200c;--sw-accent:#ff9f43;--sw-text:#f6e6d2"><span>Orange</span><i></i><i></i><i></i></button>
       </div>
       <p class="fine reveal">UI scale: Auto / 100 / 125 / 150 %</p>
     </div>
@@ -216,32 +236,32 @@
 
   <section class="section" id="download">
     <div class="wrap">
-      <p class="eyebrow reveal">Скачать</p>
-      <h2 class="reveal">Lite — бесплатно. PRO — 19 €.</h2>
-      <p class="section-lead reveal">Установщики для Linux, macOS и Windows. Lite бесплатно; PRO открывается ключом за 19 €.</p>
+      <p class="eyebrow reveal">Download</p>
+      <h2 class="reveal">Lite — free. PRO — €19.</h2>
+      <p class="section-lead reveal">Installers for Linux, macOS and Windows. Lite is free; PRO unlocks with a €19 key.</p>
 
       <div class="downloads">
         <a class="download reveal" href="https://github.com/ltillegal/ludensscope/releases/latest/download/LudensScope-linux.deb" target="_blank" rel="noopener">
           <span class="os">Linux</span>
           <span class="file">.deb</span>
-          <span class="path">Ставится в /usr/lib/vst3</span>
-          <span class="dl"><span>Скачать Lite</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v12m0 0 4-4m-4 4-4-4M5 20h14"></path></svg></span>
+          <span class="path">Installs to /usr/lib/vst3</span>
+          <span class="dl"><span>Download Lite</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v12m0 0 4-4m-4 4-4-4M5 20h14"></path></svg></span>
         </a>
         <a class="download reveal" href="https://github.com/ltillegal/ludensscope/releases/latest/download/LudensScope-macos.pkg" target="_blank" rel="noopener">
           <span class="os">macOS</span>
           <span class="file">.pkg</span>
-          <span class="path">VST3 + AU в /Library/Audio/Plug-Ins</span>
-          <span class="dl"><span>Скачать Lite</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v12m0 0 4-4m-4 4-4-4M5 20h14"></path></svg></span>
+          <span class="path">VST3 + AU in /Library/Audio/Plug-Ins</span>
+          <span class="dl"><span>Download Lite</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v12m0 0 4-4m-4 4-4-4M5 20h14"></path></svg></span>
         </a>
         <a class="download reveal" href="https://github.com/ltillegal/ludensscope/releases/latest/download/LudensScope-windows.exe" target="_blank" rel="noopener">
           <span class="os">Windows</span>
           <span class="file">.exe</span>
-          <span class="path">VST3 в Common Files\VST3</span>
-          <span class="dl"><span>Скачать Lite</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v12m0 0 4-4m-4 4-4-4M5 20h14"></path></svg></span>
+          <span class="path">VST3 in Common Files\VST3</span>
+          <span class="dl"><span>Download Lite</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v12m0 0 4-4m-4 4-4-4M5 20h14"></path></svg></span>
         </a>
       </div>
 
-      <p class="fine reveal">Прямые ссылки на последний релиз. Все версии и SHA256SUMS — <a href="https://github.com/ltillegal/ludensscope/releases">на GitHub</a>.</p>
+      <p class="fine reveal">Direct links to the latest release. All versions and SHA256SUMS — <a href="https://github.com/ltillegal/ludensscope/releases">on GitHub</a>.</p>
 
     </div>
   </section>
@@ -252,14 +272,17 @@
   <div class="wrap footer-inner">
     <div class="footer-brand">
       <a class="brand" href="#top"><img src="assets/logo.png" alt="" width="26" height="26"><span>LudensScope</span></a>
-      <p>Сделано на JUCE. VST3 и AU. Lite бесплатно, PRO 19 €. Без телеметрии.</p>
+      <p>Made with JUCE. VST3 &amp; AU. Lite free, PRO €19. No telemetry.</p>
     </div>
     <nav class="footer-nav" aria-label="Links">
       <a href="https://github.com/ltillegal/ludensscope" target="_blank" rel="noopener">GitHub</a>
-      <a href="https://github.com/ltillegal/ludensscope/releases" target="_blank" rel="noopener">Релизы</a>
+      <a href="https://github.com/ltillegal/ludensscope/releases" target="_blank" rel="noopener">Releases</a>
       <a href="https://komistore.app/" target="_blank" rel="noopener">Komi Store</a>
-      <a href="press/">Пресс-кит</a>
-      <a href="https://www.paypal.com/donate/?business=0eskimo0%40gmail.com&amp;item_name=Support&amp;currency_code=USD" target="_blank" rel="noopener">Донат</a>
+      <a href="free-lufs-meter/">LUFS meter</a>
+      <a href="free-spectrum-analyzer/">Spectrum analyser</a>
+      <a href="gain-staging/">Gain staging</a>
+      <a href="press/">Press kit</a>
+      <a href="https://www.paypal.com/donate/?business=0eskimo0%40gmail.com&amp;item_name=Support&amp;currency_code=USD" target="_blank" rel="noopener">Donate</a>
     </nav>
     <p class="copy">© 2026 LudensScope</p>
   </div>
