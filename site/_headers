@@ -12,5 +12,8 @@
 /en/*
   Cache-Control: public, max-age=0, must-revalidate
 
+/press/*
+  Cache-Control: public, max-age=0, must-revalidate
+
 /assets/*
   Cache-Control: public, max-age=86400
