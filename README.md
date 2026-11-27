@@ -4,13 +4,17 @@
 
 [Русский](README.ru.md) · **English** · [❤ Donate](https://www.paypal.com/donate/?business=0eskimo0%40gmail.com&item_name=LudensScope&currency_code=USD)
 
-A minimalist stereo analyser in **VST3, AU, AAX, CLAP** and standalone formats: spectrum, loudness
-to ITU-R BS.1770-4, true peak, vectorscope, oscilloscope and reference.
+A minimalist stereo analyser in **VST3, AU, AAX, CLAP** and standalone formats:
+spectrum and waterfall, loudness to ITU-R BS.1770-4, true peak, vectorscope,
+oscilloscope, a per-band stereo field and a reference workflow. The PRO build
+also writes a one-page PDF track report, and the standalone app can meter the
+computer's own audio output - a browser, a player, a streaming service - with no
+DAW in between.
 
 The free Lite is not a time-limited demo. Holiday offer: PRO is a one-time
 EUR 19 (was EUR 29) purchase for the reference workflow, snapshot slots, gain
-staging, all 7 themes and the
-advanced FFT/display options. No subscriptions and no telemetry. The project
+staging, the per-band stereo field and the PDF track report, all 7 themes and
+the advanced FFT/display options. No subscriptions and no telemetry. The project
 state stores FFT snapshots, analyser settings, the UI state and the reference
 metadata. There are no general plugin presets — only named target curves.
 
@@ -40,6 +44,7 @@ One installer, two editions.
 | Peak markers, side/difference/note grid | - | yes |
 | Per-band stereo field (width + correlation) | - | yes |
 | Track report to PDF | - | yes |
+| System audio capture (standalone, macOS 13+) | yes | yes |
 | Target curves and curve presets | - | yes |
 | CSV export | - | yes |
 
@@ -66,7 +71,10 @@ directory; if it does not, email alek.ludens@gmail.com for a free key.
 | True peak: 4x oversampling, polyphase FIR | `Source/dsp/TruePeakDetector.h` |
 | PLR and clip counter | `Source/PluginProcessor.*`, `Source/PluginEditor.cpp` |
 | UI: spectrum, waterfall, meters, goniometer, oscilloscope, guides | `Source/ui/*` |
-| Reference: loading, analysis, one file, ORIG/REF, player, drag and drop | `Source/dsp/ReferenceAnalysis.h`, `Source/PluginProcessor.*` |
+| Reference: loading, analysis, four A-D slots, ORIG/REF, player, drag and drop | `Source/dsp/ReferenceAnalysis.h`, `Source/PluginProcessor.*` |
+| Per-band stereo field: cross-spectrum, width, correlation | `Source/dsp/StereoFieldAnalyzer.h`, `Source/ui/SpectrumView.h` |
+| Track report: offline analysis, vector PDF | `Source/report/*` |
+| System audio capture: ScreenCaptureKit (macOS) | `Source/capture/*` |
 | Update check | `Source/ui/UpdateChecker.h` |
 
 The audio thread only filters and measures energy; FFT and drawing run on the
@@ -87,8 +95,11 @@ cmake -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build -j$(nproc)
 ```
 
-JUCE (8.0.15) is fetched automatically with `FetchContent`. The built VST3 is
-copied to `~/.vst3/LudensScope.vst3`.
+JUCE (8.0.15) is fetched automatically with `FetchContent`. The built plug-ins
+are copied into the system folders; pass `-DLUDENSCOPE_COPY_PLUGIN=OFF` to keep
+everything in the build tree - on macOS the AAX copy needs admin rights, so a
+plain local build is easier that way. Building only the app:
+`cmake --build build --target LudensScope_Standalone`.
 
 Optional calibration checks:
 
@@ -166,11 +177,12 @@ cmake --build --preset dev -j$(nproc)
    window). The averaged curve is drawn in grey; a full-width reference strip at
    the bottom holds the waveform, the loop region (drag the wave to select, drag
    its edges separately, double-click for the whole file), the playhead,
-   play/`LOOP`/`REF-MIX`/`MATCH`/`MIRROR`, time, name and LUFS. There is now
-   **one reference file**. The A–D slots became an **ORIG / REF** source switch:
-   `ORIG` feeds the sound and every indicator from the DAW, `REF` feeds them
-   (spectrum, LUFS, true peak, VU, oscilloscope, waterfall, correlation) from the
-   reference player. `MATCH` continuously level-matches the reference to the
+   play/`LOOP`/`REF-MIX`/`MATCH`/`MIRROR`, time, name and LUFS. There are
+   **four reference slots A–D** with a switch next to the strip; each keeps its
+   own file, curve, LUFS and loop. `ORIG / REF` is a separate switch and says
+   what the meters analyse: `ORIG` feeds the sound and every indicator from the
+   DAW, `REF` feeds them (spectrum, LUFS, true peak, VU, oscilloscope,
+   waterfall, correlation) from the reference player. `MATCH` continuously level-matches the reference to the
    mix's integrated LUFS; `MIRROR` makes the reference follow the DAW transport.
    The path, curve, LUFS and loop are stored in the project; on project open the
    file is reloaded, and if it is missing the curve remains for comparison.

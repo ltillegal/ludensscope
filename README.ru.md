@@ -4,12 +4,15 @@
 
 **Русский** · [English](README.md) · [❤ Donate](https://www.paypal.com/donate/?business=0eskimo0%40gmail.com&item_name=LudensScope&currency_code=USD)
 
-Минималистичный стерео-анализатор в форматах **VST3, AU, AAX, CLAP** и standalone: спектр, громкость
-по ITU-R BS.1770-4, true-peak, векторскоп, осциллограф и референс.
+Минималистичный стерео-анализатор в форматах **VST3, AU, AAX, CLAP** и
+standalone: спектр и waterfall, громкость по ITU-R BS.1770-4, true-peak,
+векторскоп, осциллограф, стерео-поле по полосам и референс. PRO дополнительно
+пишет одностраничный PDF-отчёт по файлу, а standalone умеет анализировать звук
+самого компьютера — браузер, плеер, стриминг — без DAW.
 
 Бесплатный Lite — не пробник по времени. Праздничная цена: PRO — разовая
-покупка за 19 € (было 29 €): референс, снапшоты, gain staging, все 7 тем и
-продвинутые настройки FFT/дисплея.
+покупка за 19 € (было 29 €): референс, снапшоты, gain staging, стерео-поле по
+полосам и PDF-отчёт, все 7 тем и продвинутые настройки FFT/дисплея.
 Без подписок и телеметрии. В состоянии проекта сохраняются снапшоты FFT,
 настройки анализатора, вид интерфейса и метаданные референса. Пользовательских
 пресетов плагина нет — только именованные target-кривые.
@@ -27,6 +30,9 @@
 | PNG, проверка обновлений | да | да |
 | Референс A-D, транспорт, MATCH/MIRROR | — | да |
 | Снапшоты A-D | — | да |
+| Стерео-поле по полосам | — | да |
+| Отчёт по файлу в PDF | — | да |
+| Захват системного звука (standalone, macOS 13+) | да | да |
 | Gain staging (FFT + осциллограф) | — | да |
 | Цветовые темы | Blue | все 7 |
 | Tilt, smoothing, FFT overlap | — | да |
@@ -57,7 +63,10 @@ grandfathered-лицензию, если находит старые `theme.txt`
 | True-peak: 4x oversampling, polyphase FIR | `Source/dsp/TruePeakDetector.h` |
 | PLR и счётчик клиппинга | `Source/PluginProcessor.*`, `Source/PluginEditor.cpp` |
 | UI: спектр, водопад, метры, гониометр, осциллограф, guides | `Source/ui/*` |
-| Референс: загрузка, анализ, один файл, ORIG/REF, плеер, перетаскивание | `Source/dsp/ReferenceAnalysis.h`, `Source/PluginProcessor.*` |
+| Референс: загрузка, анализ, четыре слота A–D, ORIG/REF, плеер, перетаскивание | `Source/dsp/ReferenceAnalysis.h`, `Source/PluginProcessor.*` |
+| Стерео-поле: кросс-спектр, ширина, корреляция | `Source/dsp/StereoFieldAnalyzer.h`, `Source/ui/SpectrumView.h` |
+| Отчёт по файлу: офлайн-анализ, векторный PDF | `Source/report/*` |
+| Захват системного звука: ScreenCaptureKit (macOS) | `Source/capture/*` |
 | Проверка обновлений | `Source/ui/UpdateChecker.h` |
 
 Аудио-поток только фильтрует и считает энергию; FFT и отрисовка идут в
@@ -78,8 +87,10 @@ cmake -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build -j$(nproc)
 ```
 
-JUCE (8.0.15) подтягивается автоматически через `FetchContent`. Готовый VST3
-копируется в `~/.vst3/LudensScope.vst3`.
+JUCE (8.0.15) подтягивается автоматически через `FetchContent`. Собранные
+плагины копируются в системные папки; `-DLUDENSCOPE_COPY_PLUGIN=OFF` оставляет
+всё в дереве сборки — на macOS копирование AAX требует прав администратора.
+Только приложение: `cmake --build build --target LudensScope_Standalone`.
 
 Проверка калибровки (опционально):
 
@@ -148,8 +159,10 @@ cmake --build --preset dev -j$(nproc)
    плагина). Усреднённая кривая рисуется серым; внизу — полноширинная полоса
    reference: waveform, loop-регион (тянуть по волне задаёт диапазон, края
    двигаются отдельно, двойной клик — весь файл), playhead, play/`LOOP`/
-   `REF-MIX`/`MATCH`/`MIRROR`, время, имя и LUFS. Референс теперь **один**
-   (один файл). Вместо слотов A–D — переключатель источника **ORIG / REF**:
+   `REF-MIX`/`MATCH`/`MIRROR`, время, имя и LUFS. Референсных слотов
+   **четыре, A–D**, с переключателем рядом с полосой; у каждого свой файл,
+   кривая, LUFS и петля. Отдельный переключатель **ORIG / REF** говорит, что
+   анализируют метры:
    `ORIG` — звук и все индикаторы с DAW, `REF` — звук и все индикаторы
    (спектр, LUFS, true peak, VU, осциллограф, waterfall, корреляция) с
    reference-плеера. `MATCH` — непрерывный level match по LUFS; `MIRROR` —
