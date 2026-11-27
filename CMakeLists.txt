@@ -64,11 +64,28 @@ juce_add_plugin(LudensScope
   NEEDS_CURL TRUE
   VST3_CATEGORIES "Fx Analyzer")
 
+# System audio capture: one backend per platform, a stub where the OS has no
+# supported route. ScreenCaptureKit is weak-linked because the deployment target
+# is older than the framework; the runtime availability check guards its use.
+set(LUDENSCOPE_CAPTURE_SOURCES Source/capture/SystemAudioCapture_stub.cpp)
+set(LUDENSCOPE_CAPTURE_LIBS)
+
+if(APPLE)
+  set(LUDENSCOPE_CAPTURE_SOURCES Source/capture/SystemAudioCapture_mac.mm)
+  set_source_files_properties(Source/capture/SystemAudioCapture_mac.mm
+    PROPERTIES COMPILE_OPTIONS "-fobjc-arc")
+  set(LUDENSCOPE_CAPTURE_LIBS
+    "-Wl,-weak_framework,ScreenCaptureKit"
+    "-framework CoreMedia"
+    "-framework CoreGraphics")
+endif()
+
 target_sources(LudensScope PRIVATE
   Source/PluginProcessor.cpp
   Source/PluginEditor.cpp
   Source/dsp/LoudnessMeter.cpp
-  Source/dsp/SpectrumAnalyzer.cpp)
+  Source/dsp/SpectrumAnalyzer.cpp
+  ${LUDENSCOPE_CAPTURE_SOURCES})
 
 target_include_directories(LudensScope PRIVATE Source)
 
@@ -80,6 +97,7 @@ target_compile_definitions(LudensScope PUBLIC
   JUCE_REPORT_APP_USAGE=0)
 
 target_link_libraries(LudensScope PRIVATE
+  ${LUDENSCOPE_CAPTURE_LIBS}
   juce::juce_audio_utils
   juce::juce_dsp
   juce::juce_cryptography
@@ -125,7 +143,8 @@ if(LUDENSCOPE_BUILD_TESTS)
     Source/PluginProcessor.cpp
     Source/PluginEditor.cpp
     Source/dsp/LoudnessMeter.cpp
-    Source/dsp/SpectrumAnalyzer.cpp)
+    Source/dsp/SpectrumAnalyzer.cpp
+    ${LUDENSCOPE_CAPTURE_SOURCES})
   target_include_directories(LudensScopeUiSnapshot PRIVATE Source)
   target_compile_definitions(LudensScopeUiSnapshot PRIVATE
     JUCE_STANDALONE_APPLICATION=1
@@ -133,6 +152,7 @@ if(LUDENSCOPE_BUILD_TESTS)
     JUCE_WEB_BROWSER=0
     LUDENSCOPE_TEST_HOOKS=1)
   target_link_libraries(LudensScopeUiSnapshot PRIVATE
+    ${LUDENSCOPE_CAPTURE_LIBS}
     juce::juce_audio_utils
     juce::juce_dsp
     juce::juce_cryptography

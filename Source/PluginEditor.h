@@ -11,6 +11,7 @@
 #include "PluginProcessor.h"
 #include "ui/CurvePresets.h"
 #include "ui/UpdateChecker.h"
+#include "capture/SystemAudioCapture.h"
 #include "dsp/SpectrumAnalyzer.h"
 #include "dsp/StereoFieldAnalyzer.h"
 #include "dsp/TruePeakDetector.h"
@@ -100,6 +101,10 @@ public:
     // One entry point for a dropped file: false loads it as reference, true
     // runs the offline report.
     void handleDroppedFile (const juce::File& file, bool asReport);
+
+    // Standalone only: meter what the computer plays instead of a DAW.
+    void toggleSystemAudio();
+    void stopSystemAudio();
 
     void timerCallback() override;
     bool keyPressed (const juce::KeyPress& key) override;
@@ -290,6 +295,11 @@ private:
     juce::Rectangle<int> waterfallDivider;
     float waterfallRatio = 0.32f;
     bool draggingDivider = false;
+
+    SystemAudioCapture systemCapture;
+    juce::AudioBuffer<float> captureBuffer;
+    juce::MidiBuffer captureMidi;
+    bool systemAudioOn = false;
 
     SpectrumAnalyzer analyzer;
     SpectrumAnalyzer sideAnalyzer;

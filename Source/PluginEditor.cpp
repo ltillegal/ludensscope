@@ -3,6 +3,13 @@
 #include "report/ReportPdf.h"
 
 #include <thread>
+
+#if JucePlugin_Build_Standalone
+ #include <juce_audio_devices/juce_audio_devices.h>
+ #include <juce_audio_utils/juce_audio_utils.h>
+ #include <juce_gui_extra/juce_gui_extra.h>
+ #include <juce_audio_plugin_client/Standalone/juce_StandaloneFilterWindow.h>
+#endif
 #include "BinaryData.h"
 
 #include <cmath>
@@ -432,6 +439,10 @@ LudensScopeEditor::LudensScopeEditor (LudensScopeProcessor& p)
 
 LudensScopeEditor::~LudensScopeEditor()
 {
+    // The capture thread calls processBlock, so it must be gone before any
+    // member below is destroyed.
+    stopSystemAudio();
+
     auto& editors = openEditors();
 
     for (int i = editors.size(); --i >= 0;)
@@ -1355,6 +1366,13 @@ void LudensScopeEditor::showFftMenu()
                             : juce::String ("Check for updates..."),
                   true, false);
 
+    if (processor.wrapperType == juce::AudioProcessor::wrapperType_Standalone)
+    {
+        menu.addItem (650, systemAudioOn ? "System audio: on (click to stop)"
+                                         : "System audio: off (click to start)",
+                      systemAudioOn || SystemAudioCapture::isPlatformSupported(), false);
+    }
+
     if (! full)
         menu.addItem (640, "Unlock PRO - EUR 19 (was EUR 29)...", true, false);
 
@@ -1551,6 +1569,10 @@ void LudensScopeEditor::applyFftMenu (int result)
     else if (result == 630)
     {
         checkForUpdates();
+    }
+    else if (result == 650)
+    {
+        toggleSystemAudio();
     }
     else if (result == 1000)
     {
@@ -3006,6 +3028,81 @@ void LudensScopeEditor::handleDroppedFile (const juce::File& file, bool asReport
 
     pendingReferenceLoopStart = -1.0;
     loadReferenceFile (file);
+}
+
+void LudensScopeEditor::toggleSystemAudio()
+{
+    if (systemAudioOn)
+    {
+        stopSystemAudio();
+        return;
+    }
+
+    if (! SystemAudioCapture::isPlatformSupported())
+    {
+        juce::AlertWindow::showMessageBoxAsync (juce::MessageBoxIconType::InfoIcon,
+                                                "System audio",
+                                                SystemAudioCapture::platformNote());
+        return;
+    }
+
+    const double rate = preparedSampleRate > 0.0 ? preparedSampleRate : 48000.0;
+
+    // Big enough for any block a capture backend hands over.
+    captureBuffer.setSize (2, 16384, false, true, true);
+
+    // The device has to go quiet first: processBlock must never be re-entered
+    // from two threads.
+   #if JucePlugin_Build_Standalone
+    if (auto* holder = juce::StandalonePluginHolder::getInstance())
+        holder->deviceManager.closeAudioDevice();
+   #endif
+
+    juce::String error;
+
+    const bool started = systemCapture.start (rate,
+        [this] (const float* left, const float* right, int frames)
+        {
+            if (frames <= 0 || frames > captureBuffer.getNumSamples())
+                return;
+
+            std::memcpy (captureBuffer.getWritePointer (0), left,
+                         sizeof (float) * (size_t) frames);
+            std::memcpy (captureBuffer.getWritePointer (1), right,
+                         sizeof (float) * (size_t) frames);
+
+            juce::AudioBuffer<float> view (captureBuffer.getArrayOfWritePointers(), 2, frames);
+            captureMidi.clear();
+            processor.processBlock (view, captureMidi);
+        }, error);
+
+    if (! started)
+    {
+       #if JucePlugin_Build_Standalone
+        if (auto* holder = juce::StandalonePluginHolder::getInstance())
+            holder->deviceManager.restartLastAudioDevice();
+       #endif
+
+        juce::AlertWindow::showMessageBoxAsync (juce::MessageBoxIconType::WarningIcon,
+                                                "System audio", error);
+        return;
+    }
+
+    systemAudioOn = true;
+}
+
+void LudensScopeEditor::stopSystemAudio()
+{
+    if (! systemAudioOn)
+        return;
+
+    systemCapture.stop();
+    systemAudioOn = false;
+
+   #if JucePlugin_Build_Standalone
+    if (auto* holder = juce::StandalonePluginHolder::getInstance())
+        holder->deviceManager.restartLastAudioDevice();
+   #endif
 }
 
 void LudensScopeEditor::exportTrackReport (const juce::File& file)
