@@ -66,7 +66,7 @@
         <tr><td>Formats</td><td>VST3, AU, AAX, CLAP, standalone application</td></tr>
         <tr><td>Platforms</td><td>macOS (universal, Apple Silicon native), Windows 10/11 (64-bit), Linux x86_64 (.deb)</td></tr>
         <tr><td>Editions</td><td>Lite — free, no time limit. PRO — €19, one offline licence key</td></tr>
-        <tr><td>Latest version</td><td>1.2.0, 27 November 2026</td></tr>
+        <tr><td>Latest version</td><td>1.3.0, 27 November 2026</td></tr>
         <tr><td>Website</td><td><a href="https://ludensscope.pages.dev/">ludensscope.pages.dev</a></td></tr>
         <tr><td>Source &amp; releases</td><td><a href="https://github.com/ltillegal/ludensscope">github.com/ltillegal/ludensscope</a></td></tr>
         <tr><td>KVR</td><td><a href="https://www.kvraudio.com/product/ludensscope-by-alek-ludens">kvraudio.com/product/ludensscope-by-alek-ludens</a></td></tr>
@@ -82,9 +82,13 @@
       <li><strong>Reference (PRO)</strong> — four slots, average curve with a p10–p90 band, LUFS level matching, ORIG/REF monitoring, up to four EQ suggestions.</li>
       <li><strong>Gain staging (PRO)</strong> — 0 / −6 / −12 dBFS and 0 VU lines drawn in both the spectrum and the oscilloscope.</li>
       <li><strong>Per-band stereo field (PRO)</strong> — side/mid width per band with a correlation outline: red where a band goes anti-phase, cyan where it is mono-compatible.</li>
+      <li><strong>System audio (standalone, macOS)</strong> — the app can meter what the computer plays — a player, a browser, a streaming service — without a DAW, using ScreenCaptureKit.</li>
       <li><strong>Track report (PRO)</strong> — drop an audio file and get a one-page PDF: integrated LUFS, LRA, PLR, true peak, short-term loudness against the target with every passage above it, average spectrum and band balance.</li>
       <li><strong>Seven palettes</strong> and UI scale 100/125/150 % (full set in PRO, Lite ships the Blue palette).</li>
     </ul>
+
+    <h2>What's new in 1.3.0</h2>
+    <p>The standalone app can now capture the computer's own audio output, so any track playing anywhere — a streaming service, a browser, a player — can be metered and used as a reference without a DAW. It runs through the normal metering path, so the stereo field, the reference workflow and the report all work on live system audio. macOS 13+; Windows and Linux still need an external loopback or a monitor source.</p>
 
     <h2>What's new in 1.2.0</h2>
     <p><strong>Per-band stereo field</strong> under the spectrum: the strip height is the side/mid ratio of each band, the outline colour is correlation, and hovering reports both for the band under the cursor. <strong>Track report</strong>: drop a file onto the window and it is analysed offline into a one-page vector PDF — loudness numbers, the short-term timeline against the target with every excursion marked, the average spectrum and the band balance. The update check now runs by itself, quietly, once a day.</p>

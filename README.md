@@ -240,9 +240,28 @@ only loads a signed AAX (Avid Developer/PACE required). CLAP is an open format
 (MIT clap-juce-extensions wrapper); the standalone is a regular app with the
 same interface.
 
+## System audio (standalone, macOS)
+
+The standalone app can meter what the computer itself plays - a browser, a
+player, Spotify - so a reference track can be analysed without a DAW. Enable it
+in `OPTIONS -> System audio`. The app then closes its own audio device (the
+capture thread drives the analysis instead) and macOS asks for the
+"Screen & System Audio Recording" permission the first time; grant it in
+System Settings -> Privacy & Security and restart the app if it was already
+open. Capture uses ScreenCaptureKit and needs macOS 13 or newer.
+
+The level you see is what you hear: the player volume and the system output
+volume both affect it, which is the point - it measures the actual listening
+chain. Other platforms have no equivalent backend yet; on Linux a PipeWire or
+JACK monitor source does the same job as a regular device.
+
 ## Updates
 
-`FFT` → `Check for updates...` queries the latest GitHub release. If a newer
+The plugin checks GitHub once a day on its own, silently: only the menu item
+(`FFT` → `Update to x.y.z...`) and the button tooltip change when a newer
+release exists. Nothing pops up, and the check can be ignored entirely.
+
+`FFT` → `Check for updates...` asks explicitly and queries the latest GitHub release. If a newer
 version exists, the plugin downloads the installer for the current OS to
 `~/Downloads`, verifies its SHA-256 against `SHA256SUMS.txt` from the same
 release and reveals the folder. The plugin never replaces its own loaded binary:

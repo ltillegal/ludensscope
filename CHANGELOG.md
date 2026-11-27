@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.3.0
+
+- The standalone app can analyse the computer's own audio output: a browser, a
+  player, a streaming service, without a DAW in between. `OPTIONS -> System
+  audio` closes the app's audio device and captures through ScreenCaptureKit
+  instead, using the normal metering path, so every meter and the reference
+  workflow behave as usual. macOS 13 or newer; macOS asks for the
+  "Screen & System Audio Recording" permission the first time.
+- Windows and Linux keep their previous behaviour for now: the menu item is
+  disabled and says what is missing.
+
 ## 1.2.0
 
 - Added a track report: drop an audio file onto the window (or
