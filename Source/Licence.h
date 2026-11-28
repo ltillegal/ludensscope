@@ -145,6 +145,23 @@ public:
     }
 
     //==============================================================================
+    // Products are independent: each one may move to the macOS convention on
+    // its own schedule. LudensScope has shipped with ~/Library/<product> since
+    // 1.0, so it keeps that path; LudensMatch starts in Application Support.
+    inline static bool useApplicationSupportFolder = false;
+
+    static juce::File folder()
+    {
+        auto base = juce::File::getSpecialLocation (juce::File::userApplicationDataDirectory);
+
+       #if JUCE_MAC
+        if (useApplicationSupportFolder)
+            base = base.getChildFile ("Application Support");
+       #endif
+
+        return base.getChildFile (productName);
+    }
+
     static juce::File file()
     {
        #ifdef LUDENSCOPE_TEST_HOOKS
@@ -152,9 +169,7 @@ public:
             return licenceDirectoryOverride.getChildFile ("licence.txt");
        #endif
 
-        return juce::File::getSpecialLocation (juce::File::userApplicationDataDirectory)
-                   .getChildFile (productName)
-                   .getChildFile ("licence.txt");
+        return folder().getChildFile ("licence.txt");
     }
 
     static juce::String load()

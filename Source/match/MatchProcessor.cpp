@@ -1,5 +1,6 @@
 #include "MatchProcessor.h"
 #include "MatchEditor.h"
+#include "Licence.h"
 
 #include <cmath>
 
@@ -23,6 +24,12 @@ LudensMatchProcessor::LudensMatchProcessor()
                           .withOutput ("Output", juce::AudioChannelSet::stereo(), true)),
       apvts (*this, nullptr, "LudensMatch", makeLayout())
 {
+    // The edition has to be known before the editor exists: a session opened
+    // with the editor closed still has to correct, and a bounce is offline.
+    LudensScopeLicence::setProduct ("LudensMatch");
+    LudensScopeLicence::useApplicationSupportFolder = true;
+    fullVersion.store (LudensScopeLicence::isUnlocked(), std::memory_order_relaxed);
+
     amountParam = dynamic_cast<juce::AudioParameterFloat*> (apvts.getParameter (amountId));
     mixParam = dynamic_cast<juce::AudioParameterFloat*> (apvts.getParameter (mixId));
     outputParam = dynamic_cast<juce::AudioParameterFloat*> (apvts.getParameter (outputId));

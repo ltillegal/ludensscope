@@ -95,7 +95,8 @@ LudensMatchEditor::LudensMatchEditor (LudensMatchProcessor& p)
     analyzer.prepare (processor.getSampleRate() > 0.0 ? processor.getSampleRate() : 48000.0);
 
     LudensScopeLicence::setProduct ("LudensMatch");
-    refreshEdition();
+    LudensScopeLicence::useApplicationSupportFolder = true;
+    refreshEdition();   // re-reads the file, so an unlock applies without a restart
 
     startTimerHz (30);
 }
