@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://ludensscope.pages.dev/sitemap.xml
+Sitemap: https://ludensscope.com/sitemap.xml

@@ -7,15 +7,15 @@
   <meta property="og:title" content="LudensScope — see what you hear">
   <meta property="og:description" content="A free stereo analyzer for VST3 and AU. Spectrum, loudness, reference, gain staging and VU.">
   <meta property="og:type" content="website">
-  <meta property="og:image" content="https://ludensscope.pages.dev/assets/og-en.png">
+  <meta property="og:image" content="https://ludensscope.com/assets/og-en.png">
   <meta property="og:image:width" content="1200">
   <meta property="og:image:height" content="630">
-  <meta property="og:url" content="https://ludensscope.pages.dev/">
+  <meta property="og:url" content="https://ludensscope.com/">
   <meta property="og:site_name" content="LudensScope">
   <meta property="og:locale" content="en_US">
   <meta property="og:locale:alternate" content="ru_RU">
   <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:image" content="https://ludensscope.pages.dev/assets/og-en.png">
+  <meta name="twitter:image" content="https://ludensscope.com/assets/og-en.png">
   <meta name="theme-color" content="#01141b">
   <meta name="yandex-verification" content="302ff2bb98989cea">
 <script type="application/ld+json">
@@ -26,21 +26,21 @@
   "description": "Stereo analyser for VST3, AU, CLAP and AAX: spectrum, BS.1770 loudness, four reference slots, gain staging and a needle VU meter. Free Lite, PRO €19.",
   "applicationCategory": "MultimediaApplication",
   "operatingSystem": "Windows, macOS, Linux",
-  "softwareVersion": "1.3.3",
-  "url": "https://ludensscope.pages.dev/",
+  "softwareVersion": "1.1.0",
+  "url": "https://ludensscope.com/",
   "offers": [
     { "@type": "Offer", "name": "Lite", "price": "0", "priceCurrency": "EUR", "availability": "https://schema.org/InStock" },
     { "@type": "Offer", "name": "PRO", "price": "19", "priceCurrency": "EUR", "url": "https://www.paypal.com/ncp/payment/9LQYYZMR7TW7G", "availability": "https://schema.org/InStock" }
   ]
 }
 </script>
-  <link rel="canonical" href="https://ludensscope.pages.dev/">
+  <link rel="canonical" href="https://ludensscope.com/">
   <link rel="icon" type="image/png" href="assets/logo.png">
   <link rel="stylesheet" href="styles.css">
   <noscript><style>.reveal{opacity:1;transform:none}</style></noscript>
-<link rel="alternate" hreflang="ru" href="https://ludensscope.pages.dev/ru/">
-<link rel="alternate" hreflang="en" href="https://ludensscope.pages.dev/">
-<link rel="alternate" hreflang="x-default" href="https://ludensscope.pages.dev/">
+<link rel="alternate" hreflang="ru" href="https://ludensscope.com/ru/">
+<link rel="alternate" hreflang="en" href="https://ludensscope.com/">
+<link rel="alternate" hreflang="x-default" href="https://ludensscope.com/">
 </head>
 <body>
 <a class="skip" href="#main">Skip to content</a>
@@ -94,7 +94,7 @@
         <div class="window">
           <div class="window-bar">
             <span class="dot"></span><span class="dot"></span><span class="dot"></span>
-            <em>LudensScope <span class="js-version">v1.3.3</span></em>
+            <em>LudensScope <span class="js-version">v1.0.11</span></em>
           </div>
           <video autoplay muted loop playsinline preload="metadata" poster="assets/ui-preview.jpg" width="848" height="560" aria-label="Animated preview of the LudensScope interface cycling through seven themes">
             <source src="assets/preview-themes.webm" type="video/webm">
@@ -117,7 +117,7 @@
         <article class="card reveal">
           <div class="icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 19V9M7 19V5M11 19v-7M15 19V8M19 19v-4"></path></svg></div>
           <h3>Spectrum</h3>
-          <p>FFT 2048–16384, Hann, Blackman-Harris and flat-top windows; A–D snapshots, target curves, a note grid and a per-band stereo field with correlation.</p>
+          <p>FFT 2048–16384, Hann, Blackman-Harris and flat-top windows; A–D snapshots, target curves and a note grid.</p>
         </article>
         <article class="card reveal">
           <div class="icon"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="9" width="18" height="6" rx="3"></rect><path d="M7 9v6M12 9v6M17 9v6"></path></svg></div>
@@ -164,9 +164,6 @@
           <tr><td>Reference A–D, MATCH/MIRROR</td><td>—</td><td>✓</td></tr>
           <tr><td>Snapshots A–D</td><td>—</td><td>✓</td></tr>
           <tr><td>Gain staging</td><td>—</td><td>✓</td></tr>
-          <tr><td>Per-band stereo field</td><td>—</td><td>✓</td></tr>
-          <tr><td>Track report (PDF)</td><td>—</td><td>✓</td></tr>
-          <tr><td>System audio (standalone, macOS)</td><td>✓</td><td>✓</td></tr>
           <tr><td>Themes</td><td>Blue</td><td>All 7</td></tr>
           <tr><td>Tilt, smoothing, overlap, target curves, CSV</td><td>—</td><td>✓</td></tr>
         </tbody>
@@ -247,38 +244,24 @@
         <a class="download reveal" href="https://github.com/ltillegal/ludensscope/releases/latest/download/LudensScope-linux.deb" target="_blank" rel="noopener">
           <span class="os">Linux</span>
           <span class="file">.deb</span>
-          <span class="path">VST3 + CLAP, app in the menu</span>
+          <span class="path">Installs to /usr/lib/vst3</span>
           <span class="dl"><span>Download Lite</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v12m0 0 4-4m-4 4-4-4M5 20h14"></path></svg></span>
         </a>
         <a class="download reveal" href="https://github.com/ltillegal/ludensscope/releases/latest/download/LudensScope-macos.pkg" target="_blank" rel="noopener">
           <span class="os">macOS</span>
           <span class="file">.pkg</span>
-          <span class="path">VST3, AU, CLAP + app in /Applications</span>
+          <span class="path">VST3 + AU in /Library/Audio/Plug-Ins</span>
           <span class="dl"><span>Download Lite</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v12m0 0 4-4m-4 4-4-4M5 20h14"></path></svg></span>
         </a>
         <a class="download reveal" href="https://github.com/ltillegal/ludensscope/releases/latest/download/LudensScope-windows.exe" target="_blank" rel="noopener">
           <span class="os">Windows</span>
           <span class="file">.exe</span>
-          <span class="path">VST3 + CLAP, app in Program Files</span>
+          <span class="path">VST3 in Common Files\VST3</span>
           <span class="dl"><span>Download Lite</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v12m0 0 4-4m-4 4-4-4M5 20h14"></path></svg></span>
         </a>
       </div>
 
       <p class="fine reveal">Direct links to the latest release. All versions and SHA256SUMS — <a href="https://github.com/ltillegal/ludensscope/releases">on GitHub</a>.</p>
-
-      <div class="updates reveal" id="updates">
-        <p class="updates-title">Recent updates</p>
-        <ul>
-          <li><span class="ver">1.3.3</span><span class="date">27 Nov 2026</span><span class="what">Reference strip gets the same gutter as the other panels</span></li>
-          <li><span class="ver">1.3.2</span><span class="date">27 Nov 2026</span><span class="what">System audio asks for the macOS permission instead of showing an error</span></li>
-          <li><span class="ver">1.3.1</span><span class="date">27 Nov 2026</span><span class="what">Rounded menus and tooltips, and a clipped correlation bar</span></li>
-          <li><span class="ver">1.3.0</span><span class="date">27 Nov 2026</span><span class="what">Standalone can analyse the computer's own audio (macOS)</span></li>
-          <li><span class="ver">1.2.0</span><span class="date">27 Nov 2026</span><span class="what">Per-band stereo field, and an offline track report written to PDF</span></li>
-          <li><span class="ver">1.1.0</span><span class="date">26 Nov 2026</span><span class="what">Fullscreen FFT toggle in the spectrum corner</span></li>
-          <li><span class="ver">1.0.10</span><span class="date">22 Nov 2026</span><span class="what">Smoother low end in the spectrum and the waterfall</span></li>
-        </ul>
-        <a class="updates-more" href="https://github.com/ltillegal/ludensscope/releases">All releases with notes</a>
-      </div>
 
     </div>
   </section>
