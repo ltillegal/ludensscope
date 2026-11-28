@@ -66,7 +66,7 @@
         <tr><td>Formats</td><td>VST3, AU, AAX, CLAP, standalone application</td></tr>
         <tr><td>Platforms</td><td>macOS (universal, Apple Silicon native), Windows 10/11 (64-bit), Linux x86_64 (.deb)</td></tr>
         <tr><td>Editions</td><td>Lite — free, no time limit. PRO — €19, one offline licence key</td></tr>
-        <tr><td>Latest version</td><td>1.1.0, 26 November 2026</td></tr>
+        <tr><td>Latest version</td><td>1.3.4, 28 November 2026</td></tr>
         <tr><td>Website</td><td><a href="https://ludensscope.com/">ludensscope.com</a></td></tr>
         <tr><td>Source &amp; releases</td><td><a href="https://github.com/ltillegal/ludensscope">github.com/ltillegal/ludensscope</a></td></tr>
         <tr><td>KVR</td><td><a href="https://www.kvraudio.com/product/ludensscope-by-alek-ludens">kvraudio.com/product/ludensscope-by-alek-ludens</a></td></tr>
@@ -81,8 +81,29 @@
       <li><strong>VU</strong> — voltage-proportional needle, −20…+3 scale, 0 VU = +4 dBu = 1.228 V RMS, calibrated to −18 dBFS (EBU R68) or −20 dBFS (SMPTE RP 155); ballistics ~500 ms, input smoothing 40/80/150 ms.</li>
       <li><strong>Reference (PRO)</strong> — four slots, average curve with a p10–p90 band, LUFS level matching, ORIG/REF monitoring, up to four EQ suggestions.</li>
       <li><strong>Gain staging (PRO)</strong> — 0 / −6 / −12 dBFS and 0 VU lines drawn in both the spectrum and the oscilloscope.</li>
+      <li><strong>Per-band stereo field (PRO)</strong> — side/mid width per band with a correlation outline: red where a band goes anti-phase, cyan where it is mono-compatible.</li>
+      <li><strong>Track report (PRO)</strong> — drop an audio file and get a one-page PDF: integrated LUFS, LRA, PLR, true peak, short-term loudness against the target with every passage above it, average spectrum and band balance.</li>
+      <li><strong>System audio (standalone, macOS)</strong> — the app can meter what the computer plays — a player, a browser, a streaming service — without a DAW, using ScreenCaptureKit.</li>
       <li><strong>Seven palettes</strong> and UI scale 100/125/150 % (full set in PRO, Lite ships the Blue palette).</li>
     </ul>
+
+    <h2>What's new in 1.3.4</h2>
+    <p>The macOS package pins every bundle to its install path. An upgrade used to fail at the last step because the Installer treated the AAX bundle as relocatable and tried to move it next to the already installed app.</p>
+
+    <h2>What's new in 1.3.3</h2>
+    <p>The reference strip keeps the same gutter to the button rail as every other panel; it used to run straight into the ORIG/REF column.</p>
+
+    <h2>What's new in 1.3.2</h2>
+    <p>System audio asks for the macOS permission in a dialog that explains the switch and links straight to Privacy &amp; Security, instead of failing with the system's own refusal message.</p>
+
+    <h2>What's new in 1.3.1</h2>
+    <p>Menus and tooltips are drawn with the same rounded corners as the interface, and the correlation bar's fill no longer paints square ends inside its rounded track.</p>
+
+    <h2>What's new in 1.3.0</h2>
+    <p>The standalone app captures the computer's own audio output, so any track playing anywhere can be metered and used as a reference without a DAW. macOS 13+; Windows and Linux need an external loopback or a monitor source.</p>
+
+    <h2>What's new in 1.2.0</h2>
+    <p>Per-band stereo field under the spectrum, and a one-page vector PDF track report: loudness numbers, the short-term timeline against the target with every excursion marked, the average spectrum and the band balance.</p>
 
     <h2>What's new in 1.1.0</h2>
     <p>A fullscreen FFT toggle in the spectrum corner: the spectrum fills the plugin window while the right-hand button rail stays available; the same corner or <strong>Escape</strong> restores the normal layout.</p>
@@ -90,6 +111,14 @@
     <h2>Screenshots</h2>
     <p>Click any image for the full-size file. Everything below is free to use in articles about LudensScope; please keep the interface intact and do not crop out the header.</p>
     <div class="press-shots">
+      <figure>
+        <a href="../assets/stereo-field.png"><img src="../assets/stereo-field.png" width="690" height="255" alt="Spectrum with the per-band stereo field strip: side/mid width and a correlation outline"></a>
+        <figcaption><a href="../assets/stereo-field.png">stereo-field.png</a> — per-band stereo field, side/mid width with the correlation outline (PRO)</figcaption>
+      </figure>
+      <figure>
+        <a href="../assets/report.png"><img src="../assets/report.png" width="870" height="540" alt="One-page PDF track report: integrated loudness, LRA, PLR, true peak and the short-term timeline against the target"></a>
+        <figcaption><a href="../assets/report.png">report.png</a> — the one-page PDF report: loudness numbers and the short-term timeline against the target (PRO)</figcaption>
+      </figure>
       <figure>
         <a href="../assets/ui-preview.jpg"><img src="../assets/ui-preview.jpg" width="1060" height="700" alt="LudensScope PRO interface with a reference track loaded"></a>
         <figcaption><a href="../assets/ui-preview.jpg">ui-preview.jpg</a> — PRO, reference loaded (1060×700)</figcaption>

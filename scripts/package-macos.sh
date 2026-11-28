@@ -65,8 +65,32 @@ else
   echo "AAX: not found at $AAX_SRC, packing without AAX"
 fi
 
+# Bundles are relocatable by default: the Installer looks for an existing copy
+# of the same bundle identifier elsewhere on the disk and "upgrades" it there.
+# All our bundles share one identifier, so it found the app in /Applications and
+# tried to move the AAX next to it ("could not move LudensScope.aaxplugin to
+# Applications, an item with the same name already exists"). Pinning every
+# bundle to its payload path is what makes the upgrade deterministic.
+pkgbuild --analyze --root pkgroot "$OUT/components.plist"
+
+python3 - "$OUT/components.plist" <<'PYTHON'
+import pathlib, plistlib, sys
+
+path = pathlib.Path (sys.argv[1])
+entries = plistlib.loads (path.read_bytes())
+
+for entry in entries:
+    entry["BundleIsRelocatable"] = False
+    entry["BundleIsVersionChecked"] = False
+
+path.write_bytes (plistlib.dumps (entries))
+PYTHON
+
 pkgbuild --root pkgroot --identifier com.ltillegal.ludensscope \
+         --component-plist "$OUT/components.plist" \
          --version "$VERSION" --install-location / "$PKG"
+
+rm -f "$OUT/components.plist"
 
 if [[ -n "${APPLE_INSTALLER_ID:-}" ]]; then
   echo "signing pkg with $APPLE_INSTALLER_ID"

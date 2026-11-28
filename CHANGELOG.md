@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.3.4
+
+- Fixed the macOS installer failing at the last step with "could not move
+  LudensScope.aaxplugin to Applications". Bundles in a component package are
+  relocatable by default: the Installer matched the AAX bundle identifier to the
+  already installed app and tried to put the plug-in next to it. The package is
+  now built with a component list that pins every bundle to its payload path, so
+  an upgrade always writes the same files to the same places.
+
 ## 1.3.3
 
 - The reference strip now ends with the same gutter as every other panel: it
