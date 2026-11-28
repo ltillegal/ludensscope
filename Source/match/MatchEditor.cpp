@@ -319,7 +319,44 @@ void LudensMatchEditor::refreshEdition()
     isFull = LudensScopeLicence::isUnlocked();
     processor.setFullVersion (isFull);
 
-    editionLabel.setText (isFull ? "FULL" : "LITE - VIEW ONLY", juce::dontSendNotification);
+    // The reason LITE is on screen matters more than the label: without it a
+    // customer only sees that the unlock did not take, never why.
+    auto text = juce::String ("FULL");
+    auto detail = juce::String();
+
+    if (isFull)
+    {
+        detail = "LudensMatch FULL, licensed to " + LudensScopeLicence::licensedEmail();
+    }
+    else
+    {
+        const auto key = LudensScopeLicence::load();
+        const auto parsed = key.isEmpty() ? LudensScopeLicence::Info()
+                                          : LudensScopeLicence::parse (key);
+        const auto message = LudensScopeLicence::activationMessage();
+
+        if (LudensScopeLicence::isMachineLimitReached())
+            text = "LITE - MACHINE LIMIT";
+        else if (! key.isEmpty() && ! parsed.valid)
+            text = "LITE - BAD KEY";
+        else
+            text = "LITE - NO KEY";
+
+        detail = "Licence file: " + LudensScopeLicence::file().getFullPathName();
+
+        if (key.isEmpty())
+            detail << "\nThe file is missing or empty.";
+        else if (! parsed.valid)
+            detail << "\n" << parsed.error;
+        else
+            detail << "\nKey is valid but the edition did not switch on.";
+
+        if (message.isNotEmpty())
+            detail << "\n" << message;
+    }
+
+    editionLabel.setText (text, juce::dontSendNotification);
+    editionLabel.setTooltip (detail);
     editionLabel.setColour (juce::Label::textColourId, isFull ? theme::accent : theme::textDim);
 
     for (auto* slider : { &amount, &mix, &output })
@@ -393,8 +430,9 @@ void LudensMatchEditor::resized()
 
     loadButton.setBounds (referenceRow.removeFromLeft (150).reduced (0, 4));
     referenceLabel.setBounds (referenceRow.removeFromLeft (240).reduced (8, 4));
-    unlockButton.setBounds (referenceRow.removeFromRight (110).reduced (0, 4));
-    editionLabel.setBounds (referenceRow.removeFromRight (130).reduced (4, 4));
+    unlockButton.setBounds (referenceRow.removeFromRight (118).reduced (0, 4));
+    referenceRow.removeFromRight (8);
+    editionLabel.setBounds (referenceRow.removeFromRight (150).reduced (4, 4));
     levelLabel.setBounds (referenceRow.reduced (8, 4));
 
     auto controls = area.removeFromBottom (92);

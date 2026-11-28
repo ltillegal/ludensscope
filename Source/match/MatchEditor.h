@@ -50,6 +50,8 @@ private:
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> mixAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> outputAttachment;
 
+    juce::TooltipWindow tooltipWindow { this, 700 };
+
     std::vector<float> readLeft, readRight;
     double analyzerRate = 0.0;
 
