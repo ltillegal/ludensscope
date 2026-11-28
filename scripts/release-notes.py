@@ -14,7 +14,7 @@ import pathlib
 import re
 import sys
 
-SITE = "https://ludensscope.pages.dev"
+SITE = "https://ludensscope.com"
 REPO = "https://github.com/ltillegal/ludensscope"
 
 DOWNLOAD_TABLE = """### Download
@@ -34,7 +34,7 @@ A stereo analyser for mixing and mastering: 2048–16384-point FFT spectrum and 
 
 **Lite is free** — the whole metering set, no time limit, no account, no telemetry. **PRO (€19)** adds the reference workflow (four slots, p10–p90 band, level matching, ORIG/REF monitoring, EQ hints), A–D snapshots, gain-staging guides and all seven palettes.
 
-Website: {SITE} · Guides: [LUFS meter]({SITE}/en/free-lufs-meter/), [spectrum]({SITE}/en/free-spectrum-analyzer/), [gain staging]({SITE}/en/gain-staging/)
+Website: {SITE} · Guides: [LUFS meter]({SITE}/free-lufs-meter/), [spectrum]({SITE}/free-spectrum-analyzer/), [gain staging]({SITE}/gain-staging/)
 """
 
 

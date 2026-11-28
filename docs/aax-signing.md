@@ -68,7 +68,7 @@ Company name:              LudensScope
 Admin full name:           <имя фамилия>
 Admin email:               alek.ludens@gmail.com
 Phone (with country code): +<код><номер>
-Website:                   https://ludensscope.pages.dev
+Website:                   https://ludensscope.com
 Plugin description:        Stereo spectrum, loudness (BS.1770), VU and
                            stereo-field analyzer for mixing and mastering.
                            AU, VST3, AAX, CLAP, standalone.
